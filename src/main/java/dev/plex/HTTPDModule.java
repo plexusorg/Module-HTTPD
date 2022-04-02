@@ -20,7 +20,6 @@ import org.eclipse.jetty.servlet.ServletHandler;
 
 public class HTTPDModule extends PlexModule
 {
-
     public static ServletContextHandler context;
     private Thread serverThread;
     private AtomicReference<Server> atomicServer = new AtomicReference<>();
@@ -28,17 +27,22 @@ public class HTTPDModule extends PlexModule
     @Getter
     private static Permission permissions = null;
 
-    private ModuleConfig config;
+    private ModuleConfig moduleConfig;
+
+    @Override
+    public void load()
+    {
+        moduleConfig = new ModuleConfig(this, "settings.yml");
+    }
 
     @Override
     public void enable()
     {
-        config = new ModuleConfig(this, "settings.yml");
-        config.load();
-        PlexLog.debug("HTTPD Module Port: {0}", config.getInt("server.port"));
+        moduleConfig.load();
+        PlexLog.debug("HTTPD Module Port: {0}", moduleConfig.getInt("server.port"));
         if (!setupPermissions() && getPlex().getSystem().equalsIgnoreCase("permissions") && !Bukkit.getPluginManager().isPluginEnabled("Vault"))
         {
-            throw new RuntimeException("Plex-HTTPD requires the 'Vault' plugin as well as a Permissions plugin that hooks into 'Vault.' We recommend LuckPerms!");
+            throw new RuntimeException("Plex-HTTPD requires the 'Vault' plugin as well as a Permissions plugin that hooks into 'Vault'. We recommend LuckPerms!");
         }
         serverThread = new Thread(() ->
         {
@@ -50,8 +54,8 @@ public class HTTPDModule extends PlexModule
             configuration.addCustomizer(new ForwardedRequestCustomizer());
             HttpConnectionFactory factory = new HttpConnectionFactory(configuration);
             ServerConnector connector = new ServerConnector(server, factory);
-            connector.setPort(config.getInt("server.port"));
-            connector.setHost("0.0.0.0");
+            connector.setPort(moduleConfig.getInt("server.port"));
+            connector.setHost(moduleConfig.getString("server.bind-address"));
 
             new GetEndpoints();
 
@@ -76,7 +80,7 @@ public class HTTPDModule extends PlexModule
     @Override
     public void disable()
     {
-        PlexLog.debug("Stopping jetty server");
+        PlexLog.debug("Stopping Jetty server");
         try
         {
             atomicServer.get().stop();

@@ -32,6 +32,7 @@ public class HTTPDModule extends PlexModule
     @Override
     public void load()
     {
+
         moduleConfig = new ModuleConfig(this, "settings.yml");
     }
 
@@ -54,8 +55,8 @@ public class HTTPDModule extends PlexModule
             configuration.addCustomizer(new ForwardedRequestCustomizer());
             HttpConnectionFactory factory = new HttpConnectionFactory(configuration);
             ServerConnector connector = new ServerConnector(server, factory);
-            connector.setPort(moduleConfig.getInt("server.port"));
             connector.setHost(moduleConfig.getString("server.bind-address"));
+            connector.setPort(moduleConfig.getInt("server.port"));
 
             new GetEndpoints();
 
@@ -73,7 +74,7 @@ public class HTTPDModule extends PlexModule
             {
                 e.printStackTrace();
             }
-        }, "jetty-server");
+        }, "Jetty-Server");
         serverThread.start();
     }
 

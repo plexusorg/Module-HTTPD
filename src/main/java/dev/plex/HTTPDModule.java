@@ -5,6 +5,7 @@ import dev.plex.module.PlexModule;
 import dev.plex.request.impl.AdminsEndpoint;
 import dev.plex.request.impl.IndefBansEndpoint;
 import dev.plex.request.impl.ListEndpoint;
+import dev.plex.request.impl.PunishmentsEndpoint;
 import dev.plex.util.PlexLog;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
@@ -62,6 +63,7 @@ public class HTTPDModule extends PlexModule
             new AdminsEndpoint();
             new IndefBansEndpoint();
             new ListEndpoint();
+            new PunishmentsEndpoint();
 
             server.setConnectors(new Connector[]{connector});
             server.setHandler(context);

@@ -41,10 +41,10 @@ public class AbstractServlet extends HttpServlet
     @Override
     public void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException
     {
-        String ipAddress = req.getHeader("X-FORWARDED-FOR");
+        String ipAddress = req.getRemoteAddr();
         if (ipAddress == null)
         {
-            ipAddress = req.getRemoteAddr();
+            ipAddress = req.getHeader("X-FORWARDED-FOR");
         }
 
         Log.log(ipAddress + " visited endpoint " + req.getHttpServletMapping().getMatchValue());
@@ -78,7 +78,6 @@ public class AbstractServlet extends HttpServlet
             }
         });
     }
-
 
     @Data
     public static class Mapping

@@ -29,13 +29,15 @@ public class AdminsEndpoint extends AbstractServlet
         final PlexPlayer player = DataUtils.getPlayerByIP(ipAddress);
         if (player == null)
         {
-            return "Couldn't load your IP Address: " + ipAddress + ". Have you joined the server before?";
+            // This likely means they've never joined the server before. That's okay. We can just not return IPs.
+            return new GsonBuilder().setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).collect(Collectors.toList()));
         }
         if (Plex.get().getSystem().equalsIgnoreCase("ranks"))
         {
             PlexLog.debug("Plex-HTTPD using ranks check");
             if (!player.getRankFromString().isAtLeast(Rank.ADMIN))
             {
+                // Don't return IPs either if the person is not an Admin or above.
                 return new GsonBuilder().setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).collect(Collectors.toList()));
             }
         }
@@ -45,6 +47,7 @@ public class AdminsEndpoint extends AbstractServlet
             final OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(UUID.fromString(player.getUuid()));
             if (!HTTPDModule.getPermissions().playerHas(null, offlinePlayer, "plex.httpd.admins.access"))
             {
+                // If the person doesn't have permission, don't return IPs
                 return new GsonBuilder().setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).collect(Collectors.toList()));
             }
         }

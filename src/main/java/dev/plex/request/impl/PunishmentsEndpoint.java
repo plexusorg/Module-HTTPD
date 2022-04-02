@@ -1,6 +1,5 @@
 package dev.plex.request.impl;
 
-import com.google.common.collect.Lists;
 import com.google.gson.GsonBuilder;
 import dev.plex.HTTPDModule;
 import dev.plex.Plex;
@@ -17,7 +16,6 @@ import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 
@@ -40,10 +38,14 @@ public class PunishmentsEndpoint extends AbstractServlet
             UUID uuid = UUID.fromString(request.getPathInfo().replace("/", ""));
             final PunishedPlayer punishedPlayer = new PunishedPlayer(uuid);
             final PlexPlayer player = DataUtils.getPlayerByIP(ipAddress);
+            if (punishedPlayer.getPunishments().isEmpty())
+            {
+                return "This player has been a good boy. They have no punishments! Or they've never been on the server before. Take your pick.";
+            }
             if (player == null)
             {
                 // If the player is null, give it to them without the IPs
-                return new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeSerializer()).setPrettyPrinting().create().toJson(punishedPlayer.getPunishments().stream().peek(punishment -> punishment.setIp("")));
+                return new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeSerializer()).setPrettyPrinting().create().toJson(punishedPlayer.getPunishments().stream().peek(punishment -> punishment.setIp("")).toList());
             }
             if (Plex.get().getSystem().equalsIgnoreCase("ranks"))
             {
@@ -51,7 +53,7 @@ public class PunishmentsEndpoint extends AbstractServlet
                 if (!player.getRankFromString().isAtLeast(Rank.ADMIN))
                 {
                     // Don't return IPs either if the person is not an Admin or above.
-                    return new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeSerializer()).setPrettyPrinting().create().toJson(punishedPlayer.getPunishments().stream().peek(punishment -> punishment.setIp("")));
+                    return new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeSerializer()).setPrettyPrinting().create().toJson(punishedPlayer.getPunishments().stream().peek(punishment -> punishment.setIp("")).toList());
                 }
             }
             else if (Plex.get().getSystem().equalsIgnoreCase("permissions"))
@@ -61,14 +63,14 @@ public class PunishmentsEndpoint extends AbstractServlet
                 if (!HTTPDModule.getPermissions().playerHas(null, offlinePlayer, "plex.httpd.punishments.access"))
                 {
                     // If the person doesn't have permission, don't return IPs
-                    return new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeSerializer()).setPrettyPrinting().create().toJson(punishedPlayer.getPunishments().stream().peek(punishment -> punishment.setIp("")));
+                    return new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeSerializer()).setPrettyPrinting().create().toJson(punishedPlayer.getPunishments().stream().peek(punishment -> punishment.setIp("")).toList());
                 }
             }
             return new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeSerializer()).setPrettyPrinting().create().toJson(punishedPlayer.getPunishments().stream().toList());
         }
         catch (java.lang.IllegalArgumentException ignored)
         {
-            return "Invalid UUID string";
+            return "Invalid UUID";
         }
     }
 

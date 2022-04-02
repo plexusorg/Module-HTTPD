@@ -7,26 +7,29 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.Data;
-import org.eclipse.jetty.servlet.ServletHolder;
-
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Enumeration;
 import java.util.List;
+import lombok.Data;
+import org.eclipse.jetty.servlet.ServletHolder;
 
-public class AbstractServlet extends HttpServlet {
+public class AbstractServlet extends HttpServlet
+{
 
     private final List<Mapping> GET_MAPPINGS = Lists.newArrayList();
 
-    public AbstractServlet() {
-        for (Method declaredMethod : this.getClass().getDeclaredMethods()) {
+    public AbstractServlet()
+    {
+        for (Method declaredMethod : this.getClass().getDeclaredMethods())
+        {
             declaredMethod.setAccessible(true);
-            if (declaredMethod.isAnnotationPresent(GetMapping.class)) {
+            if (declaredMethod.isAnnotationPresent(GetMapping.class))
+            {
                 GetMapping getMapping = declaredMethod.getAnnotation(GetMapping.class);
                 Mapping mapping = new Mapping(declaredMethod, getMapping);
-                if (declaredMethod.isAnnotationPresent(MappingHeaders.class)) {
+                if (declaredMethod.isAnnotationPresent(MappingHeaders.class))
+                {
                     mapping.setHeaders(declaredMethod.getAnnotation(MappingHeaders.class));
                 }
                 GET_MAPPINGS.add(mapping);
@@ -37,12 +40,14 @@ public class AbstractServlet extends HttpServlet {
     }
 
     @Override
-    public void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    public void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException
+    {
 
         PlexLog.debug("Context Path: " + req.getHttpServletMapping().getMatchValue());
 
         String ipAddress = req.getHeader("X-FORWARDED-FOR");
-        if (ipAddress == null) {
+        if (ipAddress == null)
+        {
             ipAddress = req.getRemoteAddr();
         }
         PlexLog.debug("HTTP Remote IP: " + ipAddress);
@@ -55,19 +60,25 @@ public class AbstractServlet extends HttpServlet {
         }*/
 
         PlexLog.debug("-------------------------");
-        GET_MAPPINGS.stream().filter(mapping -> mapping.getMapping().endpoint().substring(1, mapping.getMapping().endpoint().length() - 1).equalsIgnoreCase(req.getHttpServletMapping().getMatchValue())).forEach(mapping -> {
-            if (mapping.headers != null) {
-                for (String headers : mapping.headers.headers()) {
+        GET_MAPPINGS.stream().filter(mapping -> mapping.getMapping().endpoint().substring(1, mapping.getMapping().endpoint().length() - 1).equalsIgnoreCase(req.getHttpServletMapping().getMatchValue())).forEach(mapping ->
+        {
+            if (mapping.headers != null)
+            {
+                for (String headers : mapping.headers.headers())
+                {
                     String header = headers.split(";")[0];
                     String value = headers.split(";")[1];
                     resp.addHeader(header, value);
                 }
             }
             resp.setStatus(HttpServletResponse.SC_OK);
-            try {
+            try
+            {
                 Object object = mapping.method.invoke(this, req);
                 resp.getWriter().println(object.toString());
-            } catch (IOException | IllegalAccessException | InvocationTargetException e) {
+            }
+            catch (IOException | IllegalAccessException | InvocationTargetException e)
+            {
                 e.printStackTrace();
             }
         });
@@ -75,7 +86,8 @@ public class AbstractServlet extends HttpServlet {
 
 
     @Data
-    public class Mapping {
+    public class Mapping
+    {
         private final Method method;
         private final GetMapping mapping;
         private MappingHeaders headers;

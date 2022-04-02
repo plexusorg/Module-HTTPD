@@ -5,24 +5,23 @@ plugins {
 //    id("com.github.johnrengelman.shadow") version "7.1.2"
 }
 
-
-
-group "dev.plex"
-version "0.1"
+group = "dev.plex"
+version = "1.0"
+description = "Module-HTTPD"
 
 repositories {
-    mavenLocal()
     mavenCentral()
+
     maven {
         url = uri("https://papermc.io/repo/repository/maven-public/")
     }
 
     maven {
-        url = uri("https://nexus.telesphoreo.me/repository/plex")
+        url = uri("https://nexus.telesphoreo.me/repository/plex/")
     }
 
     maven {
-        url = uri("https://nexus.telesphoreo.me/repository/totalfreedom")
+        url = uri("https://nexus.telesphoreo.me/repository/totalfreedom/")
     }
     maven {
         url = uri("https://jitpack.io")
@@ -34,7 +33,7 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok:1.18.22")
     implementation("io.papermc.paper:paper-api:1.18.2-R0.1-SNAPSHOT")
     implementation("dev.plex:Plex:0.10-SNAPSHOT")
-    implementation("org.json:json:20211205")
+    implementation("org.json:json:20220320")
     implementation("org.reflections:reflections:0.10.2")
     implementation("org.eclipse.jetty:jetty-server:11.0.8")
     implementation("org.eclipse.jetty:jetty-servlet:11.0.8")

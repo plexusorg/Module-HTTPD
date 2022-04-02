@@ -1,2 +1,2 @@
-rootProject.name = "plex-httpd"
+rootProject.name = "Module-HTTPD"
 

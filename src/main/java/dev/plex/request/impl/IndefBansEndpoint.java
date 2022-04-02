@@ -19,10 +19,10 @@ public class IndefBansEndpoint extends AbstractServlet
     @GetMapping(endpoint = "/api/indefbans/")
     public String getBans(HttpServletRequest request)
     {
-        String ipAddress = request.getHeader("X-FORWARDED-FOR");
+        String ipAddress = request.getRemoteAddr();
         if (ipAddress == null)
         {
-            ipAddress = request.getRemoteAddr();
+            return "An IP address could not be detected. Please ensure you are connecting using IPv4.";
         }
         final PlexPlayer player = DataUtils.getPlayerByIP(ipAddress);
         if (player == null)

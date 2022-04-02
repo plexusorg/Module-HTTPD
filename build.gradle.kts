@@ -70,6 +70,7 @@ publishing {
 tasks.getByName<Jar>("jar") {
 //    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     archiveBaseName.set("Plex-HTTPD")
+    archiveVersion.set("")
 //    from("src/main/resources") {
 //        include("**/**")
 //    }

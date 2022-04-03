@@ -31,7 +31,7 @@ public class PunishmentsEndpoint extends AbstractServlet
         }
         if (request.getPathInfo() == null)
         {
-            return "Please specify the UUID of the player you would like to check.";
+            return "Please specify the UUID of the player you would like to check.\nExample: /api/punishments/<uuid>";
         }
         try
         {

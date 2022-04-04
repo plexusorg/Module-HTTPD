@@ -10,7 +10,10 @@ import dev.plex.rank.enums.Rank;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
 import dev.plex.util.PlexLog;
+import dev.plex.util.adapter.LocalDateTimeSerializer;
 import jakarta.servlet.http.HttpServletRequest;
+
+import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.bukkit.Bukkit;
@@ -30,7 +33,7 @@ public class AdminsEndpoint extends AbstractServlet
         if (player == null)
         {
             // This likely means they've never joined the server before. That's okay. We can just not return IPs.
-            return new GsonBuilder().setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).collect(Collectors.toList()));
+            return new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeSerializer()).setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setPunishments(Lists.newArrayList())).collect(Collectors.toList()));
         }
         if (Plex.get().getSystem().equalsIgnoreCase("ranks"))
         {
@@ -38,7 +41,7 @@ public class AdminsEndpoint extends AbstractServlet
             if (!player.getRankFromString().isAtLeast(Rank.ADMIN))
             {
                 // Don't return IPs either if the person is not an Admin or above.
-                return new GsonBuilder().setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).collect(Collectors.toList()));
+                return new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeSerializer()).setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setPunishments(Lists.newArrayList())).collect(Collectors.toList()));
             }
         }
         else if (Plex.get().getSystem().equalsIgnoreCase("permissions"))
@@ -48,9 +51,9 @@ public class AdminsEndpoint extends AbstractServlet
             if (!HTTPDModule.getPermissions().playerHas(null, offlinePlayer, "plex.httpd.admins.access"))
             {
                 // If the person doesn't have permission, don't return IPs
-                return new GsonBuilder().setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).collect(Collectors.toList()));
+                return new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeSerializer()).setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setPunishments(Lists.newArrayList())).collect(Collectors.toList()));
             }
         }
-        return new GsonBuilder().setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers());
+        return new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeSerializer()).setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers());
     }
 }

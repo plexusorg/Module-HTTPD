@@ -5,19 +5,17 @@ import dev.plex.HTTPDModule;
 import dev.plex.Plex;
 import dev.plex.cache.DataUtils;
 import dev.plex.player.PlexPlayer;
-import dev.plex.player.PunishedPlayer;
 import dev.plex.rank.enums.Rank;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
 import dev.plex.util.PlexLog;
 import dev.plex.util.adapter.LocalDateTimeSerializer;
 import jakarta.servlet.http.HttpServletRequest;
-import java.io.File;
-import java.io.IOException;
-import java.time.LocalDateTime;
-import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 public class PunishmentsEndpoint extends AbstractServlet
 {
@@ -36,7 +34,7 @@ public class PunishmentsEndpoint extends AbstractServlet
         try
         {
             UUID uuid = UUID.fromString(request.getPathInfo().replace("/", ""));
-            final PunishedPlayer punishedPlayer = new PunishedPlayer(uuid);
+            final PlexPlayer punishedPlayer = DataUtils.getPlayer(uuid);
             final PlexPlayer player = DataUtils.getPlayerByIP(ipAddress);
             if (punishedPlayer.getPunishments().isEmpty())
             {
@@ -72,28 +70,5 @@ public class PunishmentsEndpoint extends AbstractServlet
         {
             return "Invalid UUID";
         }
-    }
-
-    public File getPunishmentsFile(UUID uuid)
-    {
-        File folder = new File(Plex.get().getDataFolder() + File.separator + "punishments");
-        if (!folder.exists())
-        {
-            folder.mkdir();
-        }
-
-        File file = new File(folder, "" + uuid.toString() + ".json");
-        if (!file.exists())
-        {
-            try
-            {
-                file.createNewFile();
-            }
-            catch (IOException e)
-            {
-                e.printStackTrace();
-            }
-        }
-        return file;
     }
 }

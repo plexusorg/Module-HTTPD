@@ -3,6 +3,7 @@ package dev.plex.request;
 import com.google.common.collect.Lists;
 import dev.plex.HTTPDModule;
 import dev.plex.logging.Log;
+import jakarta.servlet.AsyncContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -54,7 +55,6 @@ public class AbstractServlet extends HttpServlet
             String header = headerz.nextElement();
             PlexLog.debug("Header: {0} Value {1}", header, req.getHeader(header));
         }*/
-
         GET_MAPPINGS.stream().filter(mapping -> mapping.getMapping().endpoint().substring(1, mapping.getMapping().endpoint().length() - 1).equalsIgnoreCase(req.getHttpServletMapping().getMatchValue())).forEach(mapping ->
         {
             if (mapping.headers != null)

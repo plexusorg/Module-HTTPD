@@ -2,7 +2,7 @@ package dev.plex.request;
 
 import com.google.common.collect.Lists;
 import dev.plex.HTTPDModule;
-import dev.plex.util.PlexLog;
+import dev.plex.logging.Log;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,7 +16,6 @@ import org.eclipse.jetty.servlet.ServletHolder;
 
 public class AbstractServlet extends HttpServlet
 {
-
     private final List<Mapping> GET_MAPPINGS = Lists.newArrayList();
 
     public AbstractServlet()
@@ -42,16 +41,13 @@ public class AbstractServlet extends HttpServlet
     @Override
     public void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException
     {
-
-        PlexLog.debug("Context Path: " + req.getHttpServletMapping().getMatchValue());
-
-        String ipAddress = req.getHeader("X-FORWARDED-FOR");
+        String ipAddress = req.getRemoteAddr();
         if (ipAddress == null)
         {
-            ipAddress = req.getRemoteAddr();
+            ipAddress = req.getHeader("X-FORWARDED-FOR");
         }
-        PlexLog.debug("HTTP Remote IP: " + ipAddress);
-        PlexLog.debug("HTTP Local IP: " + req.getLocalAddr());
+
+        Log.log(ipAddress + " visited endpoint " + req.getHttpServletMapping().getMatchValue());
 
         /*Enumeration<String> headerz = req.getHeaderNames();
         while (headerz.hasMoreElements()) {
@@ -59,7 +55,6 @@ public class AbstractServlet extends HttpServlet
             PlexLog.debug("Header: {0} Value {1}", header, req.getHeader(header));
         }*/
 
-        PlexLog.debug("-------------------------");
         GET_MAPPINGS.stream().filter(mapping -> mapping.getMapping().endpoint().substring(1, mapping.getMapping().endpoint().length() - 1).equalsIgnoreCase(req.getHttpServletMapping().getMatchValue())).forEach(mapping ->
         {
             if (mapping.headers != null)
@@ -84,9 +79,8 @@ public class AbstractServlet extends HttpServlet
         });
     }
 
-
     @Data
-    public class Mapping
+    public static class Mapping
     {
         private final Method method;
         private final GetMapping mapping;

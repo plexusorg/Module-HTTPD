@@ -2,7 +2,10 @@ package dev.plex;
 
 import dev.plex.config.ModuleConfig;
 import dev.plex.module.PlexModule;
-import dev.plex.request.impl.GetEndpoints;
+import dev.plex.request.impl.AdminsEndpoint;
+import dev.plex.request.impl.IndefBansEndpoint;
+import dev.plex.request.impl.ListEndpoint;
+import dev.plex.request.impl.PunishmentsEndpoint;
 import dev.plex.util.PlexLog;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
@@ -27,12 +30,11 @@ public class HTTPDModule extends PlexModule
     @Getter
     private static Permission permissions = null;
 
-    private ModuleConfig moduleConfig;
+    public static ModuleConfig moduleConfig;
 
     @Override
     public void load()
     {
-
         moduleConfig = new ModuleConfig(this, "settings.yml");
     }
 
@@ -58,13 +60,15 @@ public class HTTPDModule extends PlexModule
             connector.setHost(moduleConfig.getString("server.bind-address"));
             connector.setPort(moduleConfig.getInt("server.port"));
 
-            new GetEndpoints();
+            new AdminsEndpoint();
+            new IndefBansEndpoint();
+            new ListEndpoint();
+            new PunishmentsEndpoint();
 
             server.setConnectors(new Connector[]{connector});
             server.setHandler(context);
 
             atomicServer.set(server);
-            PlexLog.debug("Set atomicServer value? {0}", atomicServer.get() != null);
             try
             {
                 server.start();
@@ -76,6 +80,7 @@ public class HTTPDModule extends PlexModule
             }
         }, "Jetty-Server");
         serverThread.start();
+        PlexLog.log("Starting Jetty server on port " + moduleConfig.getInt("server.port"));
     }
 
     @Override

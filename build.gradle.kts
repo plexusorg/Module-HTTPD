@@ -9,6 +9,7 @@ version = "1.0"
 description = "Module-HTTPD"
 
 repositories {
+    mavenLocal()
     mavenCentral()
 
     maven {

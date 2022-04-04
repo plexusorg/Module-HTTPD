@@ -10,10 +10,13 @@ import dev.plex.rank.enums.Rank;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
 import dev.plex.util.PlexLog;
+import dev.plex.util.adapter.LocalDateTimeSerializer;
 import jakarta.servlet.http.HttpServletRequest;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -39,19 +42,18 @@ public class GetEndpoints extends AbstractServlet
             PlexLog.debug("Plex-HTTPD using ranks check");
             if (!player.getRankFromString().isAtLeast(Rank.ADMIN))
             {
-                return new GsonBuilder().setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).collect(Collectors.toList()));
+                return new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeSerializer()).setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setPunishments(Lists.newArrayList())).collect(Collectors.toList()));
             }
-        }
-        else if (Plex.get().getSystem().equalsIgnoreCase("permissions"))
+        } else if (Plex.get().getSystem().equalsIgnoreCase("permissions"))
         {
             PlexLog.debug("Plex-HTTPD using permissions check");
             final OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(UUID.fromString(player.getUuid()));
             if (!HTTPDModule.getPermissions().playerHas(null, offlinePlayer, "plex.httpd.admins.access"))
             {
-                return new GsonBuilder().setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).collect(Collectors.toList()));
+                return new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeSerializer()).setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setPunishments(Lists.newArrayList())).collect(Collectors.toList()));
             }
         }
-        return new GsonBuilder().setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers());
+        return new GsonBuilder().registerTypeAdapter(LocalDateTime.class, new LocalDateTimeSerializer()).setPrettyPrinting().create().toJson(new ArrayList<>(Plex.get().getAdminList().getAllAdminPlayers()));
     }
 
     @GetMapping(endpoint = "/api/indefbans/")
@@ -74,8 +76,7 @@ public class GetEndpoints extends AbstractServlet
             {
                 return "Not a high enough rank to view this page.";
             }
-        }
-        else if (Plex.get().getSystem().equalsIgnoreCase("permissions"))
+        } else if (Plex.get().getSystem().equalsIgnoreCase("permissions"))
         {
             PlexLog.debug("Plex-HTTPD using permissions check");
             final OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(UUID.fromString(player.getUuid()));

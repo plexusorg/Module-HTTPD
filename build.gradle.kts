@@ -32,7 +32,7 @@ dependencies {
     implementation("org.projectlombok:lombok:1.18.22")
     annotationProcessor("org.projectlombok:lombok:1.18.22")
     implementation("io.papermc.paper:paper-api:1.18.2-R0.1-SNAPSHOT")
-    implementation("dev.plex:Plex:0.10-SNAPSHOT")
+    implementation("dev.plex:Plex:1.0")
     implementation("org.json:json:20220320")
     implementation("org.reflections:reflections:0.10.2")
     implementation("org.eclipse.jetty:jetty-server:11.0.8")

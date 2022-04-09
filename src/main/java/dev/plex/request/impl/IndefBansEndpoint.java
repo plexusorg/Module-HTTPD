@@ -40,7 +40,7 @@ public class IndefBansEndpoint extends AbstractServlet
         else if (Plex.get().getSystem().equalsIgnoreCase("permissions"))
         {
             PlexLog.debug("Plex-HTTPD using permissions check");
-            final OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(UUID.fromString(player.getUuid()));
+            final OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(player.getUuid());
             if (!HTTPDModule.getPermissions().playerHas(null, offlinePlayer, "plex.httpd.indefbans.access"))
             {
                 return "Not enough permissions to view this page.";

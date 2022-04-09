@@ -57,7 +57,7 @@ public class PunishmentsEndpoint extends AbstractServlet
             else if (Plex.get().getSystem().equalsIgnoreCase("permissions"))
             {
                 PlexLog.debug("Plex-HTTPD using permissions check");
-                final OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(UUID.fromString(player.getUuid()));
+                final OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(player.getUuid());
                 if (!HTTPDModule.getPermissions().playerHas(null, offlinePlayer, "plex.httpd.punishments.access"))
                 {
                     // If the person doesn't have permission, don't return IPs

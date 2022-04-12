@@ -35,6 +35,7 @@ public class HTTPDModule extends PlexModule
     @Override
     public void load()
     {
+        //moduleConfig = new ModuleConfig(this, this.getClass().getClassLoader().getResource("settings.yml").getFile());
         moduleConfig = new ModuleConfig(this, "settings.yml");
     }
 

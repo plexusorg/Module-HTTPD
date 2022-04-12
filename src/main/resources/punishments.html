@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<body>
+<div style="text-align: center;">
+    <h2 style="font-family:Helvetica">Enter the UUID or username of the player you want to check</h2>
+    <input id="test" type="text" autofocus>
+    <button type="button" onclick="redirect()">Submit</button>
+
+    <script>
+        function redirect() {
+            var url = document.getElementById('test').value
+            window.location = "punishments/" + url
+        }
+    </script>
+</div>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<body>
+<div style="text-align: center;">
+    <h2 style="font-family:Helvetica,serif">Enter the UUID or username of the player you want to lookup</h2>
+    <input type="text"
+           id="uuid"
+           autofocus
+           onkeydown="if (event.keyCode === 13)
+                        document.getElementById('submit').click()"/>
+
+
+    <input type="button"
+           id="submit"
+           value="Submit"
+           onclick="redirect();"/>
+
+    <script>
+        function redirect() {
+            const url = document.getElementById('uuid').value;
+            window.location = "punishments/" + url
+        }
+    </script>
+</div>
+</body>
+</html>

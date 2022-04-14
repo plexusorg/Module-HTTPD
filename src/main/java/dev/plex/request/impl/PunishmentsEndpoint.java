@@ -12,13 +12,13 @@ import dev.plex.util.PlexLog;
 import dev.plex.util.adapter.LocalDateTimeSerializer;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.time.LocalDateTime;
+import java.util.Objects;
+import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
-
-import java.time.LocalDateTime;
-import java.util.UUID;
 
 public class PunishmentsEndpoint extends AbstractServlet
 {
@@ -32,11 +32,10 @@ public class PunishmentsEndpoint extends AbstractServlet
         }
         if (request.getPathInfo() == null)
         {
-            /*StringBuilder contentBuilder = new StringBuilder();
-            PlexLog.log(this.getClass().getClassLoader().getResource("punishments.html").getPath());
+            StringBuilder contentBuilder = new StringBuilder();
             try
             {
-                BufferedReader in = new BufferedReader(new FileReader(this.getClass().getClassLoader().getResource("punishments.html").getFile().replace("!", "")));
+                BufferedReader in = new BufferedReader(new InputStreamReader(Objects.requireNonNull(this.getClass().getResourceAsStream("/httpd/punishments.html"))));
                 String str;
                 while ((str = in.readLine()) != null)
                 {
@@ -47,24 +46,7 @@ public class PunishmentsEndpoint extends AbstractServlet
             catch (IOException ignored)
             {
             }
-            return contentBuilder.toString();*/
-            return """
-                    <!DOCTYPE html>
-                    <body>
-                    <div style="text-align: center;">
-                        <h2 style="font-family:Helvetica">Enter the UUID or username of the player you want to check</h2>
-                        <input id="test" type="text" autofocus>
-                        <button type="button" onclick="redirect()">Submit</button>
-
-                        <script>
-                            function redirect() {
-                                var url = document.getElementById('test').value
-                                window.location = "punishments/" + url
-                            }
-                        </script>
-                    </div>
-                    </body>
-                    </html>""";
+            return contentBuilder.toString();
         }
         UUID pathUUID;
         String pathPlexPlayer;

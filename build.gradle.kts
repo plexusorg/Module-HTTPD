@@ -32,12 +32,12 @@ dependencies {
     implementation("org.projectlombok:lombok:1.18.22")
     annotationProcessor("org.projectlombok:lombok:1.18.22")
     implementation("io.papermc.paper:paper-api:1.18.2-R0.1-SNAPSHOT")
-    implementation("dev.plex:Plex:1.0")
+    implementation("dev.plex:Plex:1.0.2-SNAPSHOT")
     implementation("org.json:json:20220320")
     implementation("org.reflections:reflections:0.10.2")
-    implementation("org.eclipse.jetty:jetty-server:11.0.8")
-    implementation("org.eclipse.jetty:jetty-servlet:11.0.8")
-    implementation("org.eclipse.jetty:jetty-proxy:11.0.8")
+    implementation("org.eclipse.jetty:jetty-server:11.0.9")
+    implementation("org.eclipse.jetty:jetty-servlet:11.0.9")
+    implementation("org.eclipse.jetty:jetty-proxy:11.0.9")
     implementation("com.github.MilkBowl:VaultAPI:1.7")
 }
 
@@ -68,28 +68,6 @@ publishing {
 }
 
 tasks.getByName<Jar>("jar") {
-//    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     archiveBaseName.set("Plex-HTTPD")
     archiveVersion.set("")
-//    from("src/main/resources") {
-//        include("**/**")
-//    }
-//    from("src/main/java") {
-//        include("**/**")
-//    }
 }
-
-sourceSets {
-    main {
-        resources {
-            srcDirs("src/main/java", "src/main/resources")
-            include("**/**")
-            exclude("**/**.java")
-        }
-    }
-}
-
-tasks.getByName<Copy>("processResources") {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-}
-

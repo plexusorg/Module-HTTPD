@@ -7,8 +7,6 @@ import dev.plex.request.impl.IndefBansEndpoint;
 import dev.plex.request.impl.ListEndpoint;
 import dev.plex.request.impl.PunishmentsEndpoint;
 import dev.plex.util.PlexLog;
-import java.io.File;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
 import net.milkbowl.vault.permission.Permission;
@@ -37,7 +35,8 @@ public class HTTPDModule extends PlexModule
     @Override
     public void load()
     {
-        moduleConfig = new ModuleConfig(this, "settings.yml");
+        // Move it from /httpd/config.yml to /plugins/Plex/modules/Plex-HTTPD/config.yml
+        moduleConfig = new ModuleConfig(this, "httpd/config.yml", "config.yml");
     }
 
     @Override

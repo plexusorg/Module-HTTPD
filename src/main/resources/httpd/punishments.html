@@ -1,10 +1,17 @@
 <!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Punishments - Plex HTTPD</title>
+</head>
 <body>
 <div style="text-align: center;">
     <h2 style="font-family:Helvetica,serif">Enter the UUID or username of the player you want to lookup</h2>
     <input type="text"
            id="uuid"
            autofocus
+           autocomplete="off"
+           style="width: 250px;"
            onkeydown="if (event.keyCode === 13)
                         document.getElementById('submit').click()"/>
 

@@ -79,6 +79,16 @@ public class AbstractServlet extends HttpServlet
         });
     }
 
+    public String createBasicHTML(String title, String body)
+    {
+        return "<html><head><title>" + title + "</title></head><body>" + body + "</body></html>";
+    }
+
+    public String createJSONHTML(String title, String json)
+    {
+        return "<html><head><title>" + title + "</title></head><body><pre><code>" + json + "</code></pre></body></html>";
+    }
+
     @Data
     public static class Mapping
     {

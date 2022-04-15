@@ -20,6 +20,6 @@ public class ListEndpoint extends AbstractServlet
         {
             players.add(player.getName());
         }
-        return new GsonBuilder().setPrettyPrinting().create().toJson(players.stream().toList());
+        return createJSONHTML("List - Plex HTTPD", new GsonBuilder().setPrettyPrinting().create().toJson(players.stream().toList()));
     }
 }

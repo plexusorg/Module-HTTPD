@@ -81,12 +81,12 @@ public class AbstractServlet extends HttpServlet
 
     public String createBasicHTML(String title, String body)
     {
-        return "<html><head><title>" + title + "</title></head><body>" + body + "</body></html>";
+        return "<!DOCTYPE html><html><head><title>" + title + "</title><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"></head><body>" + body + "</body></html>";
     }
 
     public String createJSONHTML(String title, String json)
     {
-        return "<html><head><title>" + title + "</title></head><body><pre><code>" + json + "</code></pre></body></html>";
+        return "<!DOCTYPE html><html><head><title>" + title + "</title><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"></head><body><pre><code>" + json + "</code></pre></body></html>";
     }
 
     @Data

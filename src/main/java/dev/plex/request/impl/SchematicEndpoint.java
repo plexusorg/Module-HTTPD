@@ -4,18 +4,17 @@ import dev.plex.HTTPDModule;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
-
-import jakarta.servlet.http.HttpServletResponse;
 import org.bukkit.Bukkit;
 
-public class SchematicDownloadEndpoint extends AbstractServlet
+public class SchematicEndpoint extends AbstractServlet
 {
     @GetMapping(endpoint = "/api/schematics/download/")
-    public String downloadSchematics(HttpServletRequest request, HttpServletResponse response)
+    public String schematicIndex(HttpServletRequest request, HttpServletResponse response)
     {
         if (request.getPathInfo() == null || request.getPathInfo().equals("/"))
         {
@@ -24,9 +23,12 @@ public class SchematicDownloadEndpoint extends AbstractServlet
         else
         {
             OutputStream outputStream = null;
-            try {
+            try
+            {
                 outputStream = response.getOutputStream();
-            } catch (IOException e) {
+            }
+            catch (IOException e)
+            {
                 return null;
             }
             schematicServe(request.getPathInfo().replace("/", ""), outputStream);
@@ -53,7 +55,10 @@ public class SchematicDownloadEndpoint extends AbstractServlet
     private void schematicServe(String requestedSchematic, OutputStream outputStream)
     {
         File worldeditFolder = getWorldeditFolder();
-        if (worldeditFolder == null) return;
+        if (worldeditFolder == null)
+        {
+            return;
+        }
         File[] schems = worldeditFolder.listFiles();
         if (schems != null)
         {
@@ -63,7 +68,10 @@ public class SchematicDownloadEndpoint extends AbstractServlet
                 try
                 {
                     outputStream.write(HTTPDModule.fileCache.getFile(schemFile));
-                } catch (IOException ignored) {}
+                }
+                catch (IOException ignored)
+                {
+                }
             }
         }
     }
@@ -72,7 +80,10 @@ public class SchematicDownloadEndpoint extends AbstractServlet
     {
         String file = readFile(this.getClass().getResourceAsStream("/httpd/schematic_list.html"));
         File worldeditFolder = getWorldeditFolder();
-        if (worldeditFolder == null) return null;
+        if (worldeditFolder == null)
+        {
+            return null;
+        }
         StringBuilder sb = new StringBuilder();
         File[] alphabetical = worldeditFolder.listFiles();
         if (alphabetical != null)

@@ -7,7 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
             integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"
             crossorigin="anonymous"></script>
-    <title>Punishments - Plex HTTPD</title>
+    <title>Schematics - Plex HTTPD</title>
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-light bg-light">
@@ -23,19 +23,19 @@
                     <a class="nav-link" href="/">Home</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="../admins/">Admins</a>
+                    <a class="nav-link" href="#">Admins</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="../indefbans/">Indefinite Bans</a>
+                    <a class="nav-link" href="indefbans/">Indefinite Bans</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="../list/">List</a>
+                    <a class="nav-link" href="list/">List</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link active" aria-current="page" href="#">Punishments</a>
+                    <a class="nav-link" href="punishments/">Punishments</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="schematics/">Schematics</a>
+                    <a class="nav-link active" aria-current="page" href="#">Schematics</a>
                 </li>
             </ul>
         </div>
@@ -43,7 +43,18 @@
 </nav>
 <div style="text-align: center;" class="col-auto m-0 row justify-content-center p-4">
     <h2>Plex HTTPD</h2>
-    <h5 class="alert alert-danger mb-3 w-auto p-3" role="alert"><b>Error:</b> ${MESSAGE}</h5>
+    <h5>A list of schematics is below. You can click on the schematic name to download it.</h5>
+    <table class="table table-striped table-bordered">
+        <thead>
+        <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Size</th>
+        </tr>
+        </thead>
+        <tbody>
+        ${schematics}
+        </tbody>
+    </table>
 </div>
 </body>
 </html>

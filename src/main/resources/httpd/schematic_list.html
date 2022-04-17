@@ -7,7 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
             integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"
             crossorigin="anonymous"></script>
-    <title>Punishments - Plex HTTPD</title>
+    <title>Schematic Download - Plex HTTPD</title>
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-light bg-light">
@@ -23,19 +23,19 @@
                     <a class="nav-link" href="/">Home</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="../admins/">Admins</a>
+                    <a class="nav-link" href="#">Admins</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="../indefbans/">Indefinite Bans</a>
+                    <a class="nav-link" href="indefbans/">Indefinite Bans</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="../list/">List</a>
+                    <a class="nav-link" href="list/">List</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link active" aria-current="page" href="#">Punishments</a>
+                    <a class="nav-link" href="punishments/">Punishments</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="schematics/">Schematics</a>
+                    <a class="nav-link active" aria-current="page" href="#">Schematics</a>
                 </li>
             </ul>
         </div>
@@ -43,7 +43,11 @@
 </nav>
 <div style="text-align: center;" class="col-auto m-0 row justify-content-center p-4">
     <h2>Plex HTTPD</h2>
-    <h5 class="alert alert-danger mb-3 w-auto p-3" role="alert"><b>Error:</b> ${MESSAGE}</h5>
+    <h5>Welcome to the schematic page. Please select if you would like to download or upload a schematic.</h5>
+    <div class="d-grid gap-2 col-2 mx-auto">
+    <button type="button" class="btn btn-success btn-sm p-2">Download</button>
+    <button type="button" class="btn btn-primary btn-sm p-2">Upload</button>
+    </div>
 </div>
 </body>
 </html>

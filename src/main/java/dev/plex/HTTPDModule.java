@@ -8,6 +8,7 @@ import dev.plex.request.impl.IndexEndpoint;
 import dev.plex.request.impl.ListEndpoint;
 import dev.plex.request.impl.PunishmentsEndpoint;
 import dev.plex.request.impl.SchematicDownloadEndpoint;
+import dev.plex.request.impl.SchematicIndexEndpoint;
 import dev.plex.util.PlexLog;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
@@ -69,6 +70,7 @@ public class HTTPDModule extends PlexModule
             new ListEndpoint();
             new PunishmentsEndpoint();
             new SchematicDownloadEndpoint();
+            new SchematicIndexEndpoint();
 
             server.setConnectors(new Connector[]{connector});
             server.setHandler(context);

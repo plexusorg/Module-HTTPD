@@ -13,7 +13,7 @@ public class CacheItem
     public CacheItem(File f) throws IOException
     {
         this.path = f.getPath();
-        this.file = Files.readAllBytes(f.toPath());
+        this.file = f.length() >= 1048576 ? null : Files.readAllBytes(f.toPath());
         this.timestamp = System.currentTimeMillis();
     }
 }

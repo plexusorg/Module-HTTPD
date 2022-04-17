@@ -67,7 +67,8 @@ public class SchematicEndpoint extends AbstractServlet
             {
                 try
                 {
-                    outputStream.write(HTTPDModule.fileCache.getFile(schemFile));
+                    byte[] schemData = HTTPDModule.fileCache.getFile(schemFile);
+                    if (schemData != null) outputStream.write(schemData);
                 }
                 catch (IOException ignored)
                 {

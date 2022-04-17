@@ -13,6 +13,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.text.CharacterIterator;
+import java.text.StringCharacterIterator;
 import java.util.List;
 import java.util.Objects;
 import lombok.Data;
@@ -73,7 +75,10 @@ public class AbstractServlet extends HttpServlet
             try
             {
                 Object object = mapping.method.invoke(this, req, resp);
-                if (object != null) resp.getWriter().println(object.toString());
+                if (object != null)
+                {
+                    resp.getWriter().println(object.toString());
+                }
             }
             catch (IOException | IllegalAccessException | InvocationTargetException e)
             {
@@ -99,6 +104,25 @@ public class AbstractServlet extends HttpServlet
         {
         }
         return contentBuilder.toString();
+    }
+
+    // Code from https://programming.guide/java/formatting-byte-size-to-human-readable-format.html
+    public static String formattedSize(long bytes)
+    {
+        long absB = bytes == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(bytes);
+        if (absB < 1024)
+        {
+            return bytes + " B";
+        }
+        long value = absB;
+        CharacterIterator ci = new StringCharacterIterator("KMGTPE");
+        for (int i = 40; i >= 0 && absB > 0xfffccccccccccccL >> i; i -= 10)
+        {
+            value >>= 10;
+            ci.next();
+        }
+        value *= Long.signum(bytes);
+        return String.format("%.1f %ciB", value / 1024.0, ci.current());
     }
 
     @Data

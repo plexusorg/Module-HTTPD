@@ -22,7 +22,7 @@ public class SchematicEndpoint extends AbstractServlet
         }
         else
         {
-            OutputStream outputStream = null;
+            OutputStream outputStream;
             try
             {
                 outputStream = response.getOutputStream();
@@ -93,7 +93,7 @@ public class SchematicEndpoint extends AbstractServlet
             {
                 sb.append("<tr>" +
                         "<th scope=\"row\"><a href=\"" + worldeditFile.getName() + "\" download>" + worldeditFile.getName() + "</a></th>" +
-                        "<td>" + worldeditFile.length() + "B" + "</td>" +
+                        "<td>" + formattedSize(worldeditFile.length()) + "</td>" +
                         "</tr>");
             }
             file = file.replace("${schematics}", sb.toString());

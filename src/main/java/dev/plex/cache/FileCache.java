@@ -21,13 +21,13 @@ public class FileCache
         if (theItem == null)
         {
             theItem = new CacheItem(new File(path));
-            cache.add(theItem);
+            if (theItem.file.length < 1048576) cache.add(theItem);
         }
         if (System.currentTimeMillis() - theItem.timestamp > 3 * 60 * 1000) // 3 minutes
         {
             cache.remove(theItem);
             theItem = new CacheItem(new File(path));
-            cache.add(theItem);
+            if (theItem.file.length < 1048576) cache.add(theItem);
         }
         return theItem.file;
     }

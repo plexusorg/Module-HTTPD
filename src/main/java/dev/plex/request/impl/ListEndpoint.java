@@ -13,11 +13,10 @@ import org.bukkit.entity.Player;
 
 public class ListEndpoint extends AbstractServlet
 {
-    List<String> players = new ArrayList<>();
-
     @GetMapping(endpoint = "/api/list/")
     public String getOnlinePlayers(HttpServletRequest request, HttpServletResponse response)
     {
+        List<String> players = new ArrayList<>();
         for (Player player : Bukkit.getOnlinePlayers())
         {
             players.add(player.getName());

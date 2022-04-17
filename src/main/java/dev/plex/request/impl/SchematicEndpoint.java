@@ -13,7 +13,7 @@ import org.bukkit.Bukkit;
 
 public class SchematicEndpoint extends AbstractServlet
 {
-    @GetMapping(endpoint = "/api/schematics/download/")
+    @GetMapping(endpoint = "/api/download_schematic/")
     public String schematicIndex(HttpServletRequest request, HttpServletResponse response)
     {
         if (request.getPathInfo() == null || request.getPathInfo().equals("/"))

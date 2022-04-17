@@ -10,6 +10,7 @@ import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
 import dev.plex.util.PlexLog;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 
@@ -18,7 +19,7 @@ public class IndefBansEndpoint extends AbstractServlet
     private static final String TITLE = "Indefinite Bans - Plex HTTPD";
 
     @GetMapping(endpoint = "/api/indefbans/")
-    public String getBans(HttpServletRequest request)
+    public String getBans(HttpServletRequest request, HttpServletResponse response)
     {
         String ipAddress = request.getRemoteAddr();
         if (ipAddress == null)

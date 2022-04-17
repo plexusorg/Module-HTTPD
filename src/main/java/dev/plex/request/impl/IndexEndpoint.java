@@ -3,18 +3,19 @@ package dev.plex.request.impl;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.bukkit.Bukkit;
 
 public class IndexEndpoint extends AbstractServlet
 {
     @GetMapping(endpoint = "//")
-    public String getIndex(HttpServletRequest request)
+    public String getIndex(HttpServletRequest request, HttpServletResponse response)
     {
         return indexHTML();
     }
 
     @GetMapping(endpoint = "/api/")
-    public String getAPI(HttpServletRequest request)
+    public String getAPI(HttpServletRequest request, HttpServletResponse response)
     {
         return indexHTML();
     }

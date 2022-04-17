@@ -13,13 +13,15 @@ import dev.plex.util.adapter.LocalDateTimeSerializer;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.UUID;
+
+import jakarta.servlet.http.HttpServletResponse;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 
 public class PunishmentsEndpoint extends AbstractServlet
 {
     @GetMapping(endpoint = "/api/punishments/")
-    public String getPunishments(HttpServletRequest request)
+    public String getPunishments(HttpServletRequest request, HttpServletResponse response)
     {
         String ipAddress = request.getRemoteAddr();
         if (ipAddress == null)

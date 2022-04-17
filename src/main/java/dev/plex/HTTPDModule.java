@@ -1,5 +1,6 @@
 package dev.plex;
 
+import dev.plex.cache.FileCache;
 import dev.plex.config.ModuleConfig;
 import dev.plex.module.PlexModule;
 import dev.plex.request.impl.AdminsEndpoint;
@@ -34,6 +35,8 @@ public class HTTPDModule extends PlexModule
     private static Permission permissions = null;
 
     public static ModuleConfig moduleConfig;
+
+    public static final FileCache fileCache = new FileCache();
 
     @Override
     public void load()

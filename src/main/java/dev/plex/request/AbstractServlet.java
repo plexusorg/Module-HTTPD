@@ -46,7 +46,7 @@ public class AbstractServlet extends HttpServlet
     public void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException
     {
         String ipAddress = req.getRemoteAddr();
-        if (ipAddress == null)
+        if (ipAddress.equals("127.0.0.1"))
         {
             ipAddress = req.getHeader("X-FORWARDED-FOR");
         }
@@ -72,8 +72,8 @@ public class AbstractServlet extends HttpServlet
             resp.setStatus(HttpServletResponse.SC_OK);
             try
             {
-                Object object = mapping.method.invoke(this, req);
-                resp.getWriter().println(object.toString());
+                Object object = mapping.method.invoke(this, req, resp);
+                if (object != null) resp.getWriter().println(object.toString());
             }
             catch (IOException | IllegalAccessException | InvocationTargetException e)
             {

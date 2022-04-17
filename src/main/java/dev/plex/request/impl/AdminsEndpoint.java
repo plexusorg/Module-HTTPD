@@ -14,6 +14,8 @@ import dev.plex.util.adapter.LocalDateTimeSerializer;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.stream.Collectors;
+
+import jakarta.servlet.http.HttpServletResponse;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 
@@ -22,7 +24,7 @@ public class AdminsEndpoint extends AbstractServlet
     private static final String TITLE = "Admins - Plex HTTPD";
 
     @GetMapping(endpoint = "/api/admins/")
-    public String getAdmins(HttpServletRequest request)
+    public String getAdmins(HttpServletRequest request, HttpServletResponse response)
     {
         String ipAddress = request.getRemoteAddr();
         if (ipAddress == null)

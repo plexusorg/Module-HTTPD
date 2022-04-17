@@ -23,19 +23,19 @@ public class IndefBansEndpoint extends AbstractServlet
         String ipAddress = request.getRemoteAddr();
         if (ipAddress == null)
         {
-            return createBasicHTML(TITLE, "An IP address could not be detected. Please ensure you are connecting using IPv4.");
+            return indefbansHTML("An IP address could not be detected. Please ensure you are connecting using IPv4.");
         }
         final PlexPlayer player = DataUtils.getPlayerByIP(ipAddress);
         if (player == null)
         {
-            return createBasicHTML(TITLE, "Couldn't load your IP Address: " + ipAddress + ". Have you joined the server before?");
+            return indefbansHTML("Couldn't load your IP Address: " + ipAddress + ". Have you joined the server before?");
         }
         if (Plex.get().getSystem().equalsIgnoreCase("ranks"))
         {
             PlexLog.debug("Plex-HTTPD using ranks check");
             if (!player.getRankFromString().isAtLeast(Rank.ADMIN))
             {
-                return createBasicHTML(TITLE, "Not a high enough rank to view this page.");
+                return indefbansHTML("Not a high enough rank to view this page.");
             }
         }
         else if (Plex.get().getSystem().equalsIgnoreCase("permissions"))
@@ -44,9 +44,16 @@ public class IndefBansEndpoint extends AbstractServlet
             final OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(player.getUuid());
             if (!HTTPDModule.getPermissions().playerHas(null, offlinePlayer, "plex.httpd.indefbans.access"))
             {
-                return createBasicHTML(TITLE, "Not enough permissions to view this page.");
+                return indefbansHTML("Not enough permissions to view this page.");
             }
         }
-        return createJSONHTML(TITLE, new GsonBuilder().setPrettyPrinting().create().toJson(Plex.get().getPunishmentManager().getIndefiniteBans().stream().toList()));
+        return new GsonBuilder().setPrettyPrinting().create().toJson(Plex.get().getPunishmentManager().getIndefiniteBans().stream().toList());
+    }
+
+    private String indefbansHTML(String message)
+    {
+        String file = readFile(this.getClass().getResourceAsStream("/httpd/indefbans.html"));
+        file = file.replace("${MESSAGE}", message);
+        return file;
     }
 }

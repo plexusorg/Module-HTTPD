@@ -4,6 +4,7 @@ import dev.plex.config.ModuleConfig;
 import dev.plex.module.PlexModule;
 import dev.plex.request.impl.AdminsEndpoint;
 import dev.plex.request.impl.IndefBansEndpoint;
+import dev.plex.request.impl.IndexEndpoint;
 import dev.plex.request.impl.ListEndpoint;
 import dev.plex.request.impl.PunishmentsEndpoint;
 import dev.plex.util.PlexLog;
@@ -63,6 +64,7 @@ public class HTTPDModule extends PlexModule
 
             new AdminsEndpoint();
             new IndefBansEndpoint();
+            new IndexEndpoint();
             new ListEndpoint();
             new PunishmentsEndpoint();
 

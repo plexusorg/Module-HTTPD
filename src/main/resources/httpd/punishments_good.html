@@ -23,13 +23,13 @@
                     <a class="nav-link" href="/">Home</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="admins/">Admins</a>
+                    <a class="nav-link" href="../admins/">Admins</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="indefbans/">Indefinite Bans</a>
+                    <a class="nav-link" href="../indefbans/">Indefinite Bans</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="list/">List</a>
+                    <a class="nav-link" href="../list/">List</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link active" aria-current="page" href="#">Punishments</a>
@@ -38,27 +38,9 @@
         </div>
     </div>
 </nav>
-<div style="text-align: center;" class="col-auto m-0 p-4 row justify-content-center">
-    <h2>Enter the UUID or username of the player you want to lookup</h2>
-    <div class="input-group mb-3 w-75 p-3">
-        <input id="uuid" type="text" autocomplete="off" class="form-control">
-        <button class="btn btn-outline-primary" type="submit" onKeyUp="{this.onKeyUpValue.bind(this)"
-                onclick="redirect();">Submit
-        </button>
-    </div>
+<div style="text-align: center;" class="col-auto m-0 row justify-content-center p-4">
+    <h2>Plex HTTPD</h2>
+    <h5 class="alert alert-success mb-3 w-auto p-3" role="alert">${MESSAGE}</h5>
 </div>
-<script>
-    function redirect() {
-        const url = document.getElementById('uuid').value;
-        window.location = "/api/punishments/" + url
-    }
-</script>
-<script>
-    document.getElementById('uuid').addEventListener('keypress', function (event) {
-        if (event.keyCode === 13) {
-            redirect();
-        }
-    });
-</script>
 </body>
 </html>

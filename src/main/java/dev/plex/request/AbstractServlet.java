@@ -3,15 +3,18 @@ package dev.plex.request;
 import com.google.common.collect.Lists;
 import dev.plex.HTTPDModule;
 import dev.plex.logging.Log;
-import jakarta.servlet.AsyncContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Objects;
 import lombok.Data;
 import org.eclipse.jetty.servlet.ServletHolder;
 
@@ -79,14 +82,23 @@ public class AbstractServlet extends HttpServlet
         });
     }
 
-    public String createBasicHTML(String title, String body)
+    public String readFile(InputStream filename)
     {
-        return "<!DOCTYPE html><html><head><title>" + title + "</title><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"></head><body>" + body + "</body></html>";
-    }
-
-    public String createJSONHTML(String title, String json)
-    {
-        return "<!DOCTYPE html><html><head><title>" + title + "</title><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"></head><body><pre><code>" + json + "</code></pre></body></html>";
+        StringBuilder contentBuilder = new StringBuilder();
+        try
+        {
+            BufferedReader in = new BufferedReader(new InputStreamReader(Objects.requireNonNull(filename)));
+            String str;
+            while ((str = in.readLine()) != null)
+            {
+                contentBuilder.append(str);
+            }
+            in.close();
+        }
+        catch (IOException ignored)
+        {
+        }
+        return contentBuilder.toString();
     }
 
     @Data

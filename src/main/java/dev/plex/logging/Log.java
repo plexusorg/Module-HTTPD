@@ -4,7 +4,6 @@ import dev.plex.HTTPDModule;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 
-
 public class Log
 {
     public static void log(String message, Object... strings)

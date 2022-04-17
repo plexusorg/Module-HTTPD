@@ -7,7 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
             integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"
             crossorigin="anonymous"></script>
-    <title>Punishments - Plex HTTPD</title>
+    <title>Admins - Plex HTTPD</title>
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-light bg-light">
@@ -23,7 +23,7 @@
                     <a class="nav-link" href="/">Home</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="admins/">Admins</a>
+                    <a class="nav-link active" aria-current="page" href="#">Admins</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="indefbans/">Indefinite Bans</a>
@@ -32,33 +32,15 @@
                     <a class="nav-link" href="list/">List</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link active" aria-current="page" href="#">Punishments</a>
+                    <a class="nav-link" href="punishments">Punishments</a>
                 </li>
             </ul>
         </div>
     </div>
 </nav>
-<div style="text-align: center;" class="col-auto m-0 p-4 row justify-content-center">
-    <h2>Enter the UUID or username of the player you want to lookup</h2>
-    <div class="input-group mb-3 w-75 p-3">
-        <input id="uuid" type="text" autocomplete="off" class="form-control">
-        <button class="btn btn-outline-primary" type="submit" onKeyUp="{this.onKeyUpValue.bind(this)"
-                onclick="redirect();">Submit
-        </button>
-    </div>
+<div style="text-align: center;" class="col-auto m-0 row justify-content-center p-4">
+    <h2>Plex HTTPD</h2>
+    <h5 class="alert alert-danger mb-3 w-auto p-3" role="alert"><b>Error:</b> ${MESSAGE}</h5>
 </div>
-<script>
-    function redirect() {
-        const url = document.getElementById('uuid').value;
-        window.location = "/api/punishments/" + url
-    }
-</script>
-<script>
-    document.getElementById('uuid').addEventListener('keypress', function (event) {
-        if (event.keyCode === 13) {
-            redirect();
-        }
-    });
-</script>
 </body>
 </html>

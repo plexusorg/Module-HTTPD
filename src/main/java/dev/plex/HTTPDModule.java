@@ -5,13 +5,7 @@ import dev.plex.config.ModuleConfig;
 import dev.plex.module.PlexModule;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.SchematicUploadServlet;
-import dev.plex.request.impl.AdminsEndpoint;
-import dev.plex.request.impl.IndefBansEndpoint;
-import dev.plex.request.impl.IndexEndpoint;
-import dev.plex.request.impl.ListEndpoint;
-import dev.plex.request.impl.PunishmentsEndpoint;
-import dev.plex.request.impl.SchematicDownloadEndpoint;
-import dev.plex.request.impl.SchematicUploadEndpoint;
+import dev.plex.request.impl.*;
 import dev.plex.util.PlexLog;
 
 import java.io.File;

@@ -1,10 +1,12 @@
 Schematics
 SCHEMATICS
 <h2>Plex HTTPD</h2>
-<div class="mb-3 col-6">
-    <label for="formFile" class="form-label">Please select a schematic file to upload.</label>
-    <form class="input-group" enctype="multipart/form-data" method="post" action="/api/schematics/uploading">
-        <input class="form-control" type="file" name="file" id="formFile">
+<label for="formFile" class="form-label">Please select a schematic file to upload.</label>
+<div class="mb-3 p-3">
+    <form class="input-group justify-content-center" enctype="multipart/form-data" method="post" action="/api/schematics/uploading">
+        <label class="btn btn-primary">
+            Browse <input type="file" name="file" id="formFile" hidden>
+        </label>
         <input type="submit" class="btn btn-outline-primary" value="Upload">
     </form>
 </div>

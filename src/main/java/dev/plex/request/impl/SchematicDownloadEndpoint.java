@@ -95,7 +95,7 @@ public class SchematicDownloadEndpoint extends AbstractServlet
             Arrays.sort(alphabetical);
             for (File worldeditFile : alphabetical)
             {
-                String sanitizedName = worldeditFile.getName().replaceAll("<[^>]*>", "");
+                String sanitizedName = worldeditFile.getName().replaceAll("<","&lt;").replaceAll(">","&gt;");
                 sb.append("<tr>" +
                         "<th scope=\"row\"><a href=\"" + worldeditFile.getName() + "\" download>" + sanitizedName + "</a></th>" +
                         "<td>" + formattedSize(worldeditFile.length()) + "</td>" +

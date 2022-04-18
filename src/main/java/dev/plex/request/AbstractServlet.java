@@ -93,7 +93,6 @@ public class AbstractServlet extends HttpServlet
         String base = HTTPDModule.template;
         String page = readFileReal(filename);
         String[] info = page.split("\n", 3);
-        System.out.println(Arrays.toString(info));
         base = base.replace("${TITLE}", info[0]);
         base = base.replace("${ACTIVE_" + info[1] + "}", "active\" aria-current=\"page");
         base = base.replace("${ACTIVE_HOME}", "");

@@ -28,7 +28,7 @@ public class SchematicUploadServlet extends HttpServlet
             return;
         }
         File[] schematics = worldeditFolder.listFiles();
-        Part uploadPart = null;
+        Part uploadPart;
         try
         {
             uploadPart = req.getPart("file");
@@ -39,19 +39,21 @@ public class SchematicUploadServlet extends HttpServlet
             return;
         }
         String filename = uploadPart.getSubmittedFileName().replaceAll("[^a-zA-Z0-9'!,_ .-]", "_");
-        if (schemNameMatcher.matcher(filename).matches())
+        if (!schemNameMatcher.matcher(filename).matches())
         {
-            boolean alreadyExists = schematics != null && Arrays.stream(schematics).anyMatch(file -> HTTPDModule.fileNameEquals(file.getName(), filename));
-            if (alreadyExists)
-            {
-                resp.getWriter().println(schematicUploadBadHTML("A schematic with the name <b>" + filename + "</b> already exists!"));
-                return;
-            }
-            InputStream inputStream = uploadPart.getInputStream();
-            Files.copy(inputStream, new File(worldeditFolder, filename).toPath(), StandardCopyOption.REPLACE_EXISTING);
-            inputStream.close();
-            resp.getWriter().println(schematicUploadGoodHTML("Successfully uploaded <b>" + filename + "."));
+            resp.getWriter().println(schematicUploadBadHTML("That is not a valid schematic filename!"));
+            return;
         }
+        boolean alreadyExists = schematics != null && Arrays.stream(schematics).anyMatch(file -> HTTPDModule.fileNameEquals(file.getName(), filename));
+        if (alreadyExists)
+        {
+            resp.getWriter().println(schematicUploadBadHTML("A schematic with the name <b>" + filename + "</b> already exists!"));
+            return;
+        }
+        InputStream inputStream = uploadPart.getInputStream();
+        Files.copy(inputStream, new File(worldeditFolder, filename).toPath(), StandardCopyOption.REPLACE_EXISTING);
+        inputStream.close();
+        resp.getWriter().println(schematicUploadGoodHTML("Successfully uploaded <b>" + filename + "."));
     }
 
     private String schematicUploadBadHTML(String message)

@@ -52,14 +52,15 @@
     <h2>Plex HTTPD</h2>
     <h5>A list of schematics is below. You can click on the schematic name to download it.</h5>
     <div class="input-group mb-3 w-75 p-3">
-        <input type="text" autocomplete="off" class="form-control" oninput="filterTable(this.value)" placeholder="Search for a schematic...">
+        <input type="text" autocomplete="off" class="form-control" oninput="filterTable(this.value)"
+               placeholder="Search for a schematic... ">
     </div>
     <table id="schemList" class="table table-striped table-bordered">
         <thead>
-            <tr>
-                <th scope="col">Name</th>
-                <th scope="col">Size</th>
-            </tr>
+        <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Size</th>
+        </tr>
         </thead>
         <tbody>
         ${schematics}
@@ -67,14 +68,15 @@
     </table>
     <script>
         let schemList = document.getElementById("schemList").getElementsByTagName("tbody")[0].getElementsByTagName("tr");
-        function filterTable(query){
-            for(let i=0; i<schemList.length; i++){
+
+        function filterTable(query) {
+            for (let i = 0; i < schemList.length; i++) {
                 let th = schemList[i].getElementsByTagName("th")[0];
                 let schemName = th.textContent || th.innerText;
-                if(schemName.toLowerCase().includes(query.toLowerCase())){
-                    schemList[i].style.display="";
-                }else{
-                    schemList[i].style.display="none";
+                if (schemName.toLowerCase().includes(query.toLowerCase())) {
+                    schemList[i].style.display = "";
+                } else {
+                    schemList[i].style.display = "none";
                 }
             }
         }

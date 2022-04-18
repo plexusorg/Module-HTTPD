@@ -68,7 +68,10 @@ public class SchematicDownloadEndpoint extends AbstractServlet
                 try
                 {
                     byte[] schemData = HTTPDModule.fileCache.getFile(schemFile);
-                    if (schemData != null) outputStream.write(schemData);
+                    if (schemData != null)
+                    {
+                        outputStream.write(schemData);
+                    }
                 }
                 catch (IOException ignored)
                 {
@@ -92,8 +95,9 @@ public class SchematicDownloadEndpoint extends AbstractServlet
             Arrays.sort(alphabetical);
             for (File worldeditFile : alphabetical)
             {
+                String sanitizedName = worldeditFile.getName().replaceAll("<[^>]*>", "");
                 sb.append("<tr>" +
-                        "<th scope=\"row\"><a href=\"" + worldeditFile.getName() + "\" download>" + worldeditFile.getName() + "</a></th>" +
+                        "<th scope=\"row\"><a href=\"" + worldeditFile.getName() + "\" download>" + sanitizedName + "</a></th>" +
                         "<td>" + formattedSize(worldeditFile.length()) + "</td>" +
                         "</tr>");
             }

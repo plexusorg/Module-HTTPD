@@ -11,10 +11,10 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import org.bukkit.Bukkit;
 
-public class SchematicEndpoint extends AbstractServlet
+public class SchematicDownloadEndpoint extends AbstractServlet
 {
-    @GetMapping(endpoint = "/api/download_schematic/")
-    public String schematicIndex(HttpServletRequest request, HttpServletResponse response)
+    @GetMapping(endpoint = "/api/schematics/download/")
+    public String downloadSchematic(HttpServletRequest request, HttpServletResponse response)
     {
         if (request.getPathInfo() == null || request.getPathInfo().equals("/"))
         {
@@ -79,7 +79,7 @@ public class SchematicEndpoint extends AbstractServlet
 
     private String schematicHTML()
     {
-        String file = readFile(this.getClass().getResourceAsStream("/httpd/schematic_list.html"));
+        String file = readFile(this.getClass().getResourceAsStream("/httpd/schematic_download.html"));
         File worldeditFolder = getWorldeditFolder();
         if (worldeditFolder == null)
         {

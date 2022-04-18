@@ -1,9 +1,12 @@
 package dev.plex.cache;
 
 import com.google.common.collect.EvictingQueue;
+import dev.plex.HTTPDModule;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Queue;
 
 public class FileCache
@@ -17,17 +20,17 @@ public class FileCache
 
     public byte[] getFile(String path) throws IOException
     {
-        CacheItem theItem = cache.stream().filter(cacheItem -> cacheItem.path.equals(path)).findFirst().orElse(null);
+        CacheItem theItem = cache.stream().filter(cacheItem -> HTTPDModule.fileNameEquals(cacheItem.path, path)).findFirst().orElse(null);
         if (theItem == null)
         {
             theItem = new CacheItem(new File(path));
-            if (theItem.file != null) cache.add(theItem);
+            if (theItem.file.length < 1048576) cache.add(theItem);
         }
         if (System.currentTimeMillis() - theItem.timestamp > 3 * 60 * 1000) // 3 minutes
         {
             cache.remove(theItem);
             theItem = new CacheItem(new File(path));
-            if (theItem.file != null) cache.add(theItem);
+            if (theItem.file.length < 1048576) cache.add(theItem);
         }
         return theItem.file;
     }

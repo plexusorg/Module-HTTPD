@@ -9,7 +9,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
-import org.bukkit.Bukkit;
 
 public class SchematicDownloadEndpoint extends AbstractServlet
 {
@@ -36,25 +35,9 @@ public class SchematicDownloadEndpoint extends AbstractServlet
         }
     }
 
-    private File getWorldeditFolder()
-    {
-        if (Bukkit.getPluginManager().isPluginEnabled("WorldEdit"))
-        {
-            return new File(Bukkit.getPluginManager().getPlugin("WorldEdit").getDataFolder() + "/schematics/");
-        }
-        else if (Bukkit.getPluginManager().isPluginEnabled("FastAsyncWorldEdit"))
-        {
-            return new File(Bukkit.getPluginManager().getPlugin("FastAsyncWorldEdit").getDataFolder() + "/schematics/");
-        }
-        else
-        {
-            return null;
-        }
-    }
-
     private void schematicServe(String requestedSchematic, OutputStream outputStream)
     {
-        File worldeditFolder = getWorldeditFolder();
+        File worldeditFolder = HTTPDModule.getWorldeditFolder();
         if (worldeditFolder == null)
         {
             return;
@@ -83,7 +66,7 @@ public class SchematicDownloadEndpoint extends AbstractServlet
     private String schematicHTML()
     {
         String file = readFile(this.getClass().getResourceAsStream("/httpd/schematic_download.html"));
-        File worldeditFolder = getWorldeditFolder();
+        File worldeditFolder = HTTPDModule.getWorldeditFolder();
         if (worldeditFolder == null)
         {
             return null;

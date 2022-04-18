@@ -15,6 +15,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import lombok.Data;
@@ -87,7 +88,25 @@ public class AbstractServlet extends HttpServlet
         });
     }
 
-    public String readFile(InputStream filename)
+    public static String readFile(InputStream filename)
+    {
+        String base = HTTPDModule.template;
+        String page = readFileReal(filename);
+        String[] info = page.split("\n", 3);
+        System.out.println(Arrays.toString(info));
+        base = base.replace("${TITLE}", info[0]);
+        base = base.replace("${ACTIVE_" + info[1] + "}", "active\" aria-current=\"page");
+        base = base.replace("${ACTIVE_HOME}", "");
+        base = base.replace("${ACTIVE_ADMINS}", "");
+        base = base.replace("${ACTIVE_INDEFBANS}", "");
+        base = base.replace("${ACTIVE_LIST}", "");
+        base = base.replace("${ACTIVE_PUNISHMENTS}", "");
+        base = base.replace("${ACTIVE_SCHEMATICS}", "");
+        base = base.replace("${CONTENT}", info[2]);
+        return base;
+    }
+
+    public static String readFileReal(InputStream filename)
     {
         StringBuilder contentBuilder = new StringBuilder();
         try
@@ -96,7 +115,7 @@ public class AbstractServlet extends HttpServlet
             String str;
             while ((str = in.readLine()) != null)
             {
-                contentBuilder.append(str);
+                contentBuilder.append(str).append("\n");
             }
             in.close();
         }

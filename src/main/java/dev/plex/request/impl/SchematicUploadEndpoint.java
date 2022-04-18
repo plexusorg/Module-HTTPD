@@ -8,7 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 public class SchematicUploadEndpoint extends AbstractServlet
 {
     @GetMapping(endpoint = "/api/schematics/upload/")
-    public String downloadSchematic(HttpServletRequest request, HttpServletResponse response)
+    public String uploadSchematic(HttpServletRequest request, HttpServletResponse response)
     {
         return readFile(this.getClass().getResourceAsStream("/httpd/schematic_upload.html"));
     }

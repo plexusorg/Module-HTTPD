@@ -3,6 +3,8 @@ package dev.plex;
 import dev.plex.cache.FileCache;
 import dev.plex.config.ModuleConfig;
 import dev.plex.module.PlexModule;
+import dev.plex.request.AbstractServlet;
+import dev.plex.request.SchematicUploadServlet;
 import dev.plex.request.impl.AdminsEndpoint;
 import dev.plex.request.impl.IndefBansEndpoint;
 import dev.plex.request.impl.IndexEndpoint;
@@ -11,7 +13,11 @@ import dev.plex.request.impl.PunishmentsEndpoint;
 import dev.plex.request.impl.SchematicDownloadEndpoint;
 import dev.plex.request.impl.SchematicUploadEndpoint;
 import dev.plex.util.PlexLog;
+
+import java.io.File;
 import java.util.concurrent.atomic.AtomicReference;
+
+import jakarta.servlet.MultipartConfigElement;
 import lombok.Getter;
 import net.milkbowl.vault.permission.Permission;
 import org.bukkit.Bukkit;
@@ -24,6 +30,7 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
 
 public class HTTPDModule extends PlexModule
 {
@@ -37,6 +44,8 @@ public class HTTPDModule extends PlexModule
     public static ModuleConfig moduleConfig;
 
     public static final FileCache fileCache = new FileCache();
+
+    public static final String template = AbstractServlet.readFileReal(HTTPDModule.class.getResourceAsStream("/httpd/template.html"));
 
     @Override
     public void load()
@@ -74,6 +83,12 @@ public class HTTPDModule extends PlexModule
             new PunishmentsEndpoint();
             new SchematicDownloadEndpoint();
             new SchematicUploadEndpoint();
+
+            ServletHolder uploadHolder = HTTPDModule.context.addServlet(SchematicUploadServlet.class, "/api/schematics/uploading");
+
+            File uploadLoc = new File(System.getProperty("java.io.tmpdir"), "schematic-temp-dir");
+            if (!uploadLoc.exists()) uploadLoc.mkdirs();
+            uploadHolder.getRegistration().setMultipartConfig(new MultipartConfigElement(uploadLoc.getAbsolutePath(), 1024 * 1024 * 5, 1024 * 1024 * 25, 1024 * 1024));
 
             server.setConnectors(new Connector[]{connector});
             server.setHandler(context);
@@ -113,5 +128,35 @@ public class HTTPDModule extends PlexModule
         RegisteredServiceProvider<Permission> rsp = Bukkit.getServicesManager().getRegistration(Permission.class);
         permissions = rsp.getProvider();
         return permissions != null;
+    }
+
+    public static File getWorldeditFolder()
+    {
+        if (Bukkit.getPluginManager().isPluginEnabled("WorldEdit"))
+        {
+            return new File(Bukkit.getPluginManager().getPlugin("WorldEdit").getDataFolder() + "/schematics/");
+        }
+        else if (Bukkit.getPluginManager().isPluginEnabled("FastAsyncWorldEdit"))
+        {
+            return new File(Bukkit.getPluginManager().getPlugin("FastAsyncWorldEdit").getDataFolder() + "/schematics/");
+        }
+        else
+        {
+            return null;
+        }
+    }
+
+    private static boolean isFileSystemCaseSensitive = !new File( "a" ).equals( new File( "A" ) );
+
+    public static boolean fileNameEquals(String filename1, String filename2)
+    {
+        if (isFileSystemCaseSensitive)
+        {
+            return filename1.equals(filename2);
+        }
+        else
+        {
+            return filename1.equalsIgnoreCase(filename2);
+        }
     }
 }

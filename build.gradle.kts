@@ -9,7 +9,6 @@ version = "1.0.1"
 description = "Module-HTTPD"
 
 repositories {
-    mavenLocal()
     mavenCentral()
 
     maven {
@@ -55,7 +54,6 @@ tasks {
     processResources {
         filteringCharset = Charsets.UTF_8.name() // We want UTF-8 for everything
     }
-
 }
 
 

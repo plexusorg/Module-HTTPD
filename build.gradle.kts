@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "dev.plex"
-version = "1.0.1"
+version = "1.0.2"
 description = "Module-HTTPD"
 
 repositories {

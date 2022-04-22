@@ -79,10 +79,10 @@ public class SchematicDownloadEndpoint extends AbstractServlet
             for (File worldeditFile : alphabetical)
             {
                 String sanitizedName = worldeditFile.getName().replaceAll("<","&lt;").replaceAll(">","&gt;");
-                sb.append("<tr>" +
-                        "<th scope=\"row\"><a href=\"" + worldeditFile.getName() + "\" download>" + sanitizedName + "</a></th>" +
-                        "<td>" + formattedSize(worldeditFile.length()) + "</td>" +
-                        "</tr>");
+                sb.append("    <tr>\n" +
+                        "        <th scope=\"row\">\n            <a href=\"" + worldeditFile.getName() + "\" download>" + sanitizedName + "</a>\n        </th>\n" +
+                        "        <td>\n            " + formattedSize(worldeditFile.length()) + "\n        </td>\n" +
+                        "    </tr>\n");
             }
             file = file.replace("${schematics}", sb.toString());
         }

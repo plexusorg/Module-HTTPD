@@ -3,12 +3,15 @@ package dev.plex.request.impl;
 import dev.plex.HTTPDModule;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
+import dev.plex.util.PlexLog;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 public class SchematicDownloadEndpoint extends AbstractServlet
 {
@@ -72,20 +75,37 @@ public class SchematicDownloadEndpoint extends AbstractServlet
             return null;
         }
         StringBuilder sb = new StringBuilder();
-        File[] alphabetical = worldeditFolder.listFiles();
-        if (alphabetical != null)
+        for (File worldeditFile : listFilesForFolder(worldeditFolder))
         {
-            Arrays.sort(alphabetical);
-            for (File worldeditFile : alphabetical)
-            {
-                String sanitizedName = worldeditFile.getName().replaceAll("<","&lt;").replaceAll(">","&gt;");
-                sb.append("    <tr>\n" +
-                        "        <th scope=\"row\">\n            <a href=\"" + worldeditFile.getName() + "\" download>" + sanitizedName + "</a>\n        </th>\n" +
-                        "        <td>\n            " + formattedSize(worldeditFile.length()) + "\n        </td>\n" +
-                        "    </tr>\n");
-            }
-            file = file.replace("${schematics}", sb.toString());
+            String fixedPath = worldeditFile.getPath().replace("plugins/FastAsyncWorldEdit/schematics/", "");
+            fixedPath.replace("plugins/WorldEdit/schematics/", "");
+            String sanitizedName = fixedPath.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+            sb.append("    <tr>\n" +
+                    "        <th scope=\"row\">\n            <a href=\"" + fixedPath + "\" download>" + sanitizedName + "</a>\n        </th>\n" +
+                    "        <td>\n            " + formattedSize(worldeditFile.length()) + "\n        </td>\n" +
+                    "    </tr>\n");
         }
+        file = file.replace("${schematics}", sb.toString());
         return file;
+    }
+
+    List<File> files = new ArrayList<>();
+
+    public List<File> listFilesForFolder(final File folder)
+    {
+        for (File fileEntry : folder.listFiles())
+        {
+            if (fileEntry.isDirectory())
+            {
+                PlexLog.debug("Found directory");
+                listFilesForFolder(fileEntry);
+            }
+            else
+            {
+                files.add(fileEntry);
+            }
+        }
+        PlexLog.debug(files.toString());
+        return files;
     }
 }

@@ -53,7 +53,7 @@ public class HTTPDModule extends PlexModule
     {
         moduleConfig.load();
         PlexLog.debug("HTTPD Module Port: {0}", moduleConfig.getInt("server.port"));
-        if (!setupPermissions() && getPlex().getSystem().equalsIgnoreCase("permissions") && !Bukkit.getPluginManager().isPluginEnabled("Vault"))
+        if ((!Bukkit.getPluginManager().isPluginEnabled("Vault") || !setupPermissions()) && getPlex().getSystem().equalsIgnoreCase("permissions"))
         {
             throw new RuntimeException("Plex-HTTPD requires the 'Vault' plugin as well as a Permissions plugin that hooks into 'Vault'. We recommend LuckPerms!");
         }

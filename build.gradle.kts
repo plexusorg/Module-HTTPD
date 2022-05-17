@@ -20,9 +20,6 @@ repositories {
     }
 
     maven {
-        url = uri("https://nexus.telesphoreo.me/repository/totalfreedom/")
-    }
-    maven {
         url = uri("https://jitpack.io")
     }
 }

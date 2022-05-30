@@ -48,6 +48,8 @@ public class IndefBansEndpoint extends AbstractServlet
                 return indefbansHTML("Not enough permissions to view this page.");
             }
         }
+
+        response.setHeader("content-type", "application/json");
         return new GsonBuilder().setPrettyPrinting().create().toJson(Plex.get().getPunishmentManager().getIndefiniteBans().stream().toList());
     }
 

@@ -10,6 +10,7 @@ import dev.plex.player.PlexPlayer;
 import dev.plex.rank.enums.Rank;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
+import dev.plex.request.MappingHeaders;
 import dev.plex.util.PlexLog;
 import dev.plex.util.adapter.ZonedDateTimeSerializer;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,6 +27,7 @@ public class AdminsEndpoint extends AbstractServlet
 
 
     @GetMapping(endpoint = "/api/admins/")
+    @MappingHeaders(headers = "content-type;application/json")
     public String getAdmins(HttpServletRequest request, HttpServletResponse response)
     {
 

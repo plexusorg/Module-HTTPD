@@ -27,7 +27,6 @@ public class AdminsEndpoint extends AbstractServlet
     public String getAdmins(HttpServletRequest request, HttpServletResponse response)
     {
         String ipAddress = request.getRemoteAddr();
-        if (ipAddress == null)
         {
             return adminsHTML("An IP address could not be detected. Please ensure you are connecting using IPv4.");
         }
@@ -42,8 +41,9 @@ public class AdminsEndpoint extends AbstractServlet
             PlexLog.debug("Plex-HTTPD using ranks check");
             if (!player.getRankFromString().isAtLeast(Rank.ADMIN))
             {
-                // Don't return IPs either if the person is not an Admin or above.
-                return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeSerializer()).setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setPunishments(Lists.newArrayList())).collect(Collectors.toList()));
+                // Don't return IPs, true booleans, notes if the person is not an Admin or above.
+                return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeSerializer()).setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setVanished(false)).peek(plexPlayer -> plexPlayer.setCommandSpy(false)).peek(plexPlayer -> plexPlayer.setAdminActive(false)).peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setPunishments(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setNotes(Lists.newArrayList())).collect(Collectors.toList()));
+
             }
         }
         else if (Plex.get().getSystem().equalsIgnoreCase("permissions"))
@@ -52,11 +52,13 @@ public class AdminsEndpoint extends AbstractServlet
             final OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(player.getUuid());
             if (!HTTPDModule.getPermissions().playerHas(null, offlinePlayer, "plex.httpd.admins.access"))
             {
-                // If the person doesn't have permission, don't return IPs
-                return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeSerializer()).setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setPunishments(Lists.newArrayList())).collect(Collectors.toList()));
+                // If the person doesn't have permission, don't return IPs, true booleans, notes
+                return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeSerializer()).setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setVanished(false)).peek(plexPlayer -> plexPlayer.setCommandSpy(false)).peek(plexPlayer -> plexPlayer.setAdminActive(false)).peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setPunishments(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setNotes(Lists.newArrayList())).collect(Collectors.toList()));
+
             }
         }
-        return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeSerializer()).setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers());
+        // If user has a rank >= Admin or the permission node, return IPs & accurate booleans. Don't return punishments or notes.
+        return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeSerializer()).setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setPunishments(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setNotes(Lists.newArrayList())).collect(Collectors.toList()));
     }
 
     private String adminsHTML(String message)

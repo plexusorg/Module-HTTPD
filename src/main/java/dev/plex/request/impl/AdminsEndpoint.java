@@ -24,15 +24,17 @@ public class AdminsEndpoint extends AbstractServlet
 {
     private static final String TITLE = "Admins - Plex HTTPD";
 
-    GsonBuilder json = new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeSerializer()).setPrettyPrinting();
-
-    String adminJson = json.create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setPunishments(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setNotes(Lists.newArrayList())).collect(Collectors.toList()));
-
-    String nonAdminJson = json.create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setVanished(false)).peek(plexPlayer -> plexPlayer.setCommandSpy(false)).peek(plexPlayer -> plexPlayer.setAdminActive(false)).peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setPunishments(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setNotes(Lists.newArrayList())).collect(Collectors.toList()));
 
     @GetMapping(endpoint = "/api/admins/")
     public String getAdmins(HttpServletRequest request, HttpServletResponse response)
     {
+
+        GsonBuilder json = new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeSerializer()).setPrettyPrinting();
+
+        String adminJson = json.create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setPunishments(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setNotes(Lists.newArrayList())).collect(Collectors.toList()));
+
+        String nonAdminJson = json.create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setVanished(false)).peek(plexPlayer -> plexPlayer.setCommandSpy(false)).peek(plexPlayer -> plexPlayer.setAdminActive(false)).peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setPunishments(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setNotes(Lists.newArrayList())).collect(Collectors.toList()));
+
         String ipAddress = request.getRemoteAddr();
         if (ipAddress == null)
         {

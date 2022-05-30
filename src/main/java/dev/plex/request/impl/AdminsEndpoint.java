@@ -1,6 +1,6 @@
 package dev.plex.request.impl;
 
-import com.google.common.collect.Lists;
+import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import dev.plex.HTTPDModule;
 import dev.plex.Plex;
@@ -13,16 +13,32 @@ import dev.plex.request.MappingHeaders;
 import dev.plex.util.PlexLog;
 import dev.plex.util.adapter.ZonedDateTimeSerializer;
 import jakarta.servlet.http.HttpServletRequest;
-import java.time.ZonedDateTime;
-import java.util.stream.Collectors;
-
 import jakarta.servlet.http.HttpServletResponse;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 
+import java.time.ZonedDateTime;
+import java.util.List;
+
 public class AdminsEndpoint extends AbstractServlet
 {
     private static final String TITLE = "Admins - Plex HTTPD";
+    private static final Gson GSON =
+            new GsonBuilder()
+                    .registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeSerializer())
+                    .setPrettyPrinting()
+                    .create();
+
+    private List<PlexPlayer> getUnauthenticatedResponse(List<PlexPlayer> admins)
+    {
+        return admins
+                .stream().peek(plexPlayer -> {
+                    plexPlayer.setIps(null);
+                    plexPlayer.setPunishments(null);
+                    plexPlayer.setCommandSpy(false);
+                    plexPlayer.setVanished(false);
+                }).toList();
+    }
 
     @GetMapping(endpoint = "/api/admins/")
     @MappingHeaders(headers = "content-type;application/json")
@@ -34,18 +50,22 @@ public class AdminsEndpoint extends AbstractServlet
             return adminsHTML("An IP address could not be detected. Please ensure you are connecting using IPv4.");
         }
         final PlexPlayer player = DataUtils.getPlayerByIP(ipAddress);
+        final List<PlexPlayer> admins = Plex.get().getAdminList().getAllAdminPlayers();
+
         if (player == null)
         {
-            // This likely means they've never joined the server before. That's okay. We can just not return IPs.
-            return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeSerializer()).setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setPunishments(Lists.newArrayList())).collect(Collectors.toList()));
+            // This likely means they've never joined the server before.
+            return GSON.toJson(getUnauthenticatedResponse(admins));
         }
+
+
         if (Plex.get().getSystem().equalsIgnoreCase("ranks"))
         {
             PlexLog.debug("Plex-HTTPD using ranks check");
             if (!player.getRankFromString().isAtLeast(Rank.ADMIN))
             {
                 // Don't return IPs either if the person is not an Admin or above.
-                return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeSerializer()).setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setPunishments(Lists.newArrayList())).collect(Collectors.toList()));
+                return GSON.toJson(getUnauthenticatedResponse(admins));
             }
         }
         else if (Plex.get().getSystem().equalsIgnoreCase("permissions"))
@@ -55,10 +75,10 @@ public class AdminsEndpoint extends AbstractServlet
             if (!HTTPDModule.getPermissions().playerHas(null, offlinePlayer, "plex.httpd.admins.access"))
             {
                 // If the person doesn't have permission, don't return IPs
-                return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeSerializer()).setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers().stream().peek(plexPlayer -> plexPlayer.setIps(Lists.newArrayList())).peek(plexPlayer -> plexPlayer.setPunishments(Lists.newArrayList())).collect(Collectors.toList()));
+                return GSON.toJson(getUnauthenticatedResponse(admins));
             }
         }
-        return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeSerializer()).setPrettyPrinting().create().toJson(Plex.get().getAdminList().getAllAdminPlayers());
+        return GSON.toJson(admins);
     }
 
     private String adminsHTML(String message)

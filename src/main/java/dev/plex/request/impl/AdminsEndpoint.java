@@ -27,6 +27,7 @@ public class AdminsEndpoint extends AbstractServlet
     public String getAdmins(HttpServletRequest request, HttpServletResponse response)
     {
         String ipAddress = request.getRemoteAddr();
+        if (ipAddress == null)
         {
             return adminsHTML("An IP address could not be detected. Please ensure you are connecting using IPv4.");
         }

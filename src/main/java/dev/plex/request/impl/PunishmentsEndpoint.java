@@ -50,11 +50,11 @@ public class PunishmentsEndpoint extends AbstractServlet
         final PlexPlayer player = DataUtils.getPlayerByIP(ipAddress);
         if (punishedPlayer == null)
         {
-            return punishmentsHTML("This player has never joined the server before.");
+            return punishmentsHTML("This player has never joined the server.");
         }
         if (punishedPlayer.getPunishments().isEmpty())
         {
-            return punishmentsGoodHTML("This player has been a good boy. They have no punishments!");
+            return punishmentsGoodHTML(player.getName() + " has no punishments.");
         }
         if (player == null)
         {

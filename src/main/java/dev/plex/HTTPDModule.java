@@ -5,13 +5,17 @@ import dev.plex.config.ModuleConfig;
 import dev.plex.module.PlexModule;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.SchematicUploadServlet;
-import dev.plex.request.impl.*;
+import dev.plex.request.impl.AdminsEndpoint;
+import dev.plex.request.impl.IndefBansEndpoint;
+import dev.plex.request.impl.IndexEndpoint;
+import dev.plex.request.impl.ListEndpoint;
+import dev.plex.request.impl.PunishmentsEndpoint;
+import dev.plex.request.impl.SchematicDownloadEndpoint;
+import dev.plex.request.impl.SchematicUploadEndpoint;
 import dev.plex.util.PlexLog;
-
+import jakarta.servlet.MultipartConfigElement;
 import java.io.File;
 import java.util.concurrent.atomic.AtomicReference;
-
-import jakarta.servlet.MultipartConfigElement;
 import lombok.Getter;
 import net.milkbowl.vault.permission.Permission;
 import org.bukkit.Bukkit;
@@ -81,7 +85,10 @@ public class HTTPDModule extends PlexModule
             ServletHolder uploadHolder = HTTPDModule.context.addServlet(SchematicUploadServlet.class, "/api/schematics/uploading");
 
             File uploadLoc = new File(System.getProperty("java.io.tmpdir"), "schematic-temp-dir");
-            if (!uploadLoc.exists()) uploadLoc.mkdirs();
+            if (!uploadLoc.exists())
+            {
+                uploadLoc.mkdirs();
+            }
             uploadHolder.getRegistration().setMultipartConfig(new MultipartConfigElement(uploadLoc.getAbsolutePath(), 1024 * 1024 * 5, 1024 * 1024 * 25, 1024 * 1024));
 
             server.setConnectors(new Connector[]{connector});
@@ -140,7 +147,7 @@ public class HTTPDModule extends PlexModule
         }
     }
 
-    private static boolean isFileSystemCaseSensitive = !new File( "a" ).equals( new File( "A" ) );
+    private static boolean isFileSystemCaseSensitive = !new File("a").equals(new File("A"));
 
     public static boolean fileNameEquals(String filename1, String filename2)
     {

@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "dev.plex"
-version = "1.1"
+version = "1.2-SNAPSHOT"
 description = "Module-HTTPD"
 
 repositories {
@@ -21,6 +21,9 @@ repositories {
 
     maven {
         url = uri("https://jitpack.io")
+        content {
+            includeGroup("com.github.MilkBowl")
+        }
     }
 }
 
@@ -28,8 +31,8 @@ dependencies {
     implementation("org.projectlombok:lombok:1.18.24")
     annotationProcessor("org.projectlombok:lombok:1.18.24")
     implementation("io.papermc.paper:paper-api:1.18.2-R0.1-SNAPSHOT")
-    implementation("dev.plex:server:1.1")
-    implementation("dev.plex:api:1.1")
+    implementation("dev.plex:server:1.2-SNAPSHOT")
+    implementation("dev.plex:api:1.2-SNAPSHOT")
     implementation("org.json:json:20220320")
     implementation("org.reflections:reflections:0.10.2")
     implementation("org.eclipse.jetty:jetty-server:11.0.9")

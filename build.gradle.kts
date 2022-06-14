@@ -30,7 +30,7 @@ repositories {
 dependencies {
     implementation("org.projectlombok:lombok:1.18.24")
     annotationProcessor("org.projectlombok:lombok:1.18.24")
-    implementation("io.papermc.paper:paper-api:1.18.2-R0.1-SNAPSHOT")
+    implementation("io.papermc.paper:paper-api:1.19-R0.1-SNAPSHOT")
     implementation("dev.plex:server:1.2-SNAPSHOT")
     implementation("dev.plex:api:1.2-SNAPSHOT")
     implementation("org.json:json:20220320")

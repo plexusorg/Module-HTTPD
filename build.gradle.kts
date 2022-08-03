@@ -30,14 +30,13 @@ repositories {
 dependencies {
     implementation("org.projectlombok:lombok:1.18.24")
     annotationProcessor("org.projectlombok:lombok:1.18.24")
-    implementation("io.papermc.paper:paper-api:1.19-R0.1-SNAPSHOT")
+    implementation("io.papermc.paper:paper-api:1.19.1-R0.1-SNAPSHOT")
     implementation("dev.plex:server:1.2-SNAPSHOT")
-    implementation("dev.plex:api:1.2-SNAPSHOT")
     implementation("org.json:json:20220320")
     implementation("org.reflections:reflections:0.10.2")
-    implementation("org.eclipse.jetty:jetty-server:11.0.9")
-    implementation("org.eclipse.jetty:jetty-servlet:11.0.9")
-    implementation("org.eclipse.jetty:jetty-proxy:11.0.9")
+    implementation("org.eclipse.jetty:jetty-server:11.0.11")
+    implementation("org.eclipse.jetty:jetty-servlet:11.0.11")
+    implementation("org.eclipse.jetty:jetty-proxy:11.0.11")
     implementation("com.github.MilkBowl:VaultAPI:1.7") {
         exclude("org.bukkit", "bukkit")
     }

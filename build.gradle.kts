@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "dev.plex"
-version = "1.2-SNAPSHOT"
+version = "1.3-SNAPSHOT"
 description = "Module-HTTPD"
 
 repositories {
@@ -30,14 +30,14 @@ repositories {
 dependencies {
     implementation("org.projectlombok:lombok:1.18.24")
     annotationProcessor("org.projectlombok:lombok:1.18.24")
-    implementation("io.papermc.paper:paper-api:1.19.1-R0.1-SNAPSHOT")
-    implementation("dev.plex:server:1.2-SNAPSHOT")
-    implementation("org.json:json:20220320")
+    implementation("io.papermc.paper:paper-api:1.19.2-R0.1-SNAPSHOT")
+    implementation("dev.plex:server:1.3-SNAPSHOT")
+    implementation("org.json:json:20220924")
     implementation("org.reflections:reflections:0.10.2")
-    implementation("org.eclipse.jetty:jetty-server:11.0.11")
-    implementation("org.eclipse.jetty:jetty-servlet:11.0.11")
-    implementation("org.eclipse.jetty:jetty-proxy:11.0.11")
-    implementation("com.github.MilkBowl:VaultAPI:1.7") {
+    implementation("org.eclipse.jetty:jetty-server:11.0.12")
+    implementation("org.eclipse.jetty:jetty-servlet:11.0.12")
+    implementation("org.eclipse.jetty:jetty-proxy:11.0.12")
+    implementation("com.github.MilkBowl:VaultAPI:1.7.1") {
         exclude("org.bukkit", "bukkit")
     }
 }

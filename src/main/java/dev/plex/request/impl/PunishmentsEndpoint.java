@@ -9,9 +9,8 @@ import dev.plex.rank.enums.Rank;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
 import dev.plex.util.PlexLog;
-import dev.plex.util.adapter.ZonedDateTimeSerializer;
+import dev.plex.util.adapter.ZonedDateTimeAdapter;
 import jakarta.servlet.http.HttpServletRequest;
-import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.UUID;
 
@@ -59,7 +58,7 @@ public class PunishmentsEndpoint extends AbstractServlet
         if (player == null)
         {
             // If the player is null, give it to them without the IPs
-            return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeSerializer()).setPrettyPrinting().create().toJson(punishedPlayer.getPunishments().stream().peek(punishment -> punishment.setIp("")).toList());
+            return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeAdapter()).setPrettyPrinting().create().toJson(punishedPlayer.getPunishments().stream().peek(punishment -> punishment.setIp("")).toList());
         }
         if (Plex.get().getSystem().equalsIgnoreCase("ranks"))
         {
@@ -67,7 +66,7 @@ public class PunishmentsEndpoint extends AbstractServlet
             if (!player.getRankFromString().isAtLeast(Rank.ADMIN))
             {
                 // Don't return IPs either if the person is not an Admin or above.
-                return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeSerializer()).setPrettyPrinting().create().toJson(punishedPlayer.getPunishments().stream().peek(punishment -> punishment.setIp("")).toList());
+                return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeAdapter()).setPrettyPrinting().create().toJson(punishedPlayer.getPunishments().stream().peek(punishment -> punishment.setIp("")).toList());
             }
         }
         else if (Plex.get().getSystem().equalsIgnoreCase("permissions"))
@@ -77,12 +76,12 @@ public class PunishmentsEndpoint extends AbstractServlet
             if (!HTTPDModule.getPermissions().playerHas(null, offlinePlayer, "plex.httpd.punishments.access"))
             {
                 // If the person doesn't have permission, don't return IPs
-                return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeSerializer()).setPrettyPrinting().create().toJson(punishedPlayer.getPunishments().stream().peek(punishment -> punishment.setIp("")).toList());
+                return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeAdapter()).setPrettyPrinting().create().toJson(punishedPlayer.getPunishments().stream().peek(punishment -> punishment.setIp("")).toList());
             }
         }
 
         response.setHeader("content-type", "application/json");
-        return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeSerializer()).setPrettyPrinting().create().toJson(punishedPlayer.getPunishments().stream().toList());
+        return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeAdapter()).setPrettyPrinting().create().toJson(punishedPlayer.getPunishments().stream().toList());
     }
 
     private String punishmentsHTML(String message)

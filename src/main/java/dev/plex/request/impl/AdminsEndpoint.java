@@ -11,7 +11,7 @@ import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
 import dev.plex.request.MappingHeaders;
 import dev.plex.util.PlexLog;
-import dev.plex.util.adapter.ZonedDateTimeSerializer;
+import dev.plex.util.adapter.ZonedDateTimeAdapter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.ZonedDateTime;
@@ -23,7 +23,7 @@ public class AdminsEndpoint extends AbstractServlet
 {
     private static final Gson GSON =
             new GsonBuilder()
-                    .registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeSerializer())
+                    .registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeAdapter())
                     .setPrettyPrinting()
                     .create();
 

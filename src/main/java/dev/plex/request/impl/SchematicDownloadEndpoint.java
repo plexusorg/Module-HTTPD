@@ -6,6 +6,7 @@ import dev.plex.request.GetMapping;
 import dev.plex.util.PlexLog;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -15,6 +16,8 @@ import java.util.List;
 
 public class SchematicDownloadEndpoint extends AbstractServlet
 {
+    List<File> files = new ArrayList<>();
+
     @GetMapping(endpoint = "/api/schematics/download/")
     public String downloadSchematic(HttpServletRequest request, HttpServletResponse response)
     {
@@ -86,10 +89,9 @@ public class SchematicDownloadEndpoint extends AbstractServlet
                     "    </tr>\n");
         }
         file = file.replace("${schematics}", sb.toString());
+        files.clear();
         return file;
     }
-
-    List<File> files = new ArrayList<>();
 
     public List<File> listFilesForFolder(final File folder)
     {
@@ -105,7 +107,6 @@ public class SchematicDownloadEndpoint extends AbstractServlet
                 files.add(fileEntry);
             }
         }
-        PlexLog.debug(files.toString());
         return files;
     }
 }

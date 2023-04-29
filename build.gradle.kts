@@ -34,9 +34,9 @@ dependencies {
     implementation("dev.plex:server:1.3-SNAPSHOT")
     implementation("org.json:json:20230227")
     implementation("org.reflections:reflections:0.10.2")
-    implementation("org.eclipse.jetty:jetty-server:11.0.14")
-    implementation("org.eclipse.jetty:jetty-servlet:11.0.14")
-    implementation("org.eclipse.jetty:jetty-proxy:11.0.14")
+    implementation("org.eclipse.jetty:jetty-server:11.0.15")
+    implementation("org.eclipse.jetty:jetty-servlet:11.0.15")
+    implementation("org.eclipse.jetty:jetty-proxy:11.0.15")
     implementation("com.github.MilkBowl:VaultAPI:1.7.1") {
         exclude("org.bukkit", "bukkit")
     }

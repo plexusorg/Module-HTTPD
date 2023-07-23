@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "dev.plex"
-version = "1.3-SNAPSHOT"
+version = "1.3"
 description = "Module-HTTPD"
 
 repositories {
@@ -28,11 +28,11 @@ repositories {
 }
 
 dependencies {
-    implementation("org.projectlombok:lombok:1.18.26")
-    annotationProcessor("org.projectlombok:lombok:1.18.26")
-    implementation("io.papermc.paper:paper-api:1.19.4-R0.1-SNAPSHOT")
-    implementation("dev.plex:server:1.3-SNAPSHOT")
-    implementation("org.json:json:20230227")
+    implementation("org.projectlombok:lombok:1.18.28")
+    annotationProcessor("org.projectlombok:lombok:1.18.28")
+    implementation("io.papermc.paper:paper-api:1.20.1-R0.1-SNAPSHOT")
+    implementation("dev.plex:server:1.3")
+    implementation("org.json:json:20230618")
     implementation("org.reflections:reflections:0.10.2")
     implementation("org.eclipse.jetty:jetty-server:11.0.15")
     implementation("org.eclipse.jetty:jetty-servlet:11.0.15")

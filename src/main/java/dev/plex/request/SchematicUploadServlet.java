@@ -1,10 +1,8 @@
 package dev.plex.request;
 
 import dev.plex.HTTPDModule;
-import dev.plex.Plex;
 import dev.plex.cache.DataUtils;
 import dev.plex.player.PlexPlayer;
-import dev.plex.rank.enums.Rank;
 import dev.plex.util.PlexLog;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
@@ -39,24 +37,12 @@ public class SchematicUploadServlet extends HttpServlet
             response.getWriter().println(schematicUploadBadHTML("Couldn't load your IP Address: " + request.getRemoteAddr() + ". Have you joined the server before?"));
             return;
         }
-        if (Plex.get().getSystem().equalsIgnoreCase("ranks"))
+        PlexLog.debug("Plex-HTTPD using permissions check");
+        final OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(plexPlayer.getUuid());
+        if (!HTTPDModule.getPermissions().playerHas(null, offlinePlayer, "plex.httpd.schematics.upload"))
         {
-            PlexLog.debug("Plex-HTTPD using ranks check");
-            if (!plexPlayer.getRankFromString().isAtLeast(Rank.ADMIN))
-            {
-                response.getWriter().println(schematicUploadBadHTML("You must be an admin or above to upload schematics."));
-                return;
-            }
-        }
-        else if (Plex.get().getSystem().equalsIgnoreCase("permissions"))
-        {
-            PlexLog.debug("Plex-HTTPD using permissions check");
-            final OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(plexPlayer.getUuid());
-            if (!HTTPDModule.getPermissions().playerHas(null, offlinePlayer, "plex.httpd.schematics.upload"))
-            {
-                response.getWriter().println(schematicUploadBadHTML("You do not have permission to upload schematics."));
-                return;
-            }
+            response.getWriter().println(schematicUploadBadHTML("You do not have permission to upload schematics."));
+            return;
         }
         File worldeditFolder = HTTPDModule.getWorldeditFolder();
         if (worldeditFolder == null)

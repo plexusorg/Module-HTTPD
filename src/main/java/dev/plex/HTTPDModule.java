@@ -5,7 +5,6 @@ import dev.plex.config.ModuleConfig;
 import dev.plex.module.PlexModule;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.SchematicUploadServlet;
-import dev.plex.request.impl.AdminsEndpoint;
 import dev.plex.request.impl.IndefBansEndpoint;
 import dev.plex.request.impl.IndexEndpoint;
 import dev.plex.request.impl.ListEndpoint;
@@ -57,7 +56,7 @@ public class HTTPDModule extends PlexModule
     {
         moduleConfig.load();
         PlexLog.debug("HTTPD Module Port: {0}", moduleConfig.getInt("server.port"));
-        if ((!Bukkit.getPluginManager().isPluginEnabled("Vault") || !setupPermissions()) && getPlex().getSystem().equalsIgnoreCase("permissions"))
+        if ((!Bukkit.getPluginManager().isPluginEnabled("Vault") || !setupPermissions()))
         {
             throw new RuntimeException("Plex-HTTPD requires the 'Vault' plugin as well as a Permissions plugin that hooks into 'Vault'. We recommend LuckPerms!");
         }
@@ -74,7 +73,6 @@ public class HTTPDModule extends PlexModule
             connector.setHost(moduleConfig.getString("server.bind-address"));
             connector.setPort(moduleConfig.getInt("server.port"));
 
-            new AdminsEndpoint();
             new IndefBansEndpoint();
             new IndexEndpoint();
             new ListEndpoint();

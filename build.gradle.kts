@@ -44,7 +44,7 @@ dependencies {
 
 tasks.getByName<Jar>("jar") {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    archiveBaseName.set("Plex-HTTPD")
+    archiveBaseName.set("Module-HTTPD")
     archiveVersion.set("")
     from("src/main/resources") {
         exclude("dev/**")

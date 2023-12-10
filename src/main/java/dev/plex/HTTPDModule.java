@@ -5,6 +5,7 @@ import dev.plex.config.ModuleConfig;
 import dev.plex.module.PlexModule;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.SchematicUploadServlet;
+import dev.plex.request.impl.CommandsEndpoint;
 import dev.plex.request.impl.IndefBansEndpoint;
 import dev.plex.request.impl.IndexEndpoint;
 import dev.plex.request.impl.ListEndpoint;
@@ -77,6 +78,7 @@ public class HTTPDModule extends PlexModule
             new IndexEndpoint();
             new ListEndpoint();
             new PunishmentsEndpoint();
+            new CommandsEndpoint();
             new SchematicDownloadEndpoint();
             new SchematicUploadEndpoint();
 

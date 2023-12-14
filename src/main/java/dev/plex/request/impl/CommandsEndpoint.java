@@ -22,7 +22,7 @@ public class CommandsEndpoint extends AbstractServlet
     private final StringBuilder list = new StringBuilder();
     private boolean loadedCommands = false;
 
-    @GetMapping(endpoint = "/commands/")
+    @GetMapping(endpoint = "/api/commands/")
     public String getCommands(HttpServletRequest request, HttpServletResponse response)
     {
         if (!loadedCommands)

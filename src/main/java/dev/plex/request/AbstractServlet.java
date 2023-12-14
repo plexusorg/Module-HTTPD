@@ -98,6 +98,7 @@ public class AbstractServlet extends HttpServlet
         base = base.replace("${ACTIVE_ADMINS}", "");
         base = base.replace("${ACTIVE_INDEFBANS}", "");
         base = base.replace("${ACTIVE_LIST}", "");
+        base = base.replace("${ACTIVE_COMMANDS}", "");
         base = base.replace("${ACTIVE_PUNISHMENTS}", "");
         base = base.replace("${ACTIVE_SCHEMATICS}", "");
         base = base.replace("${CONTENT}", info[2]);

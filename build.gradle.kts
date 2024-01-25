@@ -30,16 +30,19 @@ repositories {
 dependencies {
     implementation("org.projectlombok:lombok:1.18.30")
     annotationProcessor("org.projectlombok:lombok:1.18.30")
-    implementation("io.papermc.paper:paper-api:1.20.2-R0.1-SNAPSHOT")
+    implementation("io.papermc.paper:paper-api:1.20.4-R0.1-SNAPSHOT")
     implementation("dev.plex:server:1.4-SNAPSHOT")
     implementation("org.json:json:20231013")
     implementation("org.reflections:reflections:0.10.2")
-    implementation("org.eclipse.jetty:jetty-server:11.0.18")
-    implementation("org.eclipse.jetty:jetty-servlet:11.0.18")
-    implementation("org.eclipse.jetty:jetty-proxy:11.0.18")
+    implementation("org.eclipse.jetty:jetty-server:11.0.19")
+    implementation("org.eclipse.jetty:jetty-servlet:11.0.19")
+    implementation("org.eclipse.jetty:jetty-proxy:11.0.19")
     implementation("com.github.MilkBowl:VaultAPI:1.7.1") {
         exclude("org.bukkit", "bukkit")
     }
+    implementation(platform("com.intellectualsites.bom:bom-newest:1.40")) // Ref: https://github.com/IntellectualSites/bom
+    compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Core")
+    implementation("commons-io:commons-io:2.15.1")
 }
 
 tasks.getByName<Jar>("jar") {

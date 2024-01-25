@@ -1,5 +1,7 @@
 package dev.plex.request;
 
+import com.sk89q.worldedit.extent.clipboard.io.ClipboardFormat;
+import com.sk89q.worldedit.extent.clipboard.io.ClipboardFormats;
 import dev.plex.HTTPDModule;
 import dev.plex.cache.DataUtils;
 import dev.plex.player.PlexPlayer;
@@ -9,15 +11,16 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.Part;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
-import java.util.Arrays;
-import java.util.regex.Pattern;
+import org.apache.commons.io.FileUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Arrays;
+import java.util.regex.Pattern;
 
 public class SchematicUploadServlet extends HttpServlet
 {
@@ -74,9 +77,31 @@ public class SchematicUploadServlet extends HttpServlet
             return;
         }
         InputStream inputStream = uploadPart.getInputStream();
-        Files.copy(inputStream, new File(worldeditFolder, filename).toPath(), StandardCopyOption.REPLACE_EXISTING);
+        File schematicFile = new File(worldeditFolder, filename);
+        FileUtils.copyInputStreamToFile(inputStream, schematicFile);
+        ClipboardFormat schematicFormat = ClipboardFormats.findByFile(schematicFile);
+        if (schematicFormat == null)
+        {
+            PlexLog.log("IP Address: " + request.getRemoteAddr() + " FAILED to upload schematic with filename: " + filename);
+            response.getWriter().println(schematicUploadBadHTML("Schematic is not a valid format."));
+            FileUtils.deleteQuietly(schematicFile);
+            return;
+        }
+        try
+        {
+            schematicFormat.getReader(new FileInputStream(schematicFile));
+        }
+        catch (IOException e)
+        {
+            PlexLog.log("IP Address: " + request.getRemoteAddr() + " FAILED to upload schematic with filename: " + filename);
+            response.getWriter().println(schematicUploadBadHTML("Schematic is not a valid format."));
+            FileUtils.deleteQuietly(schematicFile);
+            return;
+        }
+        // Files.copy(inputStream, schematic.toPath(), StandardCopyOption.REPLACE_EXISTING);
         inputStream.close();
-        response.getWriter().println(schematicUploadGoodHTML("Successfully uploaded <b>" + filename + "."));
+        response.getWriter().println(schematicUploadGoodHTML("Successfully uploaded <b>" + filename + "</b>."));
+        PlexLog.log("IP Address: " + request.getRemoteAddr() + " uploaded schematic with filename: " + filename);
     }
 
     private String schematicUploadBadHTML(String message)

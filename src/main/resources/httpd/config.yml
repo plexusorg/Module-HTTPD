@@ -2,3 +2,14 @@ server:
   bind-address: 0.0.0.0
   port: 27192
   logging: false
+
+authentication:
+  enabled: false
+
+  # Providers: discord
+  provider:
+    name: discord
+    redirectUri: ""
+    discord: # Fill if using discord provider
+      clientId: ""
+      token: "" # Can also use environment variable or system property BOT_TOKEN

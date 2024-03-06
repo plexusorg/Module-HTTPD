@@ -1,34 +1,25 @@
 package dev.plex;
 
+import dev.plex.authentication.AuthenticationManager;
 import dev.plex.cache.FileCache;
 import dev.plex.config.ModuleConfig;
 import dev.plex.module.PlexModule;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.SchematicUploadServlet;
-import dev.plex.request.impl.CommandsEndpoint;
-import dev.plex.request.impl.IndefBansEndpoint;
-import dev.plex.request.impl.IndexEndpoint;
-import dev.plex.request.impl.ListEndpoint;
-import dev.plex.request.impl.PunishmentsEndpoint;
-import dev.plex.request.impl.SchematicDownloadEndpoint;
-import dev.plex.request.impl.SchematicUploadEndpoint;
+import dev.plex.request.impl.*;
 import dev.plex.util.PlexLog;
 import jakarta.servlet.MultipartConfigElement;
-import java.io.File;
-import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
 import net.milkbowl.vault.permission.Permission;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.RegisteredServiceProvider;
-import org.eclipse.jetty.server.Connector;
-import org.eclipse.jetty.server.ForwardedRequestCustomizer;
-import org.eclipse.jetty.server.HttpConfiguration;
-import org.eclipse.jetty.server.HttpConnectionFactory;
-import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.ServerConnector;
+import org.eclipse.jetty.server.*;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
+
+import java.io.File;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class HTTPDModule extends PlexModule
 {
@@ -44,6 +35,8 @@ public class HTTPDModule extends PlexModule
     public static final FileCache fileCache = new FileCache();
 
     public static final String template = AbstractServlet.readFileReal(HTTPDModule.class.getResourceAsStream("/httpd/template.html"));
+
+    private AuthenticationManager authenticationManager;
 
     @Override
     public void load()
@@ -61,6 +54,18 @@ public class HTTPDModule extends PlexModule
         {
             throw new RuntimeException("Plex-HTTPD requires the 'Vault' plugin as well as a Permissions plugin that hooks into 'Vault'. We recommend LuckPerms!");
         }
+
+        this.authenticationManager = new AuthenticationManager();
+        if (this.authenticationManager.provider() != null)
+        {
+            PlexLog.debug(this.authenticationManager.provider().generateLogin());
+        }
+        else
+        {
+            PlexLog.debug("Provider was not found for Authentication so disabled");
+        }
+
+
         serverThread = new Thread(() ->
         {
             Server server = new Server();

@@ -5,10 +5,6 @@ import dev.plex.authentication.impl.DiscordOAuth2Provider;
 import dev.plex.util.PlexLog;
 import org.apache.commons.lang3.NotImplementedException;
 
-/**
- * @author Taah
- * @since 7:08 PM [03-05-2024]
- */
 public class AuthenticationManager
 {
     private final OAuth2Provider provider;

@@ -6,12 +6,6 @@ import lombok.experimental.Accessors;
 
 import java.time.ZonedDateTime;
 import java.util.LinkedList;
-import java.util.List;
-
-/**
- * @author Taah
- * @since 6:37 PM [03-05-2024]
- */
 
 @Data
 @Accessors(fluent = true)

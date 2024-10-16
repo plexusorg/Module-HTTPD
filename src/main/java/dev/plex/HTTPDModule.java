@@ -13,10 +13,10 @@ import lombok.Getter;
 import net.milkbowl.vault.permission.Permission;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.RegisteredServiceProvider;
+import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
+import org.eclipse.jetty.ee10.servlet.ServletHandler;
+import org.eclipse.jetty.ee10.servlet.ServletHolder;
 import org.eclipse.jetty.server.*;
-import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
 
 import java.io.File;
 import java.util.concurrent.atomic.AtomicReference;
@@ -71,7 +71,9 @@ public class HTTPDModule extends PlexModule
             Server server = new Server();
             ServletHandler servletHandler = new ServletHandler();
 
-            context = new ServletContextHandler(servletHandler, "/", ServletContextHandler.SESSIONS);
+            context = new ServletContextHandler(ServletContextHandler.SESSIONS);
+            context.setHandler(servletHandler);
+            context.setContextPath("/");
             HttpConfiguration configuration = new HttpConfiguration();
             configuration.addCustomizer(new ForwardedRequestCustomizer());
             HttpConnectionFactory factory = new HttpConnectionFactory(configuration);

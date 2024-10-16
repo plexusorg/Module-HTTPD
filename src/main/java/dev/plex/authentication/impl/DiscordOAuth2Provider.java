@@ -13,10 +13,6 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 
-/**
- * @author Taah
- * @since 6:41 PM [03-05-2024]
- */
 public class DiscordOAuth2Provider implements OAuth2Provider
 {
     private final HashMap<String, AuthenticatedUser> sessions = Maps.newHashMap();

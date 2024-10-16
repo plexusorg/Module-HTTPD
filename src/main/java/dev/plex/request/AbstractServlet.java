@@ -18,7 +18,7 @@ import java.text.StringCharacterIterator;
 import java.util.List;
 import java.util.Objects;
 import lombok.Data;
-import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.ee10.servlet.ServletHolder;
 
 public class AbstractServlet extends HttpServlet
 {

@@ -1,4 +1,4 @@
 name: Module-HTTPD
-version: 1.5-SNAPSHOT
+version: 1.5
 description: HTTPD server for Plex
 main: dev.plex.HTTPDModule

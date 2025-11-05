@@ -134,7 +134,9 @@ public class HTTPDModule extends PlexModule
     private boolean setupPermissions()
     {
         RegisteredServiceProvider<Permission> rsp = Bukkit.getServicesManager().getRegistration(Permission.class);
-        permissions = rsp.getProvider();
+        if (rsp != null) {
+            permissions = rsp.getProvider();
+        }
         return permissions != null;
     }
 

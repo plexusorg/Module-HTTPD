@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "dev.plex"
-version = "1.5"
+version = "1.6"
 description = "Module-HTTPD"
 
 repositories {
@@ -30,21 +30,21 @@ repositories {
 }
 
 dependencies {
-    implementation("org.projectlombok:lombok:1.18.38")
-    annotationProcessor("org.projectlombok:lombok:1.18.38")
-    implementation("io.papermc.paper:paper-api:1.21.7-R0.1-SNAPSHOT")
-    implementation("dev.plex:server:1.5")
+    implementation("org.projectlombok:lombok:1.18.42")
+    annotationProcessor("org.projectlombok:lombok:1.18.42")
+    implementation("io.papermc.paper:paper-api:1.21.10-R0.1-SNAPSHOT")
+    implementation("dev.plex:server:1.6")
     implementation("org.json:json:20250517")
     implementation("org.reflections:reflections:0.10.2")
-    implementation("org.eclipse.jetty:jetty-server:12.0.14")
-    implementation("org.eclipse.jetty.ee10:jetty-ee10-servlet:12.0.14")
-    implementation("org.eclipse.jetty:jetty-proxy:12.0.14")
+    implementation("org.eclipse.jetty:jetty-server:12.1.3")
+    implementation("org.eclipse.jetty.ee10:jetty-ee10-servlet:12.1.3")
+    implementation("org.eclipse.jetty:jetty-proxy:12.1.3")
     implementation("com.github.MilkBowl:VaultAPI:1.7.1") {
         exclude("org.bukkit", "bukkit")
     }
-    implementation(platform("com.intellectualsites.bom:bom-newest:1.52")) // Ref: https://github.com/IntellectualSites/bom
+    implementation(platform("com.intellectualsites.bom:bom-newest:1.55")) // Ref: https://github.com/IntellectualSites/bom
     compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Core")
-    implementation("commons-io:commons-io:2.19.0")
+    implementation("commons-io:commons-io:2.20.0")
 }
 
 tasks.getByName<Jar>("jar") {

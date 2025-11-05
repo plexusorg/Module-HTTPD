@@ -1,6 +1,8 @@
 package dev.plex.logging;
 
 import dev.plex.HTTPDModule;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 
@@ -18,7 +20,7 @@ public class Log
 
         if (HTTPDModule.moduleConfig.getBoolean("server.logging"))
         {
-            Bukkit.getConsoleSender().sendMessage(String.format(ChatColor.DARK_AQUA + "[Plex HTTPD] " + ChatColor.GRAY + "%s", message));
+            Bukkit.getConsoleSender().sendMessage(Component.text("[Plex HTTPD] ").color(NamedTextColor.DARK_AQUA).append(Component.text(message).color(NamedTextColor.GRAY)));
         }
     }
 }

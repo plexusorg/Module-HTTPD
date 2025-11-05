@@ -83,10 +83,9 @@ public class SchematicDownloadEndpoint extends AbstractServlet
             String fixedPath = worldeditFile.getPath().replace("plugins/FastAsyncWorldEdit/schematics/", "");
             fixedPath = fixedPath.replace("plugins/WorldEdit/schematics/", "");
             String sanitizedName = fixedPath.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-            sb.append("    <tr>\n" +
-                    "        <th scope=\"row\">\n            <a href=\"" + fixedPath + "\" download>" + sanitizedName + "</a>\n        </th>\n" +
-                    "        <td>\n            " + formattedSize(worldeditFile.length()) + "\n        </td>\n" +
-                    "    </tr>\n");
+            sb.append("    <tr>\n" + "        <th scope=\"row\">\n            <a href=\"").append(fixedPath).append("\" download>")
+                .append(sanitizedName).append("</a>\n        </th>\n").append("        <td>\n            ")
+                .append(formattedSize(worldeditFile.length())).append("\n        </td>\n").append("    </tr>\n");
         }
         file = file.replace("${schematics}", sb.toString());
         files.clear();

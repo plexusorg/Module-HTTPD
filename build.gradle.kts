@@ -2,6 +2,7 @@ plugins {
     java
     `maven-publish`
     idea
+    id("dev.plex.module") version "1.0"
 }
 
 group = "dev.plex"
@@ -36,9 +37,9 @@ dependencies {
     implementation("dev.plex:server:1.6")
     implementation("org.json:json:20251224")
     implementation("org.reflections:reflections:0.10.2")
-    implementation("org.eclipse.jetty:jetty-server:12.1.9")
-    implementation("org.eclipse.jetty.ee10:jetty-ee10-servlet:12.1.9")
-    implementation("org.eclipse.jetty:jetty-proxy:12.1.9")
+    plexLibrary("org.eclipse.jetty:jetty-server:12.1.9")
+    plexLibrary("org.eclipse.jetty.ee10:jetty-ee10-servlet:12.1.9")
+    plexLibrary("org.eclipse.jetty:jetty-proxy:12.1.9")
     implementation("com.github.MilkBowl:VaultAPI:1.7.1") {
         exclude("org.bukkit", "bukkit")
     }

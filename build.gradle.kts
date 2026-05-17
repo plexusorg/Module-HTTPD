@@ -20,13 +20,6 @@ repositories {
         url = uri("https://nexus.telesphoreo.me/repository/plex/")
     }
 
-    maven {
-        url = uri("https://jitpack.io")
-        content {
-            includeGroup("com.github.MilkBowl")
-        }
-    }
-
     maven { url = uri("https://maven.enginehub.org/repo/") }
 }
 
@@ -40,9 +33,6 @@ dependencies {
     plexLibrary("org.eclipse.jetty:jetty-server:12.1.9")
     plexLibrary("org.eclipse.jetty.ee10:jetty-ee10-servlet:12.1.9")
     plexLibrary("org.eclipse.jetty:jetty-proxy:12.1.9")
-    implementation("com.github.MilkBowl:VaultAPI:1.7.1") {
-        exclude("org.bukkit", "bukkit")
-    }
     implementation(platform("com.intellectualsites.bom:bom-newest:1.56")) // Ref: https://github.com/IntellectualSites/bom
     compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Core")
     implementation("commons-io:commons-io:2.22.0")

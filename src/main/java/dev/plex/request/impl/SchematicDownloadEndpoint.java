@@ -1,6 +1,8 @@
 package dev.plex.request.impl;
 
 import dev.plex.HTTPDModule;
+import dev.plex.authentication.AuthenticatedUser;
+import dev.plex.logging.Log;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
 import dev.plex.util.PlexLog;
@@ -36,12 +38,12 @@ public class SchematicDownloadEndpoint extends AbstractServlet
             {
                 return null;
             }
-            schematicServe(request.getPathInfo().replace("/", ""), outputStream);
+            schematicServe(request, request.getPathInfo().replace("/", ""), outputStream);
             return null;
         }
     }
 
-    private void schematicServe(String requestedSchematic, OutputStream outputStream)
+    private void schematicServe(HttpServletRequest request, String requestedSchematic, OutputStream outputStream)
     {
         File worldeditFolder = HTTPDModule.getWorldeditFolder();
         if (worldeditFolder == null)
@@ -60,6 +62,7 @@ public class SchematicDownloadEndpoint extends AbstractServlet
                     if (schemData != null)
                     {
                         outputStream.write(schemData);
+                        logDownload(request, schemFile);
                     }
                 }
                 catch (IOException ignored)
@@ -67,6 +70,14 @@ public class SchematicDownloadEndpoint extends AbstractServlet
                 }
             }
         }
+    }
+
+    private static void logDownload(HttpServletRequest request, File schemFile)
+    {
+        AuthenticatedUser user = currentUser(request);
+        String who = user != null ? user.username() + " (xf:" + user.userId() + ")" : request.getRemoteAddr();
+        PlexLog.log("{0} downloaded schematic {1}", who, schemFile.getName());
+        Log.log("{0} downloaded schematic {1}", who, schemFile.getName());
     }
 
     private String schematicHTML()

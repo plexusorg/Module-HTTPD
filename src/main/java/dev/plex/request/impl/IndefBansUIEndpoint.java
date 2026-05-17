@@ -1,9 +1,7 @@
 package dev.plex.request.impl;
 
-import dev.plex.HTTPDModule;
 import dev.plex.Plex;
-import dev.plex.cache.DataUtils;
-import dev.plex.player.PlexPlayer;
+import dev.plex.authentication.AuthenticatedUser;
 import dev.plex.punishment.PunishmentManager.IndefiniteBan;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
@@ -13,28 +11,15 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.UUID;
 
-import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
-
 public class IndefBansUIEndpoint extends AbstractServlet
 {
     @GetMapping(endpoint = "/indefbans/")
     public String getBans(HttpServletRequest request, HttpServletResponse response)
     {
-        String ipAddress = request.getRemoteAddr();
-        if (ipAddress == null)
-        {
-            return errorHTML("Cannot detect an IP address on this request.");
-        }
-        PlexPlayer viewer = DataUtils.getPlayerByIP(ipAddress);
+        AuthenticatedUser viewer = currentStaff(request);
         if (viewer == null)
         {
-            return errorHTML("This IP (" + escapeHtml(ipAddress) + ") is not linked to a known player.");
-        }
-        OfflinePlayer offline = Bukkit.getOfflinePlayer(viewer.getUuid());
-        if (!HTTPDModule.getPermissions().playerHas(null, offline, "plex.httpd.indefbans.access"))
-        {
-            return errorHTML("Your account does not have <span class=\"font-mono text-foreground\">plex.httpd.indefbans.access</span>.");
+            return errorHTML(signInPrompt("to view this page"));
         }
 
         List<IndefiniteBan> bans = Plex.get().getPunishmentManager().getIndefiniteBans();
@@ -72,59 +57,50 @@ public class IndefBansUIEndpoint extends AbstractServlet
 
     private static String renderCard(IndefiniteBan ban)
     {
-        StringBuilder chips = new StringBuilder();
-        for (String name : ban.getUsernames())
-        {
-            chips.append(chip("user", escapeHtml(name)));
-        }
-        for (UUID id : ban.getUuids())
-        {
-            chips.append(chip("uuid", id.toString()));
-        }
-        for (String ip : ban.getIps())
-        {
-            chips.append(chip("ip", escapeHtml(ip)));
-        }
         String reason = (ban.getReason() == null || ban.getReason().isBlank())
             ? "<span class=\"italic text-muted-foreground/70\">No reason provided</span>"
             : escapeHtml(ban.getReason());
 
         int total = ban.getUsernames().size() + ban.getUuids().size() + ban.getIps().size();
+
+        StringBuilder rows = new StringBuilder();
+        if (!ban.getUsernames().isEmpty())
+        {
+            rows.append(renderRow("users", "text-foreground/90 break-all", ban.getUsernames().stream().map(IndefBansUIEndpoint::escapeHtml).toList()));
+        }
+        if (!ban.getUuids().isEmpty())
+        {
+            rows.append(renderRow("uuids", "text-foreground/55 break-all", ban.getUuids().stream().map(UUID::toString).toList()));
+        }
+        if (!ban.getIps().isEmpty())
+        {
+            rows.append(renderRow("ips", "text-warning break-all", ban.getIps().stream().map(IndefBansUIEndpoint::escapeHtml).toList()));
+        }
+
         return """
             <article class="ring-card rounded-2xl bg-card p-5">
                 <header class="flex flex-wrap items-baseline justify-between gap-3">
                     <p class="text-sm">%s</p>
                     <span class="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">%d %s</span>
                 </header>
-                <div class="mt-4 flex flex-wrap gap-1.5">
+                <dl class="mt-4 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 border-t border-border/60 pt-3 font-mono text-[11px]">
                     %s
-                </div>
+                </dl>
             </article>
-            """.formatted(reason, total, total == 1 ? "entry" : "entries", chips);
+            """.formatted(reason, total, total == 1 ? "entry" : "entries", rows);
     }
 
-    private static String chip(String kind, String value)
+    private static String renderRow(String label, String valueClasses, List<String> values)
     {
-        String color = switch (kind)
+        StringBuilder items = new StringBuilder();
+        for (String value : values)
         {
-            case "user" -> "bg-muted text-foreground";
-            case "uuid" -> "bg-primary/10 text-primary";
-            case "ip"   -> "bg-warning/10 text-warning";
-            default     -> "bg-muted text-foreground";
-        };
-        String label = switch (kind)
-        {
-            case "user" -> "user";
-            case "uuid" -> "uuid";
-            case "ip"   -> "ip";
-            default     -> "";
-        };
+            items.append("<span>").append(value).append("</span>");
+        }
         return """
-            <span class="inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 font-mono text-xs %s">
-                <span class="text-[9px] uppercase tracking-wider opacity-60">%s</span>
-                <span>%s</span>
-            </span>
-            """.formatted(color, label, value);
+            <dt class="text-muted-foreground uppercase tracking-wider">%s</dt>
+            <dd class="flex flex-wrap gap-x-3 gap-y-1 %s">%s</dd>
+            """.formatted(label, valueClasses, items);
     }
 
     private String errorHTML(String message)

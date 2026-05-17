@@ -1,6 +1,5 @@
 package dev.plex.request.impl;
 
-import dev.plex.HTTPDModule;
 import dev.plex.Plex;
 import dev.plex.cache.DataUtils;
 import dev.plex.player.PlexPlayer;
@@ -15,9 +14,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
-
-import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 
 public class PunishmentsUIEndpoint extends AbstractServlet
 {
@@ -50,7 +46,7 @@ public class PunishmentsUIEndpoint extends AbstractServlet
             return goodHTML(escapeHtml(punished.getName()) + " has no punishments on record.");
         }
 
-        boolean showIps = canViewIps(request.getRemoteAddr());
+        boolean showIps = currentStaff(request) != null;
         return resultsHTML(punished, punishments, showIps);
     }
 
@@ -64,15 +60,6 @@ public class PunishmentsUIEndpoint extends AbstractServlet
         {
             return DataUtils.getPlayer(query);
         }
-    }
-
-    private static boolean canViewIps(String requesterIp)
-    {
-        if (requesterIp == null) return false;
-        PlexPlayer viewer = DataUtils.getPlayerByIP(requesterIp);
-        if (viewer == null) return false;
-        OfflinePlayer offline = Bukkit.getOfflinePlayer(viewer.getUuid());
-        return HTTPDModule.getPermissions().playerHas(null, offline, "plex.httpd.punishments.access");
     }
 
     private String resultsHTML(PlexPlayer player, List<Punishment> punishments, boolean showIps)

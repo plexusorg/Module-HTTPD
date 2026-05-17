@@ -1,36 +1,20 @@
 package dev.plex.request.impl;
 
-import dev.plex.HTTPDModule;
-import dev.plex.cache.DataUtils;
-import dev.plex.player.PlexPlayer;
+import dev.plex.authentication.AuthenticatedUser;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
-import dev.plex.util.PlexLog;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 
 public class SchematicUploadEndpoint extends AbstractServlet
 {
     @GetMapping(endpoint = "/api/schematics/upload/")
     public String uploadSchematic(HttpServletRequest request, HttpServletResponse response)
     {
-        String ipAddress = request.getRemoteAddr();
-        if (ipAddress == null)
+        AuthenticatedUser user = currentStaff(request);
+        if (user == null)
         {
-            return schematicsHTML("An IP address could not be detected. Please ensure you are connecting using IPv4.");
-        }
-        final PlexPlayer player = DataUtils.getPlayerByIP(ipAddress);
-        if (player == null)
-        {
-            return schematicsHTML("Couldn't load your IP Address: " + ipAddress + ". Have you joined the server before?");
-        }
-        PlexLog.debug("Plex-HTTPD using permissions check");
-        final OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(player.getUuid());
-        if (!HTTPDModule.getPermissions().playerHas(null, offlinePlayer, "plex.httpd.schematics.upload"))
-        {
-            return schematicsHTML("You do not have permission to upload schematics.");
+            return schematicsHTML(signInPrompt("to upload schematics"));
         }
         return readFile(this.getClass().getResourceAsStream("/httpd/schematic_upload.html"));
     }

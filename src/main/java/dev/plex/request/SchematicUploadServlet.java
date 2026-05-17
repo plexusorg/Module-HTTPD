@@ -3,8 +3,8 @@ package dev.plex.request;
 import com.sk89q.worldedit.extent.clipboard.io.ClipboardFormat;
 import com.sk89q.worldedit.extent.clipboard.io.ClipboardFormats;
 import dev.plex.HTTPDModule;
-import dev.plex.cache.DataUtils;
-import dev.plex.player.PlexPlayer;
+import dev.plex.authentication.AuthenticatedUser;
+import dev.plex.logging.Log;
 import dev.plex.util.PlexLog;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
@@ -12,8 +12,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.Part;
 import org.apache.commons.io.FileUtils;
-import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -29,22 +27,10 @@ public class SchematicUploadServlet extends HttpServlet
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
     {
-        if (request.getRemoteAddr() == null)
+        AuthenticatedUser user = AbstractServlet.currentStaff(request);
+        if (user == null)
         {
-            response.getWriter().println(schematicUploadBadHTML("Your IP address could not be detected. Please ensure you are using IPv4."));
-            return;
-        }
-        PlexPlayer plexPlayer = DataUtils.getPlayerByIP(request.getRemoteAddr());
-        if (plexPlayer == null)
-        {
-            response.getWriter().println(schematicUploadBadHTML("Couldn't load your IP Address: " + request.getRemoteAddr() + ". Have you joined the server before?"));
-            return;
-        }
-        PlexLog.debug("Plex-HTTPD using permissions check");
-        final OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(plexPlayer.getUuid());
-        if (!HTTPDModule.getPermissions().playerHas(null, offlinePlayer, "plex.httpd.schematics.upload"))
-        {
-            response.getWriter().println(schematicUploadBadHTML("You do not have permission to upload schematics."));
+            response.getWriter().println(schematicUploadBadHTML(AbstractServlet.signInPrompt("to upload schematics")));
             return;
         }
         File worldeditFolder = HTTPDModule.getWorldeditFolder();
@@ -82,7 +68,8 @@ public class SchematicUploadServlet extends HttpServlet
         ClipboardFormat schematicFormat = ClipboardFormats.findByFile(schematicFile);
         if (schematicFormat == null)
         {
-            PlexLog.log("IP Address: " + request.getRemoteAddr() + " FAILED to upload schematic with filename: " + filename);
+            PlexLog.log(user.username() + " FAILED to upload schematic with filename: " + filename);
+            Log.log("{0} (xf:{1}) FAILED to upload schematic {2}", user.username(), user.userId(), filename);
             response.getWriter().println(schematicUploadBadHTML("Schematic is not a valid format."));
             FileUtils.deleteQuietly(schematicFile);
             return;
@@ -93,15 +80,16 @@ public class SchematicUploadServlet extends HttpServlet
         }
         catch (IOException e)
         {
-            PlexLog.log("IP Address: " + request.getRemoteAddr() + " FAILED to upload schematic with filename: " + filename);
+            PlexLog.log(user.username() + " FAILED to upload schematic with filename: " + filename);
+            Log.log("{0} (xf:{1}) FAILED to upload schematic {2}", user.username(), user.userId(), filename);
             response.getWriter().println(schematicUploadBadHTML("Schematic is not a valid format."));
             FileUtils.deleteQuietly(schematicFile);
             return;
         }
-        // Files.copy(inputStream, schematic.toPath(), StandardCopyOption.REPLACE_EXISTING);
         inputStream.close();
         response.getWriter().println(schematicUploadGoodHTML("Successfully uploaded <b>" + filename + "</b>."));
-        PlexLog.log("IP Address: " + request.getRemoteAddr() + " uploaded schematic with filename: " + filename);
+        PlexLog.log(user.username() + " uploaded schematic with filename: " + filename);
+        Log.log("{0} (xf:{1}) uploaded schematic {2}", user.username(), user.userId(), filename);
     }
 
     private String schematicUploadBadHTML(String message)

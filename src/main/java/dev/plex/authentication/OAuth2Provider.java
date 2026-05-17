@@ -1,17 +1,19 @@
 package dev.plex.authentication;
 
-import org.eclipse.jetty.server.Response;
-
-import java.util.HashMap;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 public interface OAuth2Provider
 {
-    HashMap<String, AuthenticatedUser> sessions();
+    String SESSION_COOKIE = "plex_session";
 
-    AuthenticatedUser login(Response response, UserType type);
+    String buildAuthorizeUrl(HttpServletRequest request);
 
-    String[] roles(AuthenticatedUser user);
+    AuthenticatedUser handleCallback(HttpServletRequest request, HttpServletResponse response) throws AuthenticationException;
 
-    String generateLogin();
+    AuthenticatedUser lookup(String sessionId);
 
+    AuthenticatedUser lookup(HttpServletRequest request);
+
+    void logout(String sessionId);
 }

@@ -2,6 +2,9 @@ package dev.plex.request;
 
 import com.google.common.collect.Lists;
 import dev.plex.HTTPDModule;
+import dev.plex.authentication.AuthenticatedUser;
+import dev.plex.authentication.AuthenticationManager;
+import dev.plex.authentication.OAuth2Provider;
 import dev.plex.logging.Log;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
@@ -131,6 +134,26 @@ public class AbstractServlet extends HttpServlet
             requestPath = requestPath.substring(contextPath.length());
         }
         return requestPath.isEmpty() ? "/" : requestPath;
+    }
+
+    public static AuthenticatedUser currentUser(HttpServletRequest request)
+    {
+        AuthenticationManager manager = HTTPDModule.getAuthenticationManager();
+        if (manager == null) return null;
+        OAuth2Provider provider = manager.provider();
+        if (provider == null) return null;
+        return provider.lookup(request);
+    }
+
+    public static AuthenticatedUser currentStaff(HttpServletRequest request)
+    {
+        AuthenticatedUser user = currentUser(request);
+        return (user != null && user.staff()) ? user : null;
+    }
+
+    public static String signInPrompt(String action)
+    {
+        return "You must <a class=\"text-primary underline\" href=\"/oauth2/login\">sign in</a> as staff " + action + ".";
     }
 
     public static String readFile(InputStream filename)

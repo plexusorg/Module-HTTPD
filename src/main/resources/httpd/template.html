@@ -324,7 +324,8 @@
                 </a>
             </nav>
 
-            <div class="hidden items-center gap-2 md:flex">
+            <div class="flex items-center gap-2">
+                <div id="plex-auth" class="hidden md:flex items-center gap-2"></div>
                 <button type="button" onclick="window.plexToggleTheme()" class="ring-card inline-flex size-8 items-center justify-center rounded-full bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="Toggle theme">
                     <svg class="size-4 hidden dark:block" aria-hidden="true"><use href="#i-sun"/></svg>
                     <svg class="size-4 block dark:hidden" aria-hidden="true"><use href="#i-moon"/></svg>
@@ -347,6 +348,24 @@
     document.querySelectorAll('.nav-link').forEach(a => {
         if (a.classList.contains('active')) a.setAttribute('data-active', 'true');
     });
+    (function () {
+        const mount = document.getElementById('plex-auth');
+        if (!mount) return;
+        const linkClasses = 'ring-card inline-flex h-8 items-center gap-1.5 rounded-full bg-card px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground';
+        const escape = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        fetch('/oauth2/me', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+            .then(r => r.json().catch(() => ({})).then(j => ({ status: r.status, body: j })))
+            .then(({ status, body }) => {
+                if (body && body.authenticated === false && body.reason === 'disabled') return;
+                if (status === 200 && body.authenticated) {
+                    mount.innerHTML = '<span class="text-xs text-muted-foreground">' + escape(body.username) + '</span>'
+                        + '<a href="/oauth2/logout" class="' + linkClasses + '">Sign out</a>';
+                } else {
+                    mount.innerHTML = '<a href="/oauth2/login" class="' + linkClasses + '">Sign in</a>';
+                }
+            })
+            .catch(() => {});
+    })();
 </script>
 
 </body>

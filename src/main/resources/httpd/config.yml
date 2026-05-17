@@ -1,15 +1,35 @@
 server:
   bind-address: 0.0.0.0
   port: 27192
-  logging: false
+  # Logging. The HTTPD writes one line per request and rate-limit event.
+  logging:
+    file: true              # write to <data-folder>/httpd.log
+    file-path: "httpd.log"  # relative to the module's data folder
+    console: false          # also mirror to the Bukkit console
+
+# Token-bucket rate limiting. Defaults are sized for a small sized server.
+# capacity = burst, per-second = sustained rate. Disable globally with enabled: false.
+rate-limit:
+  enabled: true
+  global:
+    capacity: 200
+    per-second: 100
+  per-ip:
+    capacity: 30
+    per-second: 10
 
 authentication:
   enabled: false
 
-  # Providers: discord
   provider:
-    name: discord
-    redirectUri: ""
-    discord: # Fill if using discord provider
+    # Absolute URL the XenForo authorize page will redirect back to.
+    # Must match the redirect URI registered on the OAuth2 client in XenForo.
+    redirectUri: "https://example.com/oauth2/callback"
+    xenforo:
+      # XenForo site domain (no scheme, no trailing slash). The /oauth2/authorize,
+      # /api/oauth2/token, /api/oauth2/revoke, and /api/me paths are derived from it.
+      domain: "totalfreedom.tf"
       clientId: ""
-      token: "" # Can also use environment variable or system property BOT_TOKEN
+      clientSecret: ""
+      # How long a successful login stays valid, in minutes.
+      sessionMinutes: 1440

@@ -3,22 +3,25 @@ package dev.plex;
 import dev.plex.authentication.AuthenticationManager;
 import dev.plex.cache.FileCache;
 import dev.plex.config.ModuleConfig;
+import dev.plex.logging.Log;
 import dev.plex.module.PlexModule;
+import dev.plex.ratelimit.RateLimitFilter;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.SchematicUploadServlet;
 import dev.plex.request.impl.*;
 import dev.plex.util.PlexLog;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.MultipartConfigElement;
 import lombok.Getter;
-import net.milkbowl.vault.permission.Permission;
 import org.bukkit.Bukkit;
-import org.bukkit.plugin.RegisteredServiceProvider;
+import org.eclipse.jetty.ee10.servlet.FilterHolder;
 import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
 import org.eclipse.jetty.ee10.servlet.ServletHandler;
 import org.eclipse.jetty.ee10.servlet.ServletHolder;
 import org.eclipse.jetty.server.*;
 
 import java.io.File;
+import java.util.EnumSet;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class HTTPDModule extends PlexModule
@@ -27,16 +30,17 @@ public class HTTPDModule extends PlexModule
     private Thread serverThread;
     private AtomicReference<Server> atomicServer = new AtomicReference<>();
 
-    @Getter
-    private static Permission permissions = null;
-
     public static ModuleConfig moduleConfig;
 
     public static final FileCache fileCache = new FileCache();
 
     public static final String template = AbstractServlet.readFileReal(HTTPDModule.class.getResourceAsStream("/httpd/template.html"));
 
-    private AuthenticationManager authenticationManager;
+    @Getter
+    private static AuthenticationManager authenticationManager;
+
+    @Getter
+    private static File accessLogFile;
 
     @Override
     public void load()
@@ -50,19 +54,13 @@ public class HTTPDModule extends PlexModule
     {
         moduleConfig.load();
         PlexLog.debug("HTTPD Module Port: {0}", moduleConfig.getInt("server.port"));
-        if ((!Bukkit.getPluginManager().isPluginEnabled("Vault") || !setupPermissions()))
-        {
-            throw new RuntimeException("Plex-HTTPD requires the 'Vault' plugin as well as a Permissions plugin that hooks into 'Vault'. We recommend LuckPerms!");
-        }
 
-        this.authenticationManager = new AuthenticationManager();
-        if (this.authenticationManager.provider() != null)
+        accessLogFile = new File(getDataFolder(), moduleConfig.getString("server.logging.file-path", "httpd.log"));
+
+        authenticationManager = new AuthenticationManager();
+        if (authenticationManager.provider() == null)
         {
-            PlexLog.debug(this.authenticationManager.provider().generateLogin());
-        }
-        else
-        {
-            PlexLog.debug("Provider was not found for Authentication so disabled");
+            PlexLog.debug("Authentication is disabled or misconfigured");
         }
 
 
@@ -81,6 +79,8 @@ public class HTTPDModule extends PlexModule
             connector.setHost(moduleConfig.getString("server.bind-address"));
             connector.setPort(moduleConfig.getInt("server.port"));
 
+            context.addFilter(new FilterHolder(new RateLimitFilter()), "/*", EnumSet.of(DispatcherType.REQUEST));
+
             new IndefBansEndpoint();
             new IndexEndpoint();
             new ListEndpoint();
@@ -93,6 +93,7 @@ public class HTTPDModule extends PlexModule
             new AssetsEndpoint();
             new PunishmentsUIEndpoint();
             new IndefBansUIEndpoint();
+            new AuthenticationEndpoint();
 
             ServletHolder uploadHolder = HTTPDModule.context.addServlet(SchematicUploadServlet.class, "/api/schematics/uploading");
 
@@ -134,15 +135,7 @@ public class HTTPDModule extends PlexModule
         {
             e.printStackTrace();
         }
-    }
-
-    private boolean setupPermissions()
-    {
-        RegisteredServiceProvider<Permission> rsp = Bukkit.getServicesManager().getRegistration(Permission.class);
-        if (rsp != null) {
-            permissions = rsp.getProvider();
-        }
-        return permissions != null;
+        Log.shutdown();
     }
 
     public static File getWorldeditFolder()

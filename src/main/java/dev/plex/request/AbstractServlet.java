@@ -53,14 +53,15 @@ public class AbstractServlet extends HttpServlet
             ipAddress = req.getHeader("X-FORWARDED-FOR");
         }
 
-        Log.log(ipAddress + " visited endpoint " + req.getHttpServletMapping().getMatchValue());
+        String requestPath = getRequestPath(req);
+        Log.log(ipAddress + " visited endpoint " + requestPath);
 
         /*Enumeration<String> headerz = req.getHeaderNames();
         while (headerz.hasMoreElements()) {
             String header = headerz.nextElement();
             PlexLog.debug("Header: {0} Value {1}", header, req.getHeader(header));
         }*/
-        GET_MAPPINGS.stream().filter(mapping -> mapping.getMapping().endpoint().substring(1, mapping.getMapping().endpoint().length() - 1).equalsIgnoreCase(req.getHttpServletMapping().getMatchValue())).forEach(mapping ->
+        GET_MAPPINGS.stream().filter(mapping -> endpointMatchesRequest(mapping.getMapping().endpoint(), requestPath)).forEach(mapping ->
         {
             if (mapping.headers != null)
             {
@@ -85,6 +86,41 @@ public class AbstractServlet extends HttpServlet
                 e.printStackTrace();
             }
         });
+    }
+
+    private static boolean endpointMatchesRequest(String endpoint, String requestPath)
+    {
+        String normalizedEndpoint = normalizeEndpoint(endpoint);
+        if (normalizedEndpoint.equals("/"))
+        {
+            return requestPath.equals("/");
+        }
+        String endpointPrefix = normalizedEndpoint + "/";
+        return requestPath.equalsIgnoreCase(normalizedEndpoint) || requestPath.regionMatches(true, 0, endpointPrefix, 0, endpointPrefix.length());
+    }
+
+    private static String normalizeEndpoint(String endpoint)
+    {
+        if (endpoint.equals("//"))
+        {
+            return "/";
+        }
+        if (endpoint.length() > 1 && endpoint.endsWith("/"))
+        {
+            return endpoint.substring(0, endpoint.length() - 1);
+        }
+        return endpoint;
+    }
+
+    private static String getRequestPath(HttpServletRequest req)
+    {
+        String requestPath = req.getRequestURI();
+        String contextPath = req.getContextPath();
+        if (contextPath != null && !contextPath.isEmpty() && !contextPath.equals("/") && requestPath.startsWith(contextPath))
+        {
+            requestPath = requestPath.substring(contextPath.length());
+        }
+        return requestPath.isEmpty() ? "/" : requestPath;
     }
 
     public static String readFile(InputStream filename)

@@ -1,4 +1,18 @@
 Punishments
 PUNISHMENTS
-<h2>Punishment Search</h2>
-<h5 class="alert alert-danger mb-3 w-auto p-3" role="alert"><b>Error:</b> ${MESSAGE}</h5>
+<section class="rise">
+    <h1 class="text-3xl font-medium tracking-tight md:text-4xl">Punishments</h1>
+</section>
+
+<div class="rise rise-1 ring-card mt-6 flex items-start gap-3 rounded-2xl bg-card p-4">
+    <svg class="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden="true"><use href="#i-alert"/></svg>
+    <p class="text-sm text-muted-foreground">${MESSAGE}</p>
+</div>
+
+<div class="rise rise-2 mt-4">
+    <a href="/punishments/"
+       class="inline-flex h-9 items-center gap-1.5 rounded-full bg-muted px-4 text-sm font-medium transition-colors hover:bg-secondary">
+        <svg class="size-3.5" aria-hidden="true"><use href="#i-search"/></svg>
+        New search
+    </a>
+</div>

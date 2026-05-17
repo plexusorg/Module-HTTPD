@@ -1,0 +1,104 @@
+Punishments
+PUNISHMENTS
+<section class="rise flex flex-wrap items-end justify-between gap-3">
+    <div class="flex items-center gap-3">
+        <img class="size-12 rounded-xl bg-muted [image-rendering:pixelated]"
+             src="https://vzge.me/face/512/${player_uuid}.png"
+             alt="" loading="lazy" width="48" height="48">
+        <div>
+            <h1 class="text-3xl font-medium tracking-tight md:text-4xl">${player_name}</h1>
+            <p class="mt-1 font-mono text-[11px] text-muted-foreground break-all">${player_uuid}</p>
+        </div>
+    </div>
+    <span class="font-mono text-xs text-muted-foreground tabular">
+        <span class="text-foreground">${punishment_count}</span> ${punishment_label}
+    </span>
+</section>
+
+<section class="rise rise-1 mt-4 flex flex-wrap items-center gap-3">
+    <label class="ring-card relative flex h-10 flex-1 items-center gap-2 rounded-full bg-card px-3 transition-colors focus-within:bg-background focus-within:ring-2 focus-within:ring-ring/30 sm:max-w-md">
+        <svg class="size-4 text-muted-foreground" aria-hidden="true"><use href="#i-search"/></svg>
+        <input id="punish-filter"
+               type="text"
+               placeholder="Filter by reason, punisher, type, IP..."
+               class="h-full flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+               autocomplete="off">
+    </label>
+    <a href="/punishments/"
+       class="inline-flex h-9 items-center gap-1.5 rounded-full bg-muted px-4 text-sm font-medium transition-colors hover:bg-secondary">
+        <svg class="size-3.5" aria-hidden="true"><use href="#i-search"/></svg>
+        New search
+    </a>
+</section>
+
+<section class="rise rise-1 mt-3 flex flex-wrap items-center gap-1.5" id="punish-chips"></section>
+
+<section class="rise rise-2 mt-4 grid gap-3 md:grid-cols-2" id="punish-grid">
+${punishments}
+</section>
+
+<p id="punish-empty" class="rise rise-2 mt-4 hidden font-mono text-[11px] text-muted-foreground">No punishments match those filters.</p>
+
+<script>
+    (function () {
+        const input  = document.getElementById('punish-filter');
+        const chips  = document.getElementById('punish-chips');
+        const empty  = document.getElementById('punish-empty');
+        const cards  = Array.from(document.querySelectorAll('#punish-grid > article'));
+        if (!cards.length) return;
+
+        const types  = Array.from(new Set(cards.map(c => c.dataset.type).filter(Boolean))).sort();
+        const hasStatus = cards.some(c => c.dataset.status);
+
+        const state = { q: '', type: 'all', status: 'all' };
+
+        function chip(label, group, value, active) {
+            const cls = active
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-card ring-card text-muted-foreground hover:bg-muted hover:text-foreground';
+            return `<button type="button" data-group="${group}" data-value="${value}"
+                class="inline-flex h-7 items-center rounded-full px-3 font-mono text-[11px] uppercase tracking-wider transition-colors ${cls}">${label}</button>`;
+        }
+
+        function renderChips() {
+            const parts = [];
+            parts.push(chip('all', 'type', 'all', state.type === 'all'));
+            types.forEach(t => parts.push(chip(t.toLowerCase(), 'type', t, state.type === t)));
+            if (hasStatus) {
+                parts.push('<span class="mx-1 h-4 w-px bg-border"></span>');
+                parts.push(chip('any', 'status', 'all', state.status === 'all'));
+                parts.push(chip('active', 'status', 'active', state.status === 'active'));
+                parts.push(chip('expired', 'status', 'expired', state.status === 'expired'));
+            }
+            chips.innerHTML = parts.join('');
+        }
+
+        function apply() {
+            let shown = 0;
+            cards.forEach(c => {
+                const matchText   = !state.q || (c.dataset.search || '').includes(state.q);
+                const matchType   = state.type === 'all' || c.dataset.type === state.type;
+                const matchStatus = state.status === 'all' || c.dataset.status === state.status;
+                const show = matchText && matchType && matchStatus;
+                c.style.display = show ? '' : 'none';
+                if (show) shown++;
+            });
+            empty.classList.toggle('hidden', shown > 0);
+        }
+
+        chips.addEventListener('click', e => {
+            const btn = e.target.closest('button[data-group]');
+            if (!btn) return;
+            state[btn.dataset.group] = btn.dataset.value;
+            renderChips();
+            apply();
+        });
+
+        input.addEventListener('input', () => {
+            state.q = input.value.toLowerCase().trim();
+            apply();
+        });
+
+        renderChips();
+    })();
+</script>

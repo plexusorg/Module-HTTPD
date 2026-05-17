@@ -77,15 +77,25 @@ public class SchematicDownloadEndpoint extends AbstractServlet
         {
             return null;
         }
+        List<File> entries = listFilesForFolder(worldeditFolder);
         StringBuilder sb = new StringBuilder();
-        for (File worldeditFile : listFilesForFolder(worldeditFolder))
+        if (entries.isEmpty())
         {
-            String fixedPath = worldeditFile.getPath().replace("plugins/FastAsyncWorldEdit/schematics/", "");
-            fixedPath = fixedPath.replace("plugins/WorldEdit/schematics/", "");
-            String sanitizedName = fixedPath.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-            sb.append("    <tr>\n" + "        <th scope=\"row\">\n            <a href=\"").append(fixedPath).append("\" download>")
-                .append(sanitizedName).append("</a>\n        </th>\n").append("        <td>\n            ")
-                .append(formattedSize(worldeditFile.length())).append("\n        </td>\n").append("    </tr>\n");
+            sb.append("<tr><td colspan=\"3\" class=\"px-4 py-8 text-center text-sm text-muted-foreground\">No schematics yet.</td></tr>");
+        }
+        for (File worldeditFile : entries)
+        {
+            String fixedPath = worldeditFile.getPath()
+                .replace("plugins/FastAsyncWorldEdit/schematics/", "")
+                .replace("plugins/WorldEdit/schematics/", "");
+            String sanitizedName = fixedPath.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+            String size = formattedSize(worldeditFile.length());
+            sb.append("<tr data-name=\"").append(sanitizedName).append("\" class=\"transition-colors hover:bg-muted/40\">\n")
+                .append("  <td class=\"px-4 py-2.5\"><a class=\"font-mono text-foreground hover:text-primary\" href=\"")
+                .append(sanitizedName).append("\" download>").append(sanitizedName).append("</a></td>\n")
+                .append("  <td class=\"px-4 py-2.5 text-right font-mono text-xs text-muted-foreground tabular\">").append(size).append("</td>\n")
+                .append("  <td class=\"pr-3\"><a href=\"").append(sanitizedName).append("\" download class=\"inline-flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground\" aria-label=\"Download\"><svg class=\"size-3.5\" aria-hidden=\"true\"><use href=\"#i-download\"/></svg></a></td>\n")
+                .append("</tr>\n");
         }
         file = file.replace("${schematics}", sb.toString());
         files.clear();

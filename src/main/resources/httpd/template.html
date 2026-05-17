@@ -1,59 +1,353 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet"
-          integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"
-            integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe"
-            crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/gh/Telesphoreo/bootstrap-color-switcher@master/script.js"></script>
+    <title>${TITLE} &middot; Plex HTTPD</title>
+
+    <script>
+        (function () {
+            try {
+                const stored = localStorage.getItem('plex-theme');
+                const dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (dark) document.documentElement.classList.add('dark');
+            } catch (e) {
+                if (window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@200;400&display=swap" rel="stylesheet">
-    <title>${TITLE} - Plex HTTPD</title>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Geist:wght@300..900&family=Geist+Mono:wght@400;500;600&display=swap">
+
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+    <style type="text/tailwindcss">
+        @custom-variant dark (&:where(.dark, .dark *));
+
+        @theme {
+            --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
+            --font-mono: 'Geist Mono', ui-monospace, 'JetBrains Mono', monospace;
+
+            --radius: 0.625rem;
+            --radius-sm: calc(var(--radius) - 4px);
+            --radius-md: calc(var(--radius) - 2px);
+            --radius-lg: var(--radius);
+            --radius-xl: calc(var(--radius) + 4px);
+            --radius-2xl: calc(var(--radius) + 8px);
+            --radius-3xl: calc(var(--radius) + 12px);
+            --radius-4xl: calc(var(--radius) + 16px);
+
+            --color-background: oklch(1 0 0);
+            --color-foreground: oklch(0.145 0 0);
+            --color-card: oklch(1 0 0);
+            --color-card-foreground: oklch(0.145 0 0);
+            --color-popover: oklch(1 0 0);
+            --color-popover-foreground: oklch(0.145 0 0);
+            --color-primary: oklch(0.555 0.265 264);
+            --color-primary-foreground: oklch(0.985 0 0);
+            --color-secondary: oklch(0.97 0 0);
+            --color-secondary-foreground: oklch(0.205 0 0);
+            --color-muted: oklch(0.97 0 0);
+            --color-muted-foreground: oklch(0.556 0 0);
+            --color-accent: oklch(0.97 0 0);
+            --color-accent-foreground: oklch(0.205 0 0);
+            --color-destructive: oklch(0.58 0.22 27);
+            --color-success: oklch(0.62 0.18 145);
+            --color-warning: oklch(0.74 0.16 75);
+            --color-border: oklch(0.922 0 0);
+            --color-input: oklch(0.922 0 0);
+            --color-ring: oklch(0.555 0.265 264);
+            --color-surface: oklch(0.98 0 0);
+            --color-surface-foreground: oklch(0.145 0 0);
+        }
+
+    </style>
+
+    <style>
+        .dark {
+            --color-background: oklch(0.145 0 0);
+            --color-foreground: oklch(0.985 0 0);
+            --color-card: oklch(0.205 0 0);
+            --color-card-foreground: oklch(0.985 0 0);
+            --color-popover: oklch(0.205 0 0);
+            --color-popover-foreground: oklch(0.985 0 0);
+            --color-primary: oklch(0.62 0.235 264);
+            --color-primary-foreground: oklch(0.985 0 0);
+            --color-secondary: oklch(0.269 0 0);
+            --color-secondary-foreground: oklch(0.985 0 0);
+            --color-muted: oklch(0.269 0 0);
+            --color-muted-foreground: oklch(0.708 0 0);
+            --color-accent: oklch(0.371 0 0);
+            --color-accent-foreground: oklch(0.985 0 0);
+            --color-destructive: oklch(0.704 0.191 22);
+            --color-success: oklch(0.74 0.18 145);
+            --color-warning: oklch(0.82 0.16 75);
+            --color-border: oklch(1 0 0 / 10%);
+            --color-input: oklch(1 0 0 / 15%);
+            --color-ring: oklch(0.62 0.235 264);
+            --color-surface: oklch(0.2 0 0);
+            --color-surface-foreground: oklch(0.708 0 0);
+        }
+    </style>
+
+    <style>
+        :root {
+            color-scheme: light dark;
+        }
+
+        html {
+            scrollbar-gutter: stable;
+        }
+
+        body {
+            font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
+            font-feature-settings: 'cv11', 'ss01';
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: radial-gradient(circle at 1px 1px, oklch(from var(--color-foreground) l c h / 0.05) 1px, transparent 0);
+            background-size: 28px 28px;
+            mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 60vh;
+            background: linear-gradient(to top,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.200) 0%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.162) 5%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.131) 10%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.106) 15%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.086) 20%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.069) 25%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.056) 30%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.045) 35%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.037) 40%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.030) 45%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.024) 50%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.019) 55%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.016) 60%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.013) 65%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.010) 70%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.008) 75%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.006) 80%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.004) 85%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.002) 90%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0.001) 95%,
+                oklch(from var(--color-primary) calc(l - 0.05) c h / 0) 100%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .layer-content { position: relative; z-index: 1; }
+
+        @keyframes rise {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .rise { animation: rise 0.55s cubic-bezier(0.16, 0.84, 0.32, 1) backwards; }
+        .rise-1 { animation-delay: 0.04s; }
+        .rise-2 { animation-delay: 0.08s; }
+        .rise-3 { animation-delay: 0.12s; }
+        .rise-4 { animation-delay: 0.16s; }
+        .rise-5 { animation-delay: 0.20s; }
+        .rise-6 { animation-delay: 0.24s; }
+
+        @keyframes statusPulse {
+            0%, 100% { box-shadow: 0 0 0 0 oklch(from var(--color-success) l c h / 0.5); }
+            50%      { box-shadow: 0 0 0 6px oklch(from var(--color-success) l c h / 0); }
+        }
+        .status-dot { animation: statusPulse 2.4s ease-in-out infinite; }
+
+        @keyframes tick {
+            0%   { background-color: oklch(from var(--color-primary) l c h / 0.18); }
+            100% { background-color: transparent; }
+        }
+        .tick { animation: tick 0.55s ease-out; }
+
+        .tabular { font-variant-numeric: tabular-nums; }
+
+        /* Maia: subtle ring on cards, no shadow */
+        .ring-card { box-shadow: inset 0 0 0 1px oklch(from var(--color-foreground) l c h / 0.08); }
+
+        /* Hide scrollbar but keep functionality */
+        .nav-scroll::-webkit-scrollbar { display: none; }
+        .nav-scroll { scrollbar-width: none; }
+    </style>
 </head>
-<body style="font-family: 'IBM Plex Sans', sans-serif;">
-<nav class="navbar navbar-expand-lg bg-body-tertiary">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="/" style="font-weight:200;">Plex HTTPD</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
-                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav">
-                <li class="nav-item">
-                    <a class="nav-link ${ACTIVE_HOME}" href="/">Home</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link ${ACTIVE_INDEFBANS}" href="/api/indefbans/">Indefinite Bans</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link ${ACTIVE_LIST}" href="/api/list/">List</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link ${ACTIVE_PUNISHMENTS}" href="/api/punishments/">Punishments</a>
-                </li>
-                <li>
-                    <a class="nav-link ${ACTIVE_COMMANDS}" href="/api/commands/">Commands</a>
-                </li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle ${ACTIVE_SCHEMATICS}" id="navbarDropdownMenuLink" role="button"
-                       data-bs-toggle="dropdown" aria-expanded="false">
-                        Schematics
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
-                        <li><a class="dropdown-item" href="/api/schematics/download/">Download</a></li>
-                        <li><a class="dropdown-item" href="/api/schematics/upload/">Upload</a></li>
-                    </ul>
-                </li>
-            </ul>
+<body class="bg-background text-foreground min-h-screen antialiased">
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+        <symbol id="i-dashboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13.6903 19.4567C13.5 18.9973 13.5 18.4149 13.5 17.25C13.5 16.0851 13.5 15.5027 13.6903 15.0433C13.944 14.4307 14.4307 13.944 15.0433 13.6903C15.5027 13.5 16.0851 13.5 17.25 13.5C18.4149 13.5 18.9973 13.5 19.4567 13.6903C20.0693 13.944 20.556 14.4307 20.8097 15.0433C21 15.5027 21 16.0851 21 17.25C21 18.4149 21 18.9973 20.8097 19.4567C20.556 20.0693 20.0693 20.556 19.4567 20.8097C18.9973 21 18.4149 21 17.25 21C16.0851 21 15.5027 21 15.0433 20.8097C14.4307 20.556 13.944 20.0693 13.6903 19.4567Z"/>
+            <path d="M13.6903 8.95671C13.5 8.49728 13.5 7.91485 13.5 6.75C13.5 5.58515 13.5 5.00272 13.6903 4.54329C13.944 3.93072 14.4307 3.44404 15.0433 3.1903C15.5027 3 16.0851 3 17.25 3C18.4149 3 18.9973 3 19.4567 3.1903C20.0693 3.44404 20.556 3.93072 20.8097 4.54329C21 5.00272 21 5.58515 21 6.75C21 7.91485 21 8.49728 20.8097 8.95671C20.556 9.56928 20.0693 10.056 19.4567 10.3097C18.9973 10.5 18.4149 10.5 17.25 10.5C16.0851 10.5 15.5027 10.5 15.0433 10.3097C14.4307 10.056 13.944 9.56928 13.6903 8.95671Z"/>
+            <path d="M3.1903 19.4567C3 18.9973 3 18.4149 3 17.25C3 16.0851 3 15.5027 3.1903 15.0433C3.44404 14.4307 3.93072 13.944 4.54329 13.6903C5.00272 13.5 5.58515 13.5 6.75 13.5C7.91485 13.5 8.49728 13.5 8.95671 13.6903C9.56928 13.944 10.056 14.4307 10.3097 15.0433C10.5 15.5027 10.5 16.0851 10.5 17.25C10.5 18.4149 10.5 18.9973 10.3097 19.4567C10.056 20.0693 9.56928 20.556 8.95671 20.8097C8.49728 21 7.91485 21 6.75 21C5.58515 21 5.00272 21 4.54329 20.8097C3.93072 20.556 3.44404 20.0693 3.1903 19.4567Z"/>
+            <path d="M3.1903 8.95671C3 8.49728 3 7.91485 3 6.75C3 5.58515 3 5.00272 3.1903 4.54329C3.44404 3.93072 3.93072 3.44404 4.54329 3.1903C5.00272 3 5.58515 3 6.75 3C7.91485 3 8.49728 3 8.95671 3.1903C9.56928 3.44404 10.056 3.93072 10.3097 4.54329C10.5 5.00272 10.5 5.58515 10.5 6.75C10.5 7.91485 10.5 8.49728 10.3097 8.95671C10.056 9.56928 9.56928 10.056 8.95671 10.3097C8.49728 10.5 7.91485 10.5 6.75 10.5C5.58515 10.5 5.00272 10.5 4.54329 10.3097C3.93072 10.056 3.44404 9.56928 3.1903 8.95671Z"/>
+        </symbol>
+        <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 11C13 8.79086 11.2091 7 9 7C6.79086 7 5 8.79086 5 11C5 13.2091 6.79086 15 9 15C11.2091 15 13 13.2091 13 11Z"/>
+            <path d="M11.0386 7.55773C11.0131 7.37547 11 7.18927 11 7C11 4.79086 12.7909 3 15 3C17.2091 3 19 4.79086 19 7C19 9.20914 17.2091 11 15 11C14.2554 11 13.5584 10.7966 12.9614 10.4423"/>
+            <path d="M15 21C15 17.6863 12.3137 15 9 15C5.68629 15 3 17.6863 3 21"/>
+            <path d="M21 17C21 13.6863 18.3137 11 15 11"/>
+        </symbol>
+        <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18.7088 3.49534C16.8165 2.55382 14.5009 2 12 2C9.4991 2 7.1835 2.55382 5.29116 3.49534C4.36318 3.95706 3.89919 4.18792 3.4496 4.91378C3 5.63965 3 6.34248 3 7.74814V11.2371C3 16.9205 7.54236 20.0804 10.173 21.4338C10.9067 21.8113 11.2735 22 12 22C12.7265 22 13.0933 21.8113 13.8269 21.4338C16.4576 20.0804 21 16.9205 21 11.2371L21 7.74814C21 6.34249 21 5.63966 20.5504 4.91378C20.1008 4.18791 19.6368 3.95706 18.7088 3.49534Z"/>
+            <path d="M10 10V8.5C10 7.39543 10.8954 6.5 12 6.5C13.1046 6.5 14 7.39543 14 8.5V10"/>
+            <path d="M14 10H10C9.17157 10 8.5 10.6716 8.5 11.5V13C8.5 13.8284 9.17157 14.5 10 14.5H14C14.8284 14.5 15.5 13.8284 15.5 13V11.5C15.5 10.6716 14.8284 10 14 10Z"/>
+        </symbol>
+        <symbol id="i-gavel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 14V10C3 6.22876 3 4.34315 4.17157 3.17157C5.34315 2 7.22876 2 11 2H13C16.7712 2 18.6569 2 19.8284 3.17157C21 4.34315 21 6.22876 21 10V14C21 17.7712 21 19.6569 19.8284 20.8284C18.6569 22 16.7712 22 13 22H11C7.22876 22 5.34315 22 4.17157 20.8284C3 19.6569 3 17.7712 3 14Z"/>
+            <path d="M11.3333 10.6667C12.3883 11.7216 13.7778 12.7937 13.7778 12.7937L15.6825 10.8889C15.6825 10.8889 14.6105 9.49939 13.5556 8.44444C12.5006 7.3895 11.1111 6.31746 11.1111 6.31746L9.20635 8.22222C9.20635 8.22222 10.2784 9.61172 11.3333 10.6667ZM11.3333 10.6667L8 14M16 10.5714L13.4603 13.1111M11.4286 6L8.88889 8.53968"/>
+            <path d="M8 18H16"/>
+        </symbol>
+        <symbol id="i-code" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 8L18.8398 9.85008C19.6133 10.6279 20 11.0168 20 11.5C20 11.9832 19.6133 12.3721 18.8398 13.1499L17 15"/>
+            <path d="M7 8L5.16019 9.85008C4.38673 10.6279 4 11.0168 4 11.5C4 11.9832 4.38673 12.3721 5.16019 13.1499L7 15"/>
+            <path d="M14.5 4L9.5 20"/>
+        </symbol>
+        <symbol id="i-package" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2.5 7.5V13.5C2.5 17.2712 2.5 19.1569 3.67157 20.3284C4.84315 21.5 6.72876 21.5 10.5 21.5H12M21.5 12.5V7.5"/>
+            <path d="M3.86909 5.31461L2.5 7.5H21.5L20.2478 5.41303C19.3941 3.99021 18.9673 3.2788 18.2795 2.8894C17.5918 2.5 16.7621 2.5 15.1029 2.5H8.95371C7.32998 2.5 6.51812 2.5 5.84013 2.8753C5.16215 3.2506 4.73113 3.93861 3.86909 5.31461Z"/>
+            <path d="M12 7.5V2.5"/>
+            <path d="M10 10.5H14"/>
+            <path d="M14.5 19.5C14.5 19.5 15.5 19.5 16.5 21.5C16.5 21.5 18.6765 16.5 21.5 15.5"/>
+        </symbol>
+        <symbol id="i-chip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18.8284 18.8284C17.6569 20 15.7712 20 12 20C8.22876 20 6.34315 20 5.17157 18.8284C4 17.6569 4 15.7712 4 12C4 8.22876 4 6.34315 5.17157 5.17157C6.34315 4 8.22876 4 12 4C15.7712 4 17.6569 4 18.8284 5.17157C20 6.34315 20 8.22876 20 12C20 15.7712 20 17.6569 18.8284 18.8284Z"/>
+            <path d="M8 2V4M16 2V4M12 2V4M8 20V22M12 20V22M16 20V22M22 16H20M4 8H2M4 16H2M4 12H2M22 8H20M22 12H20"/>
+            <path d="M15 12C15 13.6569 13.6569 15 12 15C10.3431 15 9 13.6569 9 12C9 10.3431 10.3431 9 12 9C13.6569 9 15 10.3431 15 12Z"/>
+        </symbol>
+        <symbol id="i-database" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12C3 7.75736 3 5.63604 4.31802 4.31802C5.63604 3 7.75736 3 12 3C16.2426 3 18.364 3 19.682 4.31802C21 5.63604 21 7.75736 21 12C21 16.2426 21 18.364 19.682 19.682C18.364 21 16.2426 21 12 21C7.75736 21 5.63604 21 4.31802 19.682C3 18.364 3 16.2426 3 12Z"/>
+            <path d="M3 12H21"/>
+            <path d="M11 7.5L17 7.5"/>
+            <circle cx="7" cy="7.5" r="0.6" fill="currentColor"/>
+            <path d="M11 16.5L17 16.5"/>
+            <circle cx="7" cy="16.5" r="0.6" fill="currentColor"/>
+        </symbol>
+        <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 21H10C6.70017 21 5.05025 21 4.02513 19.9749C3 18.9497 3 17.2998 3 14V3"/>
+            <path d="M5 20C5.43938 16.8438 7.67642 8.7643 10.4282 8.7643C12.3301 8.7643 12.8226 12.6353 14.6864 12.6353C17.8931 12.6353 17.4282 4 21 4"/>
+        </symbol>
+        <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 8V12L14 14"/>
+        </symbol>
+        <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 17L21 21"/>
+            <path d="M19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19C15.4183 19 19 15.4183 19 11Z"/>
+        </symbol>
+        <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.0092 2V5.13219C20.0092 5.42605 19.6418 5.55908 19.4537 5.33333C17.6226 3.2875 14.9617 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12"/>
+        </symbol>
+        <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 17C3 17.93 3 18.395 3.10222 18.7765C3.37962 19.8117 4.18827 20.6204 5.22354 20.8978C5.60504 21 6.07003 21 7 21L17 21C17.93 21 18.395 21 18.7765 20.8978C19.8117 20.6204 20.6204 19.8117 20.8978 18.7765C21 18.395 21 17.93 21 17"/>
+            <path d="M16.5 7.5C16.5 7.5 13.1858 3 12 3C10.8141 3 7.5 7.5 7.5 7.5M12 4V16"/>
+        </symbol>
+        <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 17C3 17.93 3 18.395 3.10222 18.7765C3.37962 19.8117 4.18827 20.6204 5.22354 20.8978C5.60504 21 6.07003 21 7 21L17 21C17.93 21 18.395 21 18.7765 20.8978C19.8117 20.6204 20.6204 19.8117 20.8978 18.7765C21 18.395 21 17.93 21 17"/>
+            <path d="M16.5 11.5C16.5 11.5 13.1858 16 12 16C10.8141 16 7.5 11.5 7.5 11.5M12 15V3"/>
+        </symbol>
+        <symbol id="i-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 6C9 6 15 10.4189 15 12C15 13.5812 9 18 9 18"/>
+        </symbol>
+        <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12Z"/>
+            <path d="M8 12.5L10.5 15L16 9"/>
+        </symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 8V12"/>
+            <circle cx="12" cy="15.75" r="0.5" fill="currentColor"/>
+        </symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+        </symbol>
+        <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.4998 14.9764C20.071 15.6336 18.4805 16 16.8044 16C10.6249 16 5.6155 11.0294 5.6155 4.89773C5.6155 3.6 5.84001 2.35427 6.25244 1.19773C3.16614 2.65973 1 6.30099 1 10.4995C1 16.6311 6.0094 21.6017 12.1889 21.6017C16.4115 21.6017 20.0908 19.2848 21.4998 14.9764Z"/>
+        </symbol>
+    </defs>
+</svg>
+
+<div class="layer-content flex min-h-screen flex-col">
+
+    <header class="sticky top-0 z-50 border-b border-border/60 bg-background/75 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
+        <div class="mx-auto flex h-14 max-w-7xl items-center gap-6 px-6">
+            <a href="/" class="flex items-center gap-2.5 text-foreground transition-opacity hover:opacity-80">
+                <img src="/assets/plexlogo.webp" alt="" class="size-7 rounded-md" width="28" height="28">
+                <span class="text-sm font-semibold tracking-tight">Plex HTTPD</span>
+            </a>
+
+            <nav class="nav-scroll flex flex-1 items-center gap-1 overflow-x-auto">
+                <a class="nav-link ${ACTIVE_HOME} group inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground" href="/">
+                    <svg class="size-3.5 opacity-70 group-hover:opacity-100 group-data-[active=true]:text-primary group-data-[active=true]:opacity-100" aria-hidden="true"><use href="#i-dashboard"/></svg>
+                    Overview
+                </a>
+                <a class="nav-link ${ACTIVE_PLAYERS} group inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground" href="/players/">
+                    <svg class="size-3.5 opacity-70 group-hover:opacity-100 group-data-[active=true]:text-primary group-data-[active=true]:opacity-100" aria-hidden="true"><use href="#i-users"/></svg>
+                    Players
+                </a>
+                <a class="nav-link ${ACTIVE_COMMANDS} group inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground" href="/api/commands/">
+                    <svg class="size-3.5 opacity-70 group-hover:opacity-100 group-data-[active=true]:text-primary group-data-[active=true]:opacity-100" aria-hidden="true"><use href="#i-code"/></svg>
+                    Commands
+                </a>
+                <a class="nav-link ${ACTIVE_PUNISHMENTS} group inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground" href="/punishments/">
+                    <svg class="size-3.5 opacity-70 group-hover:opacity-100 group-data-[active=true]:text-primary group-data-[active=true]:opacity-100" aria-hidden="true"><use href="#i-gavel"/></svg>
+                    Punishments
+                </a>
+                <a class="nav-link ${ACTIVE_INDEFBANS} group inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground" href="/indefbans/">
+                    <svg class="size-3.5 opacity-70 group-hover:opacity-100 group-data-[active=true]:text-primary group-data-[active=true]:opacity-100" aria-hidden="true"><use href="#i-lock"/></svg>
+                    Indef Bans
+                </a>
+                <a class="nav-link ${ACTIVE_SCHEMATICS} group inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground" href="/api/schematics/download/">
+                    <svg class="size-3.5 opacity-70 group-hover:opacity-100 group-data-[active=true]:text-primary group-data-[active=true]:opacity-100" aria-hidden="true"><use href="#i-package"/></svg>
+                    Schematics
+                </a>
+            </nav>
+
+            <div class="hidden items-center gap-2 md:flex">
+                <button type="button" onclick="window.plexToggleTheme()" class="ring-card inline-flex size-8 items-center justify-center rounded-full bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="Toggle theme">
+                    <svg class="size-4 hidden dark:block" aria-hidden="true"><use href="#i-sun"/></svg>
+                    <svg class="size-4 block dark:hidden" aria-hidden="true"><use href="#i-moon"/></svg>
+                </button>
+            </div>
         </div>
-    </div>
-</nav>
-<div style="text-align: center;" class="col-auto m-0 row justify-content-center p-4">
-    ${CONTENT}
+    </header>
+
+    <main class="mx-auto w-full max-w-7xl flex-1 px-6 py-10 md:py-14">
+        ${CONTENT}
+    </main>
+
 </div>
+
+<script>
+    window.plexToggleTheme = function () {
+        const isDark = document.documentElement.classList.toggle('dark');
+        try { localStorage.setItem('plex-theme', isDark ? 'dark' : 'light'); } catch (e) {}
+    };
+    document.querySelectorAll('.nav-link').forEach(a => {
+        if (a.classList.contains('active')) a.setAttribute('data-active', 'true');
+    });
+</script>
+
 </body>
 </html>

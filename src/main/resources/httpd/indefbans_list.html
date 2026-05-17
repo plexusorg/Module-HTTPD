@@ -1,0 +1,41 @@
+Indefinite Bans
+INDEFBANS
+<section class="rise flex flex-wrap items-end justify-between gap-3">
+    <h1 class="text-3xl font-medium tracking-tight md:text-4xl">Indefinite bans</h1>
+    <div class="flex items-center gap-4 font-mono text-[11px] text-muted-foreground tabular">
+        <span><span class="text-foreground">${group_count}</span> groups</span>
+        <span><span class="text-foreground">${total_users}</span> users</span>
+        <span><span class="text-foreground">${total_uuids}</span> uuids</span>
+        <span><span class="text-foreground">${total_ips}</span> ips</span>
+    </div>
+</section>
+
+<section class="rise rise-1 mt-6">
+    <label class="ring-card relative flex h-10 w-full items-center gap-2 rounded-full bg-card px-3 transition-colors focus-within:bg-background focus-within:ring-2 focus-within:ring-ring/30 sm:max-w-md">
+        <svg class="size-4 text-muted-foreground" aria-hidden="true"><use href="#i-search"/></svg>
+        <input id="indef-filter"
+               type="text"
+               placeholder="Filter by name, UUID, or IP..."
+               class="h-full flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+               autocomplete="off">
+    </label>
+</section>
+
+<section class="rise rise-2 mt-4 grid gap-3 md:grid-cols-2" id="indef-grid">
+${bans}
+</section>
+
+<script>
+    (function () {
+        const input = document.getElementById('indef-filter');
+        if (!input) return;
+        const cards = Array.from(document.querySelectorAll('#indef-grid > article'));
+        input.addEventListener('input', () => {
+            const q = input.value.toLowerCase().trim();
+            cards.forEach(card => {
+                const text = card.textContent.toLowerCase();
+                card.style.display = (!q || text.includes(q)) ? '' : 'none';
+            });
+        });
+    })();
+</script>

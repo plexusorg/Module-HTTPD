@@ -1,0 +1,43 @@
+Players
+PLAYERS
+<section class="rise flex flex-wrap items-end justify-between gap-3">
+    <h1 class="text-3xl font-medium tracking-tight md:text-4xl">Players</h1>
+    <span class="font-mono text-xs text-muted-foreground tabular">
+        <span class="text-foreground">${player_count}</span> / <span>${player_max}</span> online
+    </span>
+</section>
+
+<section class="rise rise-1 mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+    <label class="ring-card relative flex h-10 flex-1 items-center gap-2 rounded-full bg-card px-3 transition-colors focus-within:bg-background focus-within:ring-2 focus-within:ring-ring/30">
+        <svg class="size-4 text-muted-foreground" aria-hidden="true"><use href="#i-search"/></svg>
+        <input id="player-filter"
+               type="text"
+               placeholder="Filter by name..."
+               class="h-full flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+               autocomplete="off">
+    </label>
+    <button type="button" onclick="location.reload()"
+            class="ring-card inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-card px-4 text-sm font-medium transition-colors hover:bg-secondary">
+        <svg class="size-4" aria-hidden="true"><use href="#i-refresh"/></svg>
+        Refresh
+    </button>
+</section>
+
+<section class="rise rise-2 mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" id="players-grid">
+${player_cards}
+</section>
+
+<script>
+    (function () {
+        const input = document.getElementById('player-filter');
+        if (!input) return;
+        const cards = Array.from(document.querySelectorAll('#players-grid [data-name]'));
+        input.addEventListener('input', () => {
+            const q = input.value.toLowerCase().trim();
+            cards.forEach(c => {
+                const n = (c.getAttribute('data-name') || '').toLowerCase();
+                c.style.display = (!q || n.includes(q)) ? '' : 'none';
+            });
+        });
+    })();
+</script>

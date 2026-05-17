@@ -1,35 +1,48 @@
 Schematics
 SCHEMATICS
-<h2>Schematic Download</h2>
-<label for="schemList"><h5>A list of schematics is below. You can click on the schematic name to download it.</h5>
-</label>
-<div class="input-group mb-3 w-75 p-3">
-    <input type="text" autocomplete="off" autofocus class="form-control" oninput="filterTable(this.value)"
-           placeholder="Search for a schematic...">
-</div>
-<table id="schemList" class="table table-striped table-bordered">
-    <thead>
-    <tr>
-        <th scope="col">Name</th>
-        <th scope="col">Size</th>
-    </tr>
-    </thead>
-    <tbody>
-${schematics}
-    </tbody>
-</table>
-<script>
-    let schemList = document.getElementById("schemList").getElementsByTagName("tbody")[0].getElementsByTagName("tr");
+<section class="rise flex flex-wrap items-end justify-between gap-3">
+    <h1 class="text-3xl font-medium tracking-tight md:text-4xl">Schematics</h1>
+    <a href="/api/schematics/upload/"
+       class="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/85">
+        <svg class="size-3.5" aria-hidden="true"><use href="#i-upload"/></svg>
+        Upload
+    </a>
+</section>
 
+<section class="rise rise-1 mt-6">
+    <label class="ring-card relative flex h-10 w-full items-center gap-2 rounded-full bg-card px-3 transition-colors focus-within:bg-background focus-within:ring-2 focus-within:ring-ring/30 sm:max-w-md">
+        <svg class="size-4 text-muted-foreground" aria-hidden="true"><use href="#i-search"/></svg>
+        <input id="schem-filter"
+               type="text"
+               oninput="filterTable(this.value)"
+               placeholder="Filter schematics..."
+               class="h-full flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+               autocomplete="off">
+    </label>
+</section>
+
+<section class="rise rise-2 ring-card mt-4 overflow-hidden rounded-2xl bg-card">
+    <table id="schemList" class="w-full text-sm">
+        <thead class="border-b border-border/60 bg-muted/40">
+            <tr>
+                <th scope="col" class="px-4 py-2.5 text-left font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Name</th>
+                <th scope="col" class="px-4 py-2.5 text-right font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Size</th>
+                <th scope="col" class="w-8"></th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-border/60" translate="no">
+${schematics}
+        </tbody>
+    </table>
+</section>
+
+<script>
+    const schemList = document.getElementById('schemList').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
     function filterTable(query) {
+        const q = (query || '').toLowerCase();
         for (let i = 0; i < schemList.length; i++) {
-            let th = schemList[i].getElementsByTagName("th")[0];
-            let schemName = th.textContent || th.innerText;
-            if (schemName.toLowerCase().includes(query.toLowerCase())) {
-                schemList[i].style.display = "";
-            } else {
-                schemList[i].style.display = "none";
-            }
+            const name = (schemList[i].getAttribute('data-name') || '').toLowerCase();
+            schemList[i].style.display = !q || name.includes(q) ? '' : 'none';
         }
     }
 </script>

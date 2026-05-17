@@ -88,6 +88,11 @@ public class HTTPDModule extends PlexModule
             new CommandsEndpoint();
             new SchematicDownloadEndpoint();
             new SchematicUploadEndpoint();
+            new StatsEndpoint();
+            new PlayersEndpoint();
+            new AssetsEndpoint();
+            new PunishmentsUIEndpoint();
+            new IndefBansUIEndpoint();
 
             ServletHolder uploadHolder = HTTPDModule.context.addServlet(SchematicUploadServlet.class, "/api/schematics/uploading");
 

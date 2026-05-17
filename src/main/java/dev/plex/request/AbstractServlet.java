@@ -13,6 +13,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
 import java.util.List;
@@ -39,7 +40,9 @@ public class AbstractServlet extends HttpServlet
                 }
                 GET_MAPPINGS.add(mapping);
                 ServletHolder holder = new ServletHolder(this);
-                HTTPDModule.context.addServlet(holder, getMapping.endpoint() + "*");
+                String endpoint = getMapping.endpoint();
+                String pattern = endpoint.endsWith("/") ? endpoint + "*" : endpoint;
+                HTTPDModule.context.addServlet(holder, pattern);
             }
         }
     }
@@ -63,14 +66,21 @@ public class AbstractServlet extends HttpServlet
         }*/
         GET_MAPPINGS.stream().filter(mapping -> endpointMatchesRequest(mapping.getMapping().endpoint(), requestPath)).forEach(mapping ->
         {
+            resp.setCharacterEncoding("UTF-8");
             if (mapping.headers != null)
             {
                 for (String headers : mapping.headers.headers())
                 {
-                    String header = headers.split(";")[0];
-                    String value = headers.split(";")[1];
-                    resp.addHeader(header, value);
+                    String[] parts = headers.split(";", 2);
+                    if (parts.length == 2)
+                    {
+                        resp.addHeader(parts[0], parts[1]);
+                    }
                 }
+            }
+            if (resp.getContentType() == null)
+            {
+                resp.setContentType("text/html; charset=UTF-8");
             }
             resp.setStatus(HttpServletResponse.SC_OK);
             try
@@ -129,11 +139,10 @@ public class AbstractServlet extends HttpServlet
         String page = readFileReal(filename);
         String[] info = page.split("\n", 3);
         base = base.replace("${TITLE}", info[0]);
-        base = base.replace("${ACTIVE_" + info[1] + "}", "active\" aria-current=\"page");
+        base = base.replace("${ACTIVE_" + info[1] + "}", "active");
         base = base.replace("${ACTIVE_HOME}", "");
-        base = base.replace("${ACTIVE_ADMINS}", "");
+        base = base.replace("${ACTIVE_PLAYERS}", "");
         base = base.replace("${ACTIVE_INDEFBANS}", "");
-        base = base.replace("${ACTIVE_LIST}", "");
         base = base.replace("${ACTIVE_COMMANDS}", "");
         base = base.replace("${ACTIVE_PUNISHMENTS}", "");
         base = base.replace("${ACTIVE_SCHEMATICS}", "");
@@ -146,7 +155,7 @@ public class AbstractServlet extends HttpServlet
         StringBuilder contentBuilder = new StringBuilder();
         try
         {
-            BufferedReader in = new BufferedReader(new InputStreamReader(Objects.requireNonNull(filename)));
+            BufferedReader in = new BufferedReader(new InputStreamReader(Objects.requireNonNull(filename), StandardCharsets.UTF_8));
             String str;
             while ((str = in.readLine()) != null)
             {

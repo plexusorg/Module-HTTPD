@@ -9,9 +9,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.regex.Pattern;
 
 public class AssetsEndpoint extends AbstractServlet
 {
+    private static final Pattern TEXTURE_PATH = Pattern.compile("(item|block)/[a-z0-9_]+\\.png");
+
+
     @GetMapping(endpoint = "/assets/dashboard.js")
     @MappingHeaders(headers = {"content-type;application/javascript; charset=utf-8", "cache-control;public, max-age=300"})
     public String dashboardJs(HttpServletRequest request, HttpServletResponse response)
@@ -38,6 +42,27 @@ public class AssetsEndpoint extends AbstractServlet
     public String plexLogo(HttpServletRequest request, HttpServletResponse response)
     {
         serveResource("/httpd/assets/plexlogo.webp", response);
+        return null;
+    }
+
+    @GetMapping(endpoint = "/assets/textures/")
+    @MappingHeaders(headers = {"content-type;image/png", "cache-control;public, max-age=86400"})
+    public String texture(HttpServletRequest request, HttpServletResponse response)
+    {
+        String uri = request.getRequestURI();
+        String prefix = "/assets/textures/";
+        if (!uri.startsWith(prefix))
+        {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return null;
+        }
+        String resourcePath = uri.substring(prefix.length());
+        if (!TEXTURE_PATH.matcher(resourcePath).matches())
+        {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return null;
+        }
+        serveResource("/httpd/assets/textures/" + resourcePath, response);
         return null;
     }
 

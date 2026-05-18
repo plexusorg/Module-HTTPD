@@ -90,6 +90,37 @@ PLAYERS
 
 </section>
 
+<style>
+    .iso-cube {
+        position: absolute;
+        inset: 0;
+        margin: auto;
+        transform-style: preserve-3d;
+        transform: rotateX(-30deg) rotateY(45deg);
+    }
+    .iso-cube--sm { width: 2.1rem; height: 2.1rem; --iso-half: 1.05rem; }
+    .iso-cube--lg { width: 2.8rem; height: 2.8rem; --iso-half: 1.4rem; }
+    .iso-face {
+        position: absolute;
+        inset: 0;
+        background-size: 100% 100%;
+        background-repeat: no-repeat;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+        backface-visibility: hidden;
+    }
+    .iso-face.iso-top   { transform: rotateX(90deg) translateZ(var(--iso-half)); filter: brightness(1.0); }
+    .iso-face.iso-front { transform: translateZ(var(--iso-half));                filter: brightness(0.82); }
+    .iso-face.iso-right { transform: rotateY(90deg) translateZ(var(--iso-half)); filter: brightness(0.66); }
+</style>
+
+<section class="rise rise-2 mt-4">
+    <article class="ring-card rounded-2xl bg-card p-5">
+        <h2 class="text-sm font-medium tracking-tight">Live inventory</h2>
+        <div id="inv-root" class="mt-4 text-sm text-muted-foreground">Waiting for data…</div>
+    </article>
+</section>
+
 <dialog id="action-dialog"
         class="ring-card w-[min(28rem,calc(100%-2rem))] rounded-2xl bg-card p-5 text-foreground shadow-2xl backdrop:bg-background/60 backdrop:backdrop-blur-sm">
     <form method="POST" action="/api/admin/action" id="action-form" class="flex flex-col gap-4">

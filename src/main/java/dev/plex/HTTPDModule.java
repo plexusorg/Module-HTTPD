@@ -8,6 +8,7 @@ import dev.plex.module.PlexModule;
 import dev.plex.ratelimit.RateLimitFilter;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.PlayerActionServlet;
+import dev.plex.request.PlayerInventoryStreamServlet;
 import dev.plex.request.PlayersStreamServlet;
 import dev.plex.request.SchematicUploadServlet;
 import dev.plex.request.StaffPlayersStreamServlet;
@@ -99,6 +100,7 @@ public class HTTPDModule extends PlexModule
 
             StatsBroadcaster.get().start();
             PlayersBroadcaster.get().start();
+            PlayerInventoryBroadcaster.get().start();
 
             new IndefBansEndpoint();
             new IndexEndpoint();
@@ -118,6 +120,7 @@ public class HTTPDModule extends PlexModule
             HTTPDModule.context.addServlet(PlayersStreamServlet.class, "/api/players/stream");
             HTTPDModule.context.addServlet(StaffPlayersStreamServlet.class, "/api/players/stream/staff");
             HTTPDModule.context.addServlet(PlayerActionServlet.class, "/api/admin/action");
+            HTTPDModule.context.addServlet(PlayerInventoryStreamServlet.class, "/api/player/inventory/stream");
 
             ServletHolder uploadHolder = HTTPDModule.context.addServlet(SchematicUploadServlet.class, "/api/schematics/uploading");
 
@@ -161,6 +164,14 @@ public class HTTPDModule extends PlexModule
         try
         {
             PlayersBroadcaster.get().shutdown();
+        }
+        catch (Throwable t)
+        {
+            t.printStackTrace();
+        }
+        try
+        {
+            PlayerInventoryBroadcaster.get().shutdown();
         }
         catch (Throwable t)
         {

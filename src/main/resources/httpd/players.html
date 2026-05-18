@@ -3,7 +3,7 @@ PLAYERS
 <section class="rise flex flex-wrap items-end justify-between gap-3">
     <h1 class="text-3xl font-medium tracking-tight md:text-4xl">Players</h1>
     <span class="text-sm text-muted-foreground tabular">
-        <span class="text-foreground">${player_count}</span> / <span>${player_max}</span> online
+        <span data-stat="players-online" class="text-foreground">—</span> / <span data-stat="players-max">—</span> online
     </span>
 </section>
 
@@ -16,28 +16,13 @@ PLAYERS
                class="h-full flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                autocomplete="off">
     </label>
-    <button type="button" onclick="location.reload()"
-            class="ring-card inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-card px-4 text-sm font-medium transition-colors hover:bg-secondary">
-        <svg class="size-4" aria-hidden="true"><use href="#i-refresh"/></svg>
-        Refresh
-    </button>
 </section>
 
-<section class="rise rise-2 mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" id="players-grid">
-${player_cards}
+<section class="rise rise-2 mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+         id="players-grid" data-staff="${IS_STAFF}">
+    <div class="ring-card col-span-full rounded-2xl bg-card p-10 text-center">
+        <p class="text-sm text-muted-foreground">Loading players…</p>
+    </div>
 </section>
 
-<script>
-    (function () {
-        const input = document.getElementById('player-filter');
-        if (!input) return;
-        const cards = Array.from(document.querySelectorAll('#players-grid [data-name]'));
-        input.addEventListener('input', () => {
-            const q = input.value.toLowerCase().trim();
-            cards.forEach(c => {
-                const n = (c.getAttribute('data-name') || '').toLowerCase();
-                c.style.display = (!q || n.includes(q)) ? '' : 'none';
-            });
-        });
-    })();
-</script>
+<script src="/assets/players.js" defer></script>

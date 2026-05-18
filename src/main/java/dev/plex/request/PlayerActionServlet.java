@@ -1,0 +1,164 @@
+package dev.plex.request;
+
+import dev.plex.Plex;
+import dev.plex.authentication.AuthenticatedUser;
+import dev.plex.cache.DataUtils;
+import dev.plex.logging.Log;
+import dev.plex.player.PlexPlayer;
+import dev.plex.punishment.Punishment;
+import dev.plex.punishment.PunishmentType;
+import dev.plex.util.BungeeUtil;
+import dev.plex.util.TimeUtils;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
+
+import java.io.IOException;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.List;
+import java.util.UUID;
+
+public class PlayerActionServlet extends HttpServlet
+{
+    private static final long FAR_FUTURE_DAYS = 365L * 50L;
+    private static final List<String> PERMANENT_ACTIONS = List.of("ban", "mute");
+    private static final List<String> TEMP_ACTIONS = List.of("tempban", "tempmute", "freeze");
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+        throws ServletException, IOException
+    {
+        AuthenticatedUser staff = AbstractServlet.currentStaff(request);
+        if (staff == null)
+        {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            response.getWriter().write("Not authorized.");
+            return;
+        }
+
+        String uuidStr = request.getParameter("uuid");
+        String action = request.getParameter("action");
+        String reason = request.getParameter("reason");
+        String durationStr = request.getParameter("duration");
+
+        if (uuidStr == null || action == null)
+        {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            response.getWriter().write("Missing parameters.");
+            return;
+        }
+        if (!PERMANENT_ACTIONS.contains(action) && !TEMP_ACTIONS.contains(action))
+        {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            response.getWriter().write("Unknown action.");
+            return;
+        }
+
+        UUID uuid;
+        try
+        {
+            uuid = UUID.fromString(uuidStr);
+        }
+        catch (IllegalArgumentException e)
+        {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            response.getWriter().write("Bad UUID.");
+            return;
+        }
+
+        PlexPlayer target = DataUtils.getPlayer(uuid);
+        if (target == null)
+        {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            response.getWriter().write("Player not found.");
+            return;
+        }
+
+        String safeReason = (reason == null || reason.isBlank()) ? "No reason provided" : reason.trim();
+        if (safeReason.length() > 500) safeReason = safeReason.substring(0, 500);
+
+        PunishmentType type = mapType(action);
+        ZonedDateTime now = ZonedDateTime.now(ZoneId.of(TimeUtils.TIMEZONE));
+        ZonedDateTime endDate = TEMP_ACTIONS.contains(action)
+            ? now.plusSeconds(parseDurationSeconds(durationStr))
+            : now.plusDays(FAR_FUTURE_DAYS);
+
+        Punishment punishment = new Punishment(uuid, null);
+        punishment.setType(type);
+        punishment.setReason(safeReason);
+        punishment.setPunishedUsername(target.getName());
+        punishment.setPunisherName("xf:" + staff.username());
+        punishment.setEndDate(endDate);
+        punishment.setCustomTime(TEMP_ACTIONS.contains(action));
+        punishment.setActive(true);
+        List<String> ips = target.getIps();
+        if (ips != null && !ips.isEmpty()) punishment.setIp(ips.getLast());
+
+        String ipAddress = request.getRemoteAddr();
+        if ("127.0.0.1".equals(ipAddress))
+        {
+            String forwarded = request.getHeader("X-FORWARDED-FOR");
+            if (forwarded != null) ipAddress = forwarded;
+        }
+        Log.log(ipAddress + " (xf:" + staff.username() + ") issued " + action + " on " + target.getName() + " (" + uuid + ")");
+
+        final boolean kick = action.equals("ban") || action.equals("tempban");
+        final Punishment toApply = punishment;
+        Bukkit.getScheduler().runTask(Plex.get(), () ->
+        {
+            try
+            {
+                Plex.get().getPunishmentManager().punish(target, toApply);
+            }
+            catch (Throwable t)
+            {
+                t.printStackTrace();
+                return;
+            }
+            if (kick)
+            {
+                Player online = Bukkit.getPlayer(uuid);
+                if (online != null)
+                {
+                    try { BungeeUtil.kickPlayer(online, Punishment.generateBanMessage(toApply)); }
+                    catch (Throwable t) { t.printStackTrace(); }
+                }
+            }
+        });
+
+        response.sendRedirect("/player/" + uuid);
+    }
+
+    private static PunishmentType mapType(String action)
+    {
+        return switch (action)
+        {
+            case "ban" -> PunishmentType.BAN;
+            case "tempban" -> PunishmentType.TEMPBAN;
+            case "mute", "tempmute" -> PunishmentType.MUTE;
+            case "freeze" -> PunishmentType.FREEZE;
+            default -> throw new IllegalArgumentException("unknown action: " + action);
+        };
+    }
+
+    private static long parseDurationSeconds(String s)
+    {
+        if (s == null || s.length() < 2) return 24L * 3600L;
+        char unit = s.charAt(s.length() - 1);
+        long n;
+        try { n = Long.parseLong(s.substring(0, s.length() - 1)); }
+        catch (NumberFormatException e) { return 24L * 3600L; }
+        if (n <= 0) return 24L * 3600L;
+        return switch (unit)
+        {
+            case 'm' -> Math.min(n, 60L * 24L * 365L) * 60L;
+            case 'h' -> Math.min(n, 24L * 365L) * 3600L;
+            case 'd' -> Math.min(n, 365L * 50L) * 86400L;
+            default -> 24L * 3600L;
+        };
+    }
+}

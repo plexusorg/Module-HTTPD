@@ -20,6 +20,15 @@ server:
     accept-queue: 32            # OS-level backlog of pending TCP connects
     request-header-bytes: 8192  # cap header size; oversized requests get 431
 
+  # Server-Sent Events stream for the live dashboard. One connection per
+  # open dashboard tab; the broadcaster pushes a stats frame on a fixed cadence
+  # so the page never has to poll. Bounded so a flood of dashboards can't
+  # exhaust Jetty's thread pool.
+  sse:
+    max-connections: 32           # reject further connects with 503 once reached
+    broadcast-interval-ms: 2000   # keep below limits.idle-timeout-ms
+    threads: 2                    # dedicated executor; isolates from Minecraft tick thread
+
 # Token-bucket rate limiting. Defaults are sized for a small sized server.
 # capacity = burst, per-second = sustained rate. Disable globally with enabled: false.
 rate-limit:

@@ -1,0 +1,140 @@
+Player
+PLAYERS
+<section class="rise flex flex-wrap items-end justify-between gap-3">
+    <div class="flex items-center gap-3">
+        <img class="size-14 rounded-xl bg-muted [image-rendering:pixelated]"
+             src="https://vzge.me/face/512/${player_uuid}.png"
+             alt="" loading="lazy" width="56" height="56">
+        <div>
+            <h1 class="text-3xl font-medium tracking-tight md:text-4xl">${player_name}</h1>
+            <p class="mt-1 font-mono text-xs text-muted-foreground break-all">${player_uuid}</p>
+        </div>
+    </div>
+    <a href="/players/"
+       class="inline-flex h-9 items-center gap-1.5 rounded-full bg-muted px-4 text-sm font-medium transition-colors hover:bg-secondary">
+        ← Back to players
+    </a>
+</section>
+
+<section class="rise rise-1 mt-6 grid gap-4 md:grid-cols-2">
+
+    <article class="ring-card rounded-2xl bg-card p-5">
+        <h2 class="text-sm font-medium tracking-tight">Info</h2>
+        <dl class="mt-4 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm">
+            <dt class="text-muted-foreground">Status</dt>
+            <dd data-player-status data-uuid="${player_uuid}" class="text-muted-foreground">offline</dd>
+
+            <dt class="text-muted-foreground">Ping</dt>
+            <dd data-player-ping data-uuid="${player_uuid}" class="tabular text-foreground/80">—</dd>
+
+            <dt class="text-muted-foreground">World</dt>
+            <dd data-player-world class="text-foreground/80">—</dd>
+
+            <dt class="text-muted-foreground">Gamemode</dt>
+            <dd data-player-gamemode class="capitalize text-foreground/80">—</dd>
+
+            <dt class="text-muted-foreground">IP</dt>
+            <dd class="font-mono text-foreground/80 break-all">${player_ip}</dd>
+
+            <dt class="text-muted-foreground">First played</dt>
+            <dd class="text-foreground/80">${player_first_played}</dd>
+
+            <dt class="text-muted-foreground">Punishments</dt>
+            <dd>
+                <a href="/punishments/${player_uuid}"
+                   class="inline-flex items-center gap-1 text-primary hover:underline">
+                    View history
+                    <svg class="size-3" aria-hidden="true"><use href="#i-arrow-right"/></svg>
+                </a>
+            </dd>
+
+            <dt class="text-muted-foreground">NameMC</dt>
+            <dd>
+                <a href="${player_namemc}" target="_blank" rel="noopener"
+                   class="inline-flex items-center gap-1 text-primary hover:underline">
+                    View profile
+                    <svg class="size-3" aria-hidden="true"><use href="#i-arrow-right"/></svg>
+                </a>
+            </dd>
+        </dl>
+    </article>
+
+    <article class="ring-card rounded-2xl bg-card p-5">
+        <h2 class="text-sm font-medium tracking-tight">Actions</h2>
+        <p class="mt-1 text-xs text-muted-foreground">
+            Issued punishments are attributed to your XenForo username.
+        </p>
+        <div class="mt-4 grid grid-cols-2 gap-2">
+            <button type="button" data-admin-action="ban" data-admin-temp="false"
+                    class="h-9 rounded-full bg-destructive/10 px-4 text-sm font-medium text-destructive transition-colors hover:bg-destructive/20">
+                Ban
+            </button>
+            <button type="button" data-admin-action="tempban" data-admin-temp="true"
+                    class="h-9 rounded-full bg-warning/10 px-4 text-sm font-medium text-warning transition-colors hover:bg-warning/20">
+                Tempban
+            </button>
+            <button type="button" data-admin-action="mute" data-admin-temp="false"
+                    class="h-9 rounded-full bg-warning/10 px-4 text-sm font-medium text-warning transition-colors hover:bg-warning/20">
+                Mute
+            </button>
+            <button type="button" data-admin-action="tempmute" data-admin-temp="true"
+                    class="h-9 rounded-full bg-warning/10 px-4 text-sm font-medium text-warning transition-colors hover:bg-warning/20">
+                Tempmute
+            </button>
+            <button type="button" data-admin-action="freeze" data-admin-temp="true"
+                    class="col-span-2 h-9 rounded-full bg-primary/10 px-4 text-sm font-medium text-primary transition-colors hover:bg-primary/20">
+                Freeze
+            </button>
+        </div>
+    </article>
+
+</section>
+
+<dialog id="action-dialog"
+        class="ring-card w-[min(28rem,calc(100%-2rem))] rounded-2xl bg-card p-5 text-foreground shadow-2xl backdrop:bg-background/60 backdrop:backdrop-blur-sm">
+    <form method="POST" action="/api/admin/action" id="action-form" class="flex flex-col gap-4">
+        <input type="hidden" name="uuid" value="${player_uuid}">
+        <input type="hidden" name="action" value="" data-action-input>
+
+        <header>
+            <h3 class="text-lg font-medium">
+                Confirm <span data-action-label class="capitalize">action</span>
+            </h3>
+            <p class="mt-1 text-sm text-muted-foreground">
+                Target: <span class="font-medium text-foreground">${player_name}</span>
+            </p>
+        </header>
+
+        <label class="flex flex-col gap-1.5 text-sm">
+            <span class="text-muted-foreground">Reason</span>
+            <input name="reason" type="text" required minlength="1" maxlength="500"
+                   placeholder="Required"
+                   class="ring-card h-10 rounded-lg bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40">
+        </label>
+
+        <label data-duration-field hidden class="flex flex-col gap-1.5 text-sm">
+            <span class="text-muted-foreground">Duration</span>
+            <select name="duration"
+                    class="ring-card h-10 rounded-lg bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/40">
+                <option value="5m">5 minutes</option>
+                <option value="1h">1 hour</option>
+                <option value="24h" selected>1 day</option>
+                <option value="7d">7 days</option>
+                <option value="30d">30 days</option>
+            </select>
+        </label>
+
+        <menu class="mt-2 flex justify-end gap-2">
+            <button type="button" data-dialog-cancel
+                    class="h-9 rounded-full bg-muted px-4 text-sm font-medium transition-colors hover:bg-secondary">
+                Cancel
+            </button>
+            <button type="submit"
+                    class="h-9 rounded-full bg-destructive px-4 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90">
+                Confirm
+            </button>
+        </menu>
+    </form>
+</dialog>
+
+<script src="/assets/player.js" defer></script>

@@ -7,7 +7,11 @@ import dev.plex.logging.Log;
 import dev.plex.module.PlexModule;
 import dev.plex.ratelimit.RateLimitFilter;
 import dev.plex.request.AbstractServlet;
+import dev.plex.request.PlayerActionServlet;
+import dev.plex.request.PlayersStreamServlet;
 import dev.plex.request.SchematicUploadServlet;
+import dev.plex.request.StaffPlayersStreamServlet;
+import dev.plex.request.StatsStreamServlet;
 import dev.plex.request.impl.*;
 import dev.plex.util.PlexLog;
 import jakarta.servlet.DispatcherType;
@@ -93,6 +97,9 @@ public class HTTPDModule extends PlexModule
 
             context.addFilter(new FilterHolder(new RateLimitFilter()), "/*", EnumSet.of(DispatcherType.REQUEST));
 
+            StatsBroadcaster.get().start();
+            PlayersBroadcaster.get().start();
+
             new IndefBansEndpoint();
             new IndexEndpoint();
             new ListEndpoint();
@@ -100,12 +107,17 @@ public class HTTPDModule extends PlexModule
             new CommandsEndpoint();
             new SchematicDownloadEndpoint();
             new SchematicUploadEndpoint();
-            new StatsEndpoint();
             new PlayersEndpoint();
+            new PlayerAdminEndpoint();
             new AssetsEndpoint();
             new PunishmentsUIEndpoint();
             new IndefBansUIEndpoint();
             new AuthenticationEndpoint();
+
+            HTTPDModule.context.addServlet(StatsStreamServlet.class, "/api/stats/stream");
+            HTTPDModule.context.addServlet(PlayersStreamServlet.class, "/api/players/stream");
+            HTTPDModule.context.addServlet(StaffPlayersStreamServlet.class, "/api/players/stream/staff");
+            HTTPDModule.context.addServlet(PlayerActionServlet.class, "/api/admin/action");
 
             ServletHolder uploadHolder = HTTPDModule.context.addServlet(SchematicUploadServlet.class, "/api/schematics/uploading");
 
@@ -138,6 +150,22 @@ public class HTTPDModule extends PlexModule
     public void disable()
     {
         PlexLog.debug("Stopping Jetty server");
+        try
+        {
+            StatsBroadcaster.get().shutdown();
+        }
+        catch (Throwable t)
+        {
+            t.printStackTrace();
+        }
+        try
+        {
+            PlayersBroadcaster.get().shutdown();
+        }
+        catch (Throwable t)
+        {
+            t.printStackTrace();
+        }
         try
         {
             atomicServer.get().stop();

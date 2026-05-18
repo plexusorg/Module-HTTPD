@@ -1,6 +1,5 @@
 package dev.plex.request.impl;
 
-import dev.plex.Plex;
 import dev.plex.cache.DataUtils;
 import dev.plex.player.PlexPlayer;
 import dev.plex.punishment.Punishment;
@@ -86,7 +85,7 @@ public class PunishmentsUIEndpoint extends AbstractServlet
 
         String rawReason = (p.getReason() == null || p.getReason().isBlank()) ? "" : p.getReason();
         String reason = rawReason.isEmpty() ? "<span class=\"italic text-muted-foreground/70\">No reason provided</span>" : escapeHtml(rawReason);
-        String punisher = resolveName(p.getPunisher());
+        String punisher = resolvePunisher(p);
         String endDate = p.getEndDate() == null ? "permanent" : escapeHtml(formatDate(p.getEndDate()));
 
         boolean isBan = type == PunishmentType.BAN || type == PunishmentType.TEMPBAN;
@@ -149,18 +148,18 @@ public class PunishmentsUIEndpoint extends AbstractServlet
         };
     }
 
-    private static String resolveName(UUID uuid)
+    private static String resolvePunisher(Punishment p)
     {
-        if (uuid == null) return "CONSOLE";
         try
         {
-            String name = Plex.get().getSqlPlayerData().getNameByUUID(uuid);
+            String name = Punishment.punisherDisplayName(p);
             if (name != null && !name.isBlank()) return name;
         }
         catch (Throwable ignored)
         {
         }
-        return uuid.toString();
+        UUID uuid = p.getPunisher();
+        return uuid == null ? "CONSOLE" : uuid.toString();
     }
 
     private static String formatDate(ZonedDateTime date)

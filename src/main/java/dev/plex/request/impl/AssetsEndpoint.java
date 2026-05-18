@@ -19,6 +19,20 @@ public class AssetsEndpoint extends AbstractServlet
         return readFileReal(this.getClass().getResourceAsStream("/httpd/assets/dashboard.js"));
     }
 
+    @GetMapping(endpoint = "/assets/players.js")
+    @MappingHeaders(headers = {"content-type;application/javascript; charset=utf-8", "cache-control;public, max-age=300"})
+    public String playersJs(HttpServletRequest request, HttpServletResponse response)
+    {
+        return readFileReal(this.getClass().getResourceAsStream("/httpd/assets/players.js"));
+    }
+
+    @GetMapping(endpoint = "/assets/player.js")
+    @MappingHeaders(headers = {"content-type;application/javascript; charset=utf-8", "cache-control;public, max-age=300"})
+    public String playerJs(HttpServletRequest request, HttpServletResponse response)
+    {
+        return readFileReal(this.getClass().getResourceAsStream("/httpd/assets/player.js"));
+    }
+
     @GetMapping(endpoint = "/assets/plexlogo.webp")
     @MappingHeaders(headers = {"content-type;image/webp", "cache-control;public, max-age=86400"})
     public String plexLogo(HttpServletRequest request, HttpServletResponse response)

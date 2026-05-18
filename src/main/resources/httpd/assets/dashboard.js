@@ -1,7 +1,7 @@
 (function () {
-    const POLL_MS = 3000;
     const SPARK_MAX = 60;
     const tpsHistory = [];
+    let serverStartTime = null;
 
     const fmt = {
         pct(n) {
@@ -112,18 +112,6 @@
         }
     }
 
-    async function refresh() {
-        try {
-            const r = await fetch('/api/stats/', {cache: 'no-store'});
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            const s = await r.json();
-            paint(s);
-            setStatus(true);
-        } catch (e) {
-            setStatus(false);
-        }
-    }
-
     function setStatus(ok) {
         document.querySelectorAll('[data-status="text"]').forEach(el => {
             el.textContent = ok ? 'online' : 'offline';
@@ -132,6 +120,11 @@
             el.classList.remove('bg-success', 'bg-destructive');
             el.classList.add(ok ? 'bg-success' : 'bg-destructive');
         });
+    }
+
+    function tickUptime() {
+        if (serverStartTime == null) return;
+        setText('[data-stat="uptime"]', fmt.duration(Date.now() - serverStartTime));
     }
 
     function paint(s) {
@@ -164,7 +157,10 @@
         if (tpsHistory.length > SPARK_MAX) tpsHistory.shift();
         renderSparkline(tpsHistory);
 
-        setText('[data-stat="uptime"]', fmt.duration(s.server.uptime));
+        if (typeof s.server.startTime === 'number' && serverStartTime !== s.server.startTime) {
+            serverStartTime = s.server.startTime;
+            tickUptime();
+        }
         setText('[data-stat="version"]', s.server.version);
 
         setText('[data-stat="chunks"]', fmt.int(s.world.loadedChunks));
@@ -173,6 +169,21 @@
         setText('[data-stat="plugins"]', fmt.int(s.plugins.active));
     }
 
-    refresh();
-    setInterval(refresh, POLL_MS);
+    function connect() {
+        const es = new EventSource('/api/stats/stream');
+        es.addEventListener('open', () => setStatus(true));
+        es.addEventListener('message', (evt) => {
+            try {
+                paint(JSON.parse(evt.data));
+                setStatus(true);
+            } catch (e) {
+                // ignore malformed frame; next tick will overwrite
+            }
+        });
+        es.addEventListener('error', () => setStatus(false));
+        return es;
+    }
+
+    setInterval(tickUptime, 1000);
+    connect();
 })();

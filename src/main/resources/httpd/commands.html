@@ -53,11 +53,17 @@ ${commands}
         }
 
         if (toggle) {
+            const syncToggleButton = () => {
+                const allClosed = sections.every(s => !s.open);
+                toggle.dataset.state = allClosed ? 'closed' : 'open';
+                toggle.textContent = allClosed ? 'Expand all' : 'Collapse all';
+            };
+
+            sections.forEach(s => s.addEventListener('toggle', syncToggleButton));
+
             toggle.addEventListener('click', () => {
                 const willOpen = toggle.dataset.state !== 'open';
                 sections.forEach(s => { s.open = willOpen; });
-                toggle.dataset.state = willOpen ? 'open' : 'closed';
-                toggle.textContent = willOpen ? 'Collapse all' : 'Expand all';
             });
         }
     })();

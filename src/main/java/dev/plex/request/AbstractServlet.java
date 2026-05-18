@@ -16,6 +16,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
@@ -153,7 +154,20 @@ public class AbstractServlet extends HttpServlet
 
     public static String signInPrompt(String action)
     {
-        return "You must <a class=\"text-primary underline\" href=\"/oauth2/login\">sign in</a> as staff " + action + ".";
+        return signInPrompt(null, action);
+    }
+
+    public static String signInPrompt(HttpServletRequest request, String action)
+    {
+        String href = "/oauth2/login";
+        if (request != null)
+        {
+            String path = getRequestPath(request);
+            String query = request.getQueryString();
+            String returnTo = query == null || query.isEmpty() ? path : path + "?" + query;
+            href = href + "?return_to=" + URLEncoder.encode(returnTo, StandardCharsets.UTF_8);
+        }
+        return "You must <a class=\"text-primary underline\" href=\"" + href + "\">sign in</a> as staff " + action + ".";
     }
 
     public static String readFile(InputStream filename)

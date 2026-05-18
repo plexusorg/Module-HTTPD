@@ -16,7 +16,7 @@ public class IndefBansEndpoint extends AbstractServlet
         AuthenticatedUser user = currentStaff(request);
         if (user == null)
         {
-            return indefbansHTML(signInPrompt("to view this page"));
+            return indefbansHTML(signInPrompt(request, "to view this page"));
         }
 
         response.setHeader("content-type", "application/json");

@@ -19,6 +19,7 @@ import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
 import org.eclipse.jetty.ee10.servlet.ServletHandler;
 import org.eclipse.jetty.ee10.servlet.ServletHolder;
 import org.eclipse.jetty.server.*;
+import org.eclipse.jetty.util.thread.QueuedThreadPool;
 
 import java.io.File;
 import java.util.EnumSet;
@@ -66,7 +67,14 @@ public class HTTPDModule extends PlexModule
 
         serverThread = new Thread(() ->
         {
-            Server server = new Server();
+            int maxThreads = moduleConfig.getInt("server.threads.max", 16);
+            int minThreads = Math.min(moduleConfig.getInt("server.threads.min", 2), maxThreads);
+            int idleTimeout = moduleConfig.getInt("server.threads.idle-timeout-ms", 30_000);
+            QueuedThreadPool pool = new QueuedThreadPool(maxThreads, minThreads, idleTimeout);
+            pool.setName("Plex-HTTPD");
+            pool.setDaemon(true);
+
+            Server server = new Server(pool);
             ServletHandler servletHandler = new ServletHandler();
 
             context = new ServletContextHandler(ServletContextHandler.SESSIONS);
@@ -74,10 +82,14 @@ public class HTTPDModule extends PlexModule
             context.setContextPath("/");
             HttpConfiguration configuration = new HttpConfiguration();
             configuration.addCustomizer(new ForwardedRequestCustomizer());
+            configuration.setRequestHeaderSize(moduleConfig.getInt("server.limits.request-header-bytes", 8 * 1024));
+            configuration.setSendServerVersion(false);
             HttpConnectionFactory factory = new HttpConnectionFactory(configuration);
             ServerConnector connector = new ServerConnector(server, factory);
             connector.setHost(moduleConfig.getString("server.bind-address"));
             connector.setPort(moduleConfig.getInt("server.port"));
+            connector.setIdleTimeout(moduleConfig.getLong("server.limits.idle-timeout-ms", 15_000L));
+            connector.setAcceptQueueSize(moduleConfig.getInt("server.limits.accept-queue", 32));
 
             context.addFilter(new FilterHolder(new RateLimitFilter()), "/*", EnumSet.of(DispatcherType.REQUEST));
 

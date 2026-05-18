@@ -77,7 +77,7 @@ public class CommandsEndpoint extends AbstractServlet
                         <svg class="size-4 text-muted-foreground transition-transform group-open:rotate-90" aria-hidden="true"><use href="#i-arrow-right"/></svg>
                         %s
                     </span>
-                    <span class="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                    <span class="text-sm text-muted-foreground">
                         %d %s
                     </span>
                 </summary>
@@ -113,11 +113,11 @@ public class CommandsEndpoint extends AbstractServlet
                     %s
                 </header>
                 %s
-                <dl class="mt-3 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1.5 border-t border-border/60 pt-3 font-mono text-[11px]">
-                    <dt class="text-muted-foreground uppercase tracking-wider">usage</dt>
-                    <dd class="text-foreground/80 break-all">%s</dd>
-                    <dt class="text-muted-foreground uppercase tracking-wider">perm</dt>
-                    <dd class="text-foreground/80 break-all">%s</dd>
+                <dl class="mt-3 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1.5 border-t border-border/60 pt-3 text-xs">
+                    <dt class="text-muted-foreground">usage</dt>
+                    <dd class="font-mono text-foreground/80 break-all">%s</dd>
+                    <dt class="text-muted-foreground">perm</dt>
+                    <dd class="font-mono text-foreground/80 break-all">%s</dd>
                 </dl>
             </article>
             """.formatted(searchBlob, name, aliasMarkup, descMarkup, usage, permission);

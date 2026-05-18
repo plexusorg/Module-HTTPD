@@ -7,6 +7,19 @@ server:
     file-path: "httpd.log"  # relative to the module's data folder
     console: false          # also mirror to the Bukkit console
 
+  # Jetty thread pool. Bounded so a flood of HTTP requests can't starve the
+  # Minecraft tick thread or consume unbounded memory.
+  threads:
+    max: 16
+    min: 2
+    idle-timeout-ms: 30000
+
+  # Per-connection limits that close slow/abusive clients quickly.
+  limits:
+    idle-timeout-ms: 15000      # drop conns with no progress for this long
+    accept-queue: 32            # OS-level backlog of pending TCP connects
+    request-header-bytes: 8192  # cap header size; oversized requests get 431
+
 # Token-bucket rate limiting. Defaults are sized for a small sized server.
 # capacity = burst, per-second = sustained rate. Disable globally with enabled: false.
 rate-limit:

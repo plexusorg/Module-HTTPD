@@ -97,12 +97,12 @@ public class PunishmentsUIEndpoint extends AbstractServlet
             if (p.isActive())
             {
                 status = "active";
-                statusChip = "<span class=\"inline-flex h-5 items-center rounded-full bg-destructive/10 px-2 font-mono text-[10px] uppercase tracking-wider text-destructive\">active</span>";
+                statusChip = "<span class=\"inline-flex h-5 items-center rounded-full bg-destructive/10 px-2 text-xs text-destructive\">Active</span>";
             }
             else
             {
                 status = "expired";
-                statusChip = "<span class=\"inline-flex h-5 items-center rounded-full bg-muted px-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground\">expired</span>";
+                statusChip = "<span class=\"inline-flex h-5 items-center rounded-full bg-muted px-2 text-xs text-muted-foreground\">Expired</span>";
             }
         }
 
@@ -112,29 +112,30 @@ public class PunishmentsUIEndpoint extends AbstractServlet
         {
             ipBlob = p.getIp();
             ipRow = """
-                <dt class="text-muted-foreground uppercase tracking-wider">IP</dt>
-                <dd class="text-foreground/80 break-all">%s</dd>
+                <dt class="text-muted-foreground">IP</dt>
+                <dd class="font-mono text-foreground/80 break-all">%s</dd>
                 """.formatted(escapeHtml(p.getIp()));
         }
 
         String searchBlob = escapeHtml((typeName + " " + rawReason + " " + punisher + " " + status + " " + ipBlob).toLowerCase());
+        String typeLabel = titleCase(typeName);
 
         return """
             <article class="ring-card rounded-2xl bg-card p-5" data-search="%s" data-type="%s" data-status="%s">
                 <header class="flex flex-wrap items-center gap-2">
-                    <span class="inline-flex h-6 items-center rounded-full bg-%s/10 px-2.5 font-mono text-xs font-medium uppercase tracking-wider text-%s">%s</span>
+                    <span class="inline-flex h-6 items-center rounded-full bg-%s/10 px-2.5 text-xs font-medium text-%s">%s</span>
                     %s
                 </header>
                 <p class="mt-3 text-sm">%s</p>
-                <dl class="mt-4 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1.5 border-t border-border/60 pt-3 font-mono text-[11px]">
-                    <dt class="text-muted-foreground uppercase tracking-wider">Punisher</dt>
+                <dl class="mt-4 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1.5 border-t border-border/60 pt-3 text-xs">
+                    <dt class="text-muted-foreground">Punisher</dt>
                     <dd class="text-foreground/80">%s</dd>
-                    <dt class="text-muted-foreground uppercase tracking-wider">Expires</dt>
+                    <dt class="text-muted-foreground">Expires</dt>
                     <dd class="text-foreground/80">%s</dd>
                     %s
                 </dl>
             </article>
-            """.formatted(searchBlob, typeName, status, accent, accent, typeName, statusChip, reason, escapeHtml(punisher), endDate, ipRow);
+            """.formatted(searchBlob, typeName, status, accent, accent, typeLabel, statusChip, reason, escapeHtml(punisher), endDate, ipRow);
     }
 
     private static String accentFor(PunishmentType type)
@@ -195,5 +196,11 @@ public class PunishmentsUIEndpoint extends AbstractServlet
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;");
+    }
+
+    private static String titleCase(String s)
+    {
+        if (s == null || s.isEmpty()) return s;
+        return Character.toUpperCase(s.charAt(0)) + s.substring(1).toLowerCase();
     }
 }

@@ -14,9 +14,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 public class AuthenticationEndpoint extends AbstractServlet
 {
+    private static final String RETURN_TO_COOKIE = "plex_return_to";
+
     @GetMapping(endpoint = "/oauth2/login")
     public String login(HttpServletRequest request, HttpServletResponse response) throws IOException
     {
@@ -26,6 +31,20 @@ public class AuthenticationEndpoint extends AbstractServlet
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Authentication is not enabled.");
             return null;
         }
+
+        String returnTo = sanitizeReturnTo(request.getParameter("return_to"));
+        String cookieValue = returnTo == null ? "" : URLEncoder.encode(returnTo, StandardCharsets.UTF_8);
+        Cookie returnCookie = new Cookie(RETURN_TO_COOKIE, cookieValue);
+        returnCookie.setHttpOnly(true);
+        returnCookie.setPath("/");
+        returnCookie.setMaxAge(returnTo == null ? 0 : 600);
+        returnCookie.setAttribute("SameSite", "Lax");
+        if (request.isSecure() || "https".equalsIgnoreCase(request.getHeader("X-Forwarded-Proto")))
+        {
+            returnCookie.setSecure(true);
+        }
+        response.addCookie(returnCookie);
+
         response.sendRedirect(provider.buildAuthorizeUrl(request));
         return null;
     }
@@ -54,7 +73,12 @@ public class AuthenticationEndpoint extends AbstractServlet
                     + "<p>" + escape(e.getMessage()) + "</p>"
                     + "<p><a href=\"/oauth2/login\">Try again</a></p>";
         }
-        response.sendRedirect("/");
+
+        String raw = readCookie(request, RETURN_TO_COOKIE);
+        String decoded = raw == null || raw.isEmpty() ? null : URLDecoder.decode(raw, StandardCharsets.UTF_8);
+        String target = sanitizeReturnTo(decoded);
+        clearReturnToCookie(request, response);
+        response.sendRedirect(target == null ? "/" : target);
         return null;
     }
 
@@ -104,16 +128,48 @@ public class AuthenticationEndpoint extends AbstractServlet
 
     private static String readSessionCookie(HttpServletRequest request)
     {
+        return readCookie(request, OAuth2Provider.SESSION_COOKIE);
+    }
+
+    private static String readCookie(HttpServletRequest request, String name)
+    {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) return null;
         for (Cookie cookie : cookies)
         {
-            if (OAuth2Provider.SESSION_COOKIE.equals(cookie.getName()))
+            if (name.equals(cookie.getName()))
             {
                 return cookie.getValue();
             }
         }
         return null;
+    }
+
+    private void clearReturnToCookie(HttpServletRequest request, HttpServletResponse response)
+    {
+        Cookie clear = new Cookie(RETURN_TO_COOKIE, "");
+        clear.setHttpOnly(true);
+        clear.setPath("/");
+        clear.setMaxAge(0);
+        clear.setAttribute("SameSite", "Lax");
+        if (request.isSecure() || "https".equalsIgnoreCase(request.getHeader("X-Forwarded-Proto")))
+        {
+            clear.setSecure(true);
+        }
+        response.addCookie(clear);
+    }
+
+    private static String sanitizeReturnTo(String value)
+    {
+        if (value == null || value.isEmpty()) return null;
+        if (!value.startsWith("/")) return null;
+        if (value.startsWith("//") || value.startsWith("/\\")) return null;
+        for (int i = 0; i < value.length(); i++)
+        {
+            char c = value.charAt(i);
+            if (c == '\n' || c == '\r' || c == '\\') return null;
+        }
+        return value;
     }
 
     private static String escape(String s)

@@ -19,7 +19,7 @@ public class IndefBansUIEndpoint extends AbstractServlet
         AuthenticatedUser viewer = currentStaff(request);
         if (viewer == null)
         {
-            return errorHTML(signInPrompt("to view this page"));
+            return errorHTML(signInPrompt(request, "to view this page"));
         }
 
         List<IndefiniteBan> bans = Plex.get().getPunishmentManager().getIndefiniteBans();
@@ -66,24 +66,24 @@ public class IndefBansUIEndpoint extends AbstractServlet
         StringBuilder rows = new StringBuilder();
         if (!ban.getUsernames().isEmpty())
         {
-            rows.append(renderRow("users", "text-foreground/90 break-all", ban.getUsernames().stream().map(IndefBansUIEndpoint::escapeHtml).toList()));
+            rows.append(renderRow("Users", "text-foreground/90 break-all", ban.getUsernames().stream().map(IndefBansUIEndpoint::escapeHtml).toList()));
         }
         if (!ban.getUuids().isEmpty())
         {
-            rows.append(renderRow("uuids", "text-foreground/55 break-all", ban.getUuids().stream().map(UUID::toString).toList()));
+            rows.append(renderRow("UUIDs", "font-mono text-foreground/55 break-all", ban.getUuids().stream().map(UUID::toString).toList()));
         }
         if (!ban.getIps().isEmpty())
         {
-            rows.append(renderRow("ips", "text-warning break-all", ban.getIps().stream().map(IndefBansUIEndpoint::escapeHtml).toList()));
+            rows.append(renderRow("IPs", "font-mono text-warning break-all", ban.getIps().stream().map(IndefBansUIEndpoint::escapeHtml).toList()));
         }
 
         return """
             <article class="ring-card rounded-2xl bg-card p-5">
                 <header class="flex flex-wrap items-baseline justify-between gap-3">
                     <p class="text-sm">%s</p>
-                    <span class="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">%d %s</span>
+                    <span class="text-xs text-muted-foreground">%d %s</span>
                 </header>
-                <dl class="mt-4 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 border-t border-border/60 pt-3 font-mono text-[11px]">
+                <dl class="mt-4 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 border-t border-border/60 pt-3 text-xs">
                     %s
                 </dl>
             </article>
@@ -98,7 +98,7 @@ public class IndefBansUIEndpoint extends AbstractServlet
             items.append("<span>").append(value).append("</span>");
         }
         return """
-            <dt class="text-muted-foreground uppercase tracking-wider">%s</dt>
+            <dt class="text-muted-foreground">%s</dt>
             <dd class="flex flex-wrap gap-x-3 gap-y-1 %s">%s</dd>
             """.formatted(label, valueClasses, items);
     }

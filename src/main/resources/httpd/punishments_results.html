@@ -7,16 +7,16 @@ PUNISHMENTS
              alt="" loading="lazy" width="48" height="48">
         <div>
             <h1 class="text-3xl font-medium tracking-tight md:text-4xl">${player_name}</h1>
-            <p class="mt-1 font-mono text-[11px] text-muted-foreground break-all">${player_uuid}</p>
+            <p class="mt-1 font-mono text-xs text-muted-foreground break-all">${player_uuid}</p>
         </div>
     </div>
-    <span class="font-mono text-xs text-muted-foreground tabular">
+    <span class="text-sm text-muted-foreground tabular">
         <span class="text-foreground">${punishment_count}</span> ${punishment_label}
     </span>
 </section>
 
 <section class="rise rise-1 mt-4 flex flex-wrap items-center gap-3">
-    <label class="ring-card relative flex h-10 flex-1 items-center gap-2 rounded-full bg-card px-3 transition-colors focus-within:bg-background focus-within:ring-2 focus-within:ring-ring/30 sm:max-w-md">
+    <label class="ring-card relative flex h-10 w-full items-center gap-2 rounded-full bg-card px-3 transition-colors focus-within:bg-background focus-within:ring-2 focus-within:ring-ring/30 sm:max-w-md">
         <svg class="size-4 text-muted-foreground" aria-hidden="true"><use href="#i-search"/></svg>
         <input id="punish-filter"
                type="text"
@@ -37,7 +37,7 @@ PUNISHMENTS
 ${punishments}
 </section>
 
-<p id="punish-empty" class="rise rise-2 mt-4 hidden font-mono text-[11px] text-muted-foreground">No punishments match those filters.</p>
+<p id="punish-empty" class="rise rise-2 mt-4 hidden text-sm text-muted-foreground">No punishments match those filters.</p>
 
 <script>
     (function () {
@@ -57,18 +57,22 @@ ${punishments}
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-card ring-card text-muted-foreground hover:bg-muted hover:text-foreground';
             return `<button type="button" data-group="${group}" data-value="${value}"
-                class="inline-flex h-7 items-center rounded-full px-3 font-mono text-[11px] uppercase tracking-wider transition-colors ${cls}">${label}</button>`;
+                class="inline-flex h-7 items-center rounded-full px-3 text-xs transition-colors ${cls}">${label}</button>`;
+        }
+
+        function titleCase(s) {
+            return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
         }
 
         function renderChips() {
             const parts = [];
-            parts.push(chip('all', 'type', 'all', state.type === 'all'));
-            types.forEach(t => parts.push(chip(t.toLowerCase(), 'type', t, state.type === t)));
+            parts.push(chip('All', 'type', 'all', state.type === 'all'));
+            types.forEach(t => parts.push(chip(titleCase(t), 'type', t, state.type === t)));
             if (hasStatus) {
                 parts.push('<span class="mx-1 h-4 w-px bg-border"></span>');
-                parts.push(chip('any', 'status', 'all', state.status === 'all'));
-                parts.push(chip('active', 'status', 'active', state.status === 'active'));
-                parts.push(chip('expired', 'status', 'expired', state.status === 'expired'));
+                parts.push(chip('Any', 'status', 'all', state.status === 'all'));
+                parts.push(chip('Active', 'status', 'active', state.status === 'active'));
+                parts.push(chip('Expired', 'status', 'expired', state.status === 'expired'));
             }
             chips.innerHTML = parts.join('');
         }

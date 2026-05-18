@@ -30,7 +30,7 @@ public class SchematicUploadServlet extends HttpServlet
         AuthenticatedUser user = AbstractServlet.currentStaff(request);
         if (user == null)
         {
-            response.getWriter().println(schematicUploadBadHTML(AbstractServlet.signInPrompt("to upload schematics")));
+            response.getWriter().println(schematicUploadBadHTML(AbstractServlet.signInPrompt(request, "to upload schematics")));
             return;
         }
         File worldeditFolder = HTTPDModule.getWorldeditFolder();

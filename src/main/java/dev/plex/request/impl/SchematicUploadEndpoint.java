@@ -14,7 +14,7 @@ public class SchematicUploadEndpoint extends AbstractServlet
         AuthenticatedUser user = currentStaff(request);
         if (user == null)
         {
-            return schematicsHTML(signInPrompt("to upload schematics"));
+            return schematicsHTML(signInPrompt(request, "to upload schematics"));
         }
         return readFile(this.getClass().getResourceAsStream("/httpd/schematic_upload.html"));
     }

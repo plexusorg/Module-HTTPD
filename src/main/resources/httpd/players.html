@@ -2,13 +2,13 @@ Players
 PLAYERS
 <section class="rise flex flex-wrap items-end justify-between gap-3">
     <h1 class="text-3xl font-medium tracking-tight md:text-4xl">Players</h1>
-    <span class="font-mono text-xs text-muted-foreground tabular">
+    <span class="text-sm text-muted-foreground tabular">
         <span class="text-foreground">${player_count}</span> / <span>${player_max}</span> online
     </span>
 </section>
 
 <section class="rise rise-1 mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-    <label class="ring-card relative flex h-10 flex-1 items-center gap-2 rounded-full bg-card px-3 transition-colors focus-within:bg-background focus-within:ring-2 focus-within:ring-ring/30">
+    <label class="ring-card relative flex h-10 w-full items-center gap-2 rounded-full bg-card px-3 transition-colors focus-within:bg-background focus-within:ring-2 focus-within:ring-ring/30 sm:max-w-md">
         <svg class="size-4 text-muted-foreground" aria-hidden="true"><use href="#i-search"/></svg>
         <input id="player-filter"
                type="text"

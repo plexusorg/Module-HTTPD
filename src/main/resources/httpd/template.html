@@ -5,18 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${TITLE} &middot; Plex HTTPD</title>
 
-    <script>
-        (function () {
-            try {
-                const stored = localStorage.getItem('plex-theme');
-                const dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-                if (dark) document.documentElement.classList.add('dark');
-            } catch (e) {
-                if (window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark');
-            }
-        })();
-    </script>
-
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet"
@@ -25,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 
     <style type="text/tailwindcss">
-        @custom-variant dark (&:where(.dark, .dark *));
+        @custom-variant dark (@media (prefers-color-scheme: dark));
 
         @theme {
             --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
@@ -67,29 +55,31 @@
     </style>
 
     <style>
-        .dark {
-            --color-background: oklch(0.145 0 0);
-            --color-foreground: oklch(0.985 0 0);
-            --color-card: oklch(0.205 0 0);
-            --color-card-foreground: oklch(0.985 0 0);
-            --color-popover: oklch(0.205 0 0);
-            --color-popover-foreground: oklch(0.985 0 0);
-            --color-primary: oklch(0.62 0.235 264);
-            --color-primary-foreground: oklch(0.985 0 0);
-            --color-secondary: oklch(0.269 0 0);
-            --color-secondary-foreground: oklch(0.985 0 0);
-            --color-muted: oklch(0.269 0 0);
-            --color-muted-foreground: oklch(0.708 0 0);
-            --color-accent: oklch(0.371 0 0);
-            --color-accent-foreground: oklch(0.985 0 0);
-            --color-destructive: oklch(0.704 0.191 22);
-            --color-success: oklch(0.74 0.18 145);
-            --color-warning: oklch(0.82 0.16 75);
-            --color-border: oklch(1 0 0 / 10%);
-            --color-input: oklch(1 0 0 / 15%);
-            --color-ring: oklch(0.62 0.235 264);
-            --color-surface: oklch(0.2 0 0);
-            --color-surface-foreground: oklch(0.708 0 0);
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --color-background: oklch(0.145 0 0);
+                --color-foreground: oklch(0.985 0 0);
+                --color-card: oklch(0.205 0 0);
+                --color-card-foreground: oklch(0.985 0 0);
+                --color-popover: oklch(0.205 0 0);
+                --color-popover-foreground: oklch(0.985 0 0);
+                --color-primary: oklch(0.62 0.235 264);
+                --color-primary-foreground: oklch(0.985 0 0);
+                --color-secondary: oklch(0.269 0 0);
+                --color-secondary-foreground: oklch(0.985 0 0);
+                --color-muted: oklch(0.269 0 0);
+                --color-muted-foreground: oklch(0.708 0 0);
+                --color-accent: oklch(0.371 0 0);
+                --color-accent-foreground: oklch(0.985 0 0);
+                --color-destructive: oklch(0.704 0.191 22);
+                --color-success: oklch(0.74 0.18 145);
+                --color-warning: oklch(0.82 0.16 75);
+                --color-border: oklch(1 0 0 / 10%);
+                --color-input: oklch(1 0 0 / 15%);
+                --color-ring: oklch(0.62 0.235 264);
+                --color-surface: oklch(0.2 0 0);
+                --color-surface-foreground: oklch(0.708 0 0);
+            }
         }
     </style>
 
@@ -186,10 +176,6 @@
 
         /* Maia: subtle ring on cards, no shadow */
         .ring-card { box-shadow: inset 0 0 0 1px oklch(from var(--color-foreground) l c h / 0.08); }
-
-        /* Hide scrollbar but keep functionality */
-        .nav-scroll::-webkit-scrollbar { display: none; }
-        .nav-scroll { scrollbar-width: none; }
     </style>
 </head>
 <body class="bg-background text-foreground min-h-screen antialiased">
@@ -291,13 +277,13 @@
 <div class="layer-content flex min-h-screen flex-col">
 
     <header class="sticky top-0 z-50 border-b border-border/60 bg-background/75 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
-        <div class="mx-auto flex h-14 max-w-7xl items-center gap-6 px-6">
+        <div class="mx-auto flex h-14 max-w-7xl items-center gap-4 px-6">
             <a href="/" class="flex items-center gap-2.5 text-foreground transition-opacity hover:opacity-80">
                 <img src="/assets/plexlogo.webp" alt="" class="size-7 rounded-md" width="28" height="28">
                 <span class="text-sm font-semibold tracking-tight">Plex HTTPD</span>
             </a>
 
-            <nav class="nav-scroll flex flex-1 items-center gap-1 overflow-x-auto">
+            <nav class="hidden flex-1 items-center gap-1 md:flex">
                 <a class="nav-link ${ACTIVE_HOME} group inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground" href="/">
                     <svg class="size-3.5 opacity-70 group-hover:opacity-100 group-data-[active=true]:text-primary group-data-[active=true]:opacity-100" aria-hidden="true"><use href="#i-dashboard"/></svg>
                     Overview
@@ -324,13 +310,47 @@
                 </a>
             </nav>
 
-            <div class="flex items-center gap-2">
-                <div id="plex-auth" class="hidden md:flex items-center gap-2"></div>
-                <button type="button" onclick="window.plexToggleTheme()" class="ring-card inline-flex size-8 items-center justify-center rounded-full bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="Toggle theme">
-                    <svg class="size-4 hidden dark:block" aria-hidden="true"><use href="#i-sun"/></svg>
-                    <svg class="size-4 block dark:hidden" aria-hidden="true"><use href="#i-moon"/></svg>
+            <div class="flex flex-1 items-center justify-end gap-2 md:flex-initial">
+                <div data-plex-auth class="hidden items-center gap-2 md:flex"></div>
+                <button id="plex-nav-toggle" type="button" class="ring-card inline-flex size-8 items-center justify-center rounded-full bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden" aria-label="Toggle menu" aria-expanded="false" aria-controls="plex-mobile-menu">
+                    <svg class="size-4 block" data-icon="open" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                        <path d="M4 7h16M4 12h16M4 17h16"/>
+                    </svg>
+                    <svg class="size-4 hidden" data-icon="close" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                        <path d="M6 6l12 12M18 6L6 18"/>
+                    </svg>
                 </button>
             </div>
+        </div>
+
+        <div id="plex-mobile-menu" class="hidden border-t border-border/60 md:hidden">
+            <nav class="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-3">
+                <a class="nav-link ${ACTIVE_HOME} group flex h-10 items-center gap-2.5 rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground" href="/">
+                    <svg class="size-4 opacity-70 group-data-[active=true]:text-primary group-data-[active=true]:opacity-100" aria-hidden="true"><use href="#i-dashboard"/></svg>
+                    Overview
+                </a>
+                <a class="nav-link ${ACTIVE_PLAYERS} group flex h-10 items-center gap-2.5 rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground" href="/players/">
+                    <svg class="size-4 opacity-70 group-data-[active=true]:text-primary group-data-[active=true]:opacity-100" aria-hidden="true"><use href="#i-users"/></svg>
+                    Players
+                </a>
+                <a class="nav-link ${ACTIVE_COMMANDS} group flex h-10 items-center gap-2.5 rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground" href="/api/commands/">
+                    <svg class="size-4 opacity-70 group-data-[active=true]:text-primary group-data-[active=true]:opacity-100" aria-hidden="true"><use href="#i-code"/></svg>
+                    Commands
+                </a>
+                <a class="nav-link ${ACTIVE_PUNISHMENTS} group flex h-10 items-center gap-2.5 rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground" href="/punishments/">
+                    <svg class="size-4 opacity-70 group-data-[active=true]:text-primary group-data-[active=true]:opacity-100" aria-hidden="true"><use href="#i-gavel"/></svg>
+                    Punishments
+                </a>
+                <a class="nav-link ${ACTIVE_INDEFBANS} group flex h-10 items-center gap-2.5 rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground" href="/indefbans/">
+                    <svg class="size-4 opacity-70 group-data-[active=true]:text-primary group-data-[active=true]:opacity-100" aria-hidden="true"><use href="#i-lock"/></svg>
+                    Indef Bans
+                </a>
+                <a class="nav-link ${ACTIVE_SCHEMATICS} group flex h-10 items-center gap-2.5 rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground" href="/api/schematics/download/">
+                    <svg class="size-4 opacity-70 group-data-[active=true]:text-primary group-data-[active=true]:opacity-100" aria-hidden="true"><use href="#i-package"/></svg>
+                    Schematics
+                </a>
+                <div data-plex-auth class="mt-2 flex flex-col gap-2 border-t border-border/60 pt-3"></div>
+            </nav>
         </div>
     </header>
 
@@ -341,28 +361,46 @@
 </div>
 
 <script>
-    window.plexToggleTheme = function () {
-        const isDark = document.documentElement.classList.toggle('dark');
-        try { localStorage.setItem('plex-theme', isDark ? 'dark' : 'light'); } catch (e) {}
-    };
     document.querySelectorAll('.nav-link').forEach(a => {
         if (a.classList.contains('active')) a.setAttribute('data-active', 'true');
     });
     (function () {
-        const mount = document.getElementById('plex-auth');
-        if (!mount) return;
-        const linkClasses = 'ring-card inline-flex h-8 items-center gap-1.5 rounded-full bg-card px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground';
+        const toggle = document.getElementById('plex-nav-toggle');
+        const menu = document.getElementById('plex-mobile-menu');
+        if (!toggle || !menu) return;
+        const setOpen = (open) => {
+            menu.classList.toggle('hidden', !open);
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            toggle.querySelector('[data-icon="open"]').classList.toggle('hidden', open);
+            toggle.querySelector('[data-icon="close"]').classList.toggle('hidden', !open);
+        };
+        toggle.addEventListener('click', () => setOpen(menu.classList.contains('hidden')));
+        window.matchMedia('(min-width: 768px)').addEventListener('change', e => { if (e.matches) setOpen(false); });
+    })();
+    (function () {
+        const mounts = document.querySelectorAll('[data-plex-auth]');
+        if (!mounts.length) return;
+        const inlineLink = 'ring-card inline-flex h-8 items-center gap-1.5 rounded-full bg-card px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground';
+        const blockLink = 'flex h-10 items-center gap-2.5 rounded-xl bg-card px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground';
         const escape = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const here = window.location.pathname + window.location.search;
+        const loginHref = '/oauth2/login?return_to=' + encodeURIComponent(here);
         fetch('/oauth2/me', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
             .then(r => r.json().catch(() => ({})).then(j => ({ status: r.status, body: j })))
             .then(({ status, body }) => {
                 if (body && body.authenticated === false && body.reason === 'disabled') return;
-                if (status === 200 && body.authenticated) {
-                    mount.innerHTML = '<span class="text-xs text-muted-foreground">' + escape(body.username) + '</span>'
-                        + '<a href="/oauth2/logout" class="' + linkClasses + '">Sign out</a>';
-                } else {
-                    mount.innerHTML = '<a href="/oauth2/login" class="' + linkClasses + '">Sign in</a>';
-                }
+                mounts.forEach(mount => {
+                    const block = mount.classList.contains('flex-col');
+                    const linkClasses = block ? blockLink : inlineLink;
+                    if (status === 200 && body.authenticated) {
+                        const label = block
+                            ? '<span class="px-3 text-xs text-muted-foreground">Signed in as ' + escape(body.username) + '</span>'
+                            : '<span class="text-xs text-muted-foreground">' + escape(body.username) + '</span>';
+                        mount.innerHTML = label + '<a href="/oauth2/logout" class="' + linkClasses + '">Sign out</a>';
+                    } else {
+                        mount.innerHTML = '<a href="' + loginHref + '" class="' + linkClasses + '">Sign in</a>';
+                    }
+                });
             })
             .catch(() => {});
     })();

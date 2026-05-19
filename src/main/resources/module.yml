@@ -2,3 +2,4 @@ name: Module-HTTPD
 version: 1.7
 description: HTTPD server for Plex
 main: dev.plex.HTTPDModule
+apiCompatibility: 1

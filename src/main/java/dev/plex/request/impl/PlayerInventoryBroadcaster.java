@@ -25,13 +25,17 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.lang.reflect.Method;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
-import de.tr7zw.changeme.nbtapi.NBT;
-import de.tr7zw.changeme.nbtapi.iface.ReadableItemNBT;
+import org.bukkit.plugin.Plugin;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import net.kyori.adventure.text.KeybindComponent;
+import net.kyori.adventure.text.ScoreComponent;
+import net.kyori.adventure.text.SelectorComponent;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.TranslatableComponent;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.persistence.PersistentDataContainer;
@@ -46,6 +50,12 @@ public final class PlayerInventoryBroadcaster
 {
     private static final PlayerInventoryBroadcaster INSTANCE = new PlayerInventoryBroadcaster();
     private static final long REFRESH_TICKS = 20L; // 1 second
+    private static final int MAX_NAME_CHARS = 256;
+    private static final int MAX_LORE_LINES = 20;
+    private static final int MAX_LORE_LINE_CHARS = 256;
+    private static final int MAX_NBT_CHARS = 4096;
+    private static final int MAX_PDC_KEYS = 64;
+    private static final int MAX_PDC_KEY_CHARS = 128;
 
     public static PlayerInventoryBroadcaster get()
     {
@@ -87,7 +97,7 @@ public final class PlayerInventoryBroadcaster
 
         try
         {
-            NBT.preloadApi();
+            NbtApiBridge.preload();
         }
         catch (Throwable t)
         {
@@ -246,6 +256,67 @@ public final class PlayerInventoryBroadcaster
         return new GsonBuilder().serializeNulls().create().toJson(root);
     }
 
+    private static String limit(String value, int maxChars)
+    {
+        if (value == null || value.length() <= maxChars) return value;
+        return value.substring(0, maxChars) + "… [Truncated " + (value.length() - maxChars) + " characters]";
+    }
+
+    private static void putLimited(Map<String, Object> map, String key, String value, int maxChars)
+    {
+        if (value == null || value.isEmpty()) return;
+        map.put(key, limit(value, maxChars));
+        if (value.length() > maxChars)
+        {
+            map.put(key + "Truncated", true);
+            map.put(key + "TruncatedChars", value.length() - maxChars);
+        }
+    }
+
+    private static void putLimited(Map<String, Object> map, String key, Component component, int maxChars)
+    {
+        LimitedText text = limitedPlainText(component, maxChars);
+        if (text.text().isEmpty()) return;
+        map.put(key, text.truncated()
+            ? text.text() + "… [Truncated " + (text.totalChars() - maxChars) + " characters]"
+            : text.text());
+        if (text.truncated())
+        {
+            map.put(key + "Truncated", true);
+            map.put(key + "TruncatedChars", text.totalChars() - maxChars);
+        }
+    }
+
+    private static LimitedText limitedPlainText(Component component, int maxChars)
+    {
+        StringBuilder out = new StringBuilder(Math.min(maxChars, 256));
+        int total = appendPlain(component, out, maxChars);
+        return new LimitedText(out.toString(), total, total > maxChars);
+    }
+
+    private static int appendPlain(Component component, StringBuilder out, int maxChars)
+    {
+        int total = appendComponentValue(component, out, maxChars);
+        for (Component child : component.children())
+        {
+            total += appendPlain(child, out, maxChars - Math.min(out.length(), maxChars));
+        }
+        return total;
+    }
+
+    private static int appendComponentValue(Component component, StringBuilder out, int remaining)
+    {
+        String value = null;
+        if (component instanceof TextComponent text) value = text.content();
+        else if (component instanceof TranslatableComponent translatable) value = translatable.fallback() != null ? translatable.fallback() : translatable.key();
+        else if (component instanceof KeybindComponent keybind) value = keybind.keybind();
+        else if (component instanceof ScoreComponent score) value = score.value() != null ? score.value() : score.name();
+        else if (component instanceof SelectorComponent selector) value = selector.pattern();
+        if (value == null || value.isEmpty()) return 0;
+        if (remaining > 0) out.append(value, 0, Math.min(value.length(), remaining));
+        return value.length();
+    }
+
     private static Map<String, Object> serializeItem(ItemStack item)
     {
         if (item == null || item.getType().isAir()) return null;
@@ -274,7 +345,7 @@ public final class PlayerInventoryBroadcaster
             try
             {
                 Component name = meta.displayName();
-                if (name != null) m.put("name", PlainTextComponentSerializer.plainText().serialize(name));
+                if (name != null) putLimited(m, "name", name, MAX_NAME_CHARS);
             }
             catch (Throwable ignored) {}
             try
@@ -282,12 +353,19 @@ public final class PlayerInventoryBroadcaster
                 List<Component> lore = meta.lore();
                 if (lore != null && !lore.isEmpty())
                 {
-                    List<String> out = new ArrayList<>(lore.size());
-                    for (Component c : lore)
+                    int count = Math.min(lore.size(), MAX_LORE_LINES);
+                    List<String> out = new ArrayList<>(count);
+                    boolean truncated = lore.size() > MAX_LORE_LINES;
+                    for (int i = 0; i < count; i++)
                     {
-                        out.add(PlainTextComponentSerializer.plainText().serialize(c));
+                        LimitedText line = limitedPlainText(lore.get(i), MAX_LORE_LINE_CHARS);
+                        if (line.truncated()) truncated = true;
+                        out.add(line.truncated()
+                            ? line.text() + "… [Truncated " + (line.totalChars() - MAX_LORE_LINE_CHARS) + " characters]"
+                            : line.text());
                     }
                     m.put("lore", out);
+                    if (truncated) m.put("loreTruncated", true);
                 }
             }
             catch (Throwable ignored) {}
@@ -328,24 +406,75 @@ public final class PlayerInventoryBroadcaster
                 if (!keys.isEmpty())
                 {
                     Set<String> out = new TreeSet<>();
-                    for (NamespacedKey k : keys) out.add(k.toString());
+                    boolean truncated = keys.size() > MAX_PDC_KEYS;
+                    int count = 0;
+                    for (NamespacedKey k : keys)
+                    {
+                        if (count++ >= MAX_PDC_KEYS) break;
+                        String key = k.toString();
+                        if (key.length() > MAX_PDC_KEY_CHARS) truncated = true;
+                        out.add(limit(key, MAX_PDC_KEY_CHARS));
+                    }
                     m.put("pdcKeys", out);
+                    if (truncated) m.put("pdcKeysTruncated", true);
                 }
             }
             catch (Throwable ignored) {}
 
             try
             {
-                Function<ReadableItemNBT, String> toSnbt = ReadableItemNBT::toString;
-                String snbt = NBT.get(item, toSnbt);
+                String snbt = NbtApiBridge.toSnbt(item);
                 if (snbt != null && !snbt.isEmpty() && !"{}".equals(snbt))
                 {
-                    m.put("nbt", snbt);
+                    putLimited(m, "nbt", snbt, MAX_NBT_CHARS);
                 }
             }
             catch (Throwable ignored) {}
         }
         return m;
+    }
+
+    private record LimitedText(String text, int totalChars, boolean truncated) {}
+
+    private static final class NbtApiBridge
+    {
+        private static volatile Method getMethod;
+        private static volatile Method preloadMethod;
+        static void preload() throws Exception
+        {
+            Method method = preloadMethod;
+            if (method == null)
+            {
+                Class<?> nbt = nbtClass();
+                method = nbt.getMethod("preloadApi");
+                preloadMethod = method;
+            }
+            method.invoke(null);
+        }
+
+        static String toSnbt(ItemStack item) throws Exception
+        {
+            Method method = getMethod;
+            if (method == null)
+            {
+                Class<?> nbt = nbtClass();
+                method = nbt.getMethod("get", ItemStack.class, Function.class);
+                getMethod = method;
+            }
+            Function<Object, String> stringify = Object::toString;
+            Object result = method.invoke(null, item, stringify);
+            return result instanceof String s ? s : null;
+        }
+
+        private static Class<?> nbtClass() throws ClassNotFoundException
+        {
+            Plugin plugin = Bukkit.getPluginManager().getPlugin("NBTAPI");
+            if (plugin == null || !plugin.isEnabled())
+            {
+                throw new ClassNotFoundException("NBTAPI plugin is not enabled");
+            }
+            return Class.forName("de.tr7zw.changeme.nbtapi.NBT", true, plugin.getClass().getClassLoader());
+        }
     }
 
     private static final class Subscriber

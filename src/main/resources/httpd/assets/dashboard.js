@@ -55,9 +55,6 @@
         document.querySelectorAll(selector).forEach(el => {
             if (el.textContent !== value) {
                 el.textContent = value;
-                el.classList.remove('tick');
-                void el.offsetWidth;
-                el.classList.add('tick');
             }
         });
     }

@@ -268,13 +268,17 @@
         }
         const safeType = escapeHtml(item.type);
         const safeName = item.name ? escapeHtml(item.name) : null;
+        const nameTruncated = item.nameTruncated && Number.isFinite(Number(item.nameTruncatedChars))
+            ? Number(item.nameTruncatedChars)
+            : null;
         const lines = [];
         lines.push(`<div class="flex items-start gap-3">
             <div class="ring-card relative size-16 shrink-0 rounded-md bg-muted/40">
                 ${renderItemIcon(item)}
             </div>
             <div class="min-w-0">
-                ${safeName ? `<p class="truncate text-base font-medium italic">${safeName}</p>` : ''}
+                ${safeName ? `<p class="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-base font-medium italic">${safeName}</p>` : ''}
+                ${nameTruncated != null ? `<p class="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-destructive">Name truncated by ${nameTruncated.toLocaleString()} characters</p>` : ''}
                 <p class="font-mono text-xs text-muted-foreground break-all">${safeType}</p>
                 <p class="mt-0.5 text-xs text-muted-foreground">Count: ${item.amount}</p>
             </div>
@@ -284,7 +288,7 @@
             lines.push(`<div>
                 <p class="text-[10px] uppercase tracking-wide text-muted-foreground">Lore</p>
                 <ul class="mt-1 space-y-0.5 text-xs italic text-foreground/80">
-                    ${item.lore.map(l => `<li>${escapeHtml(l)}</li>`).join('')}
+                    ${item.lore.map(l => `<li class="break-all">${escapeHtml(l)}</li>`).join('')}
                 </ul>
             </div>`);
         }
@@ -332,6 +336,7 @@
                 <ul class="mt-1 space-y-0.5 font-mono text-xs text-foreground/80">
                     ${item.pdcKeys.map(k => `<li class="break-all">${escapeHtml(k)}</li>`).join('')}
                 </ul>
+                ${item.pdcKeysTruncated ? `<p class="mt-1 text-[10px] font-semibold uppercase tracking-wide text-destructive">Plugin NBT keys truncated</p>` : ''}
             </div>`);
         }
 
@@ -344,7 +349,8 @@
                         Copy
                     </button>
                 </div>
-                <pre data-nbt-text class="mt-1 max-h-48 overflow-auto rounded-md bg-muted/40 p-2 font-mono text-[10px] leading-snug whitespace-pre-wrap break-all">${escapeHtml(item.nbt)}</pre>
+                <pre data-nbt-text class="mt-1 max-h-48 max-w-full overflow-auto rounded-md bg-muted/40 p-2 font-mono text-[10px] leading-snug whitespace-pre-wrap break-all">${escapeHtml(item.nbt)}</pre>
+                ${item.nbtTruncated && Number.isFinite(Number(item.nbtTruncatedChars)) ? `<p class="mt-1 text-[10px] font-semibold uppercase tracking-wide text-destructive">NBT truncated by ${Number(item.nbtTruncatedChars).toLocaleString()} characters</p>` : ''}
             </div>`);
         }
 
@@ -375,7 +381,7 @@
                 <div data-inv-grid class="-mx-2 overflow-x-auto px-2 pb-2 sm:mx-0 sm:px-0">
                     <div class="min-w-max">${renderInventoryGrid(inv)}</div>
                 </div>
-                <div data-inv-detail class="rounded-xl border border-border/40 bg-background/40 p-4">
+                <div data-inv-detail class="min-w-0 rounded-xl border border-border/40 bg-background/40 p-4">
                     ${renderDetailPanel(getItemBySlotKey(inv, selectedKey))}
                 </div>
             </div>

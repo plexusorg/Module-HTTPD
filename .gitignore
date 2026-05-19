@@ -19,3 +19,6 @@ Thumbs.db
 # Gradle
 /build/
 /.gradle/
+
+# Decompiled Minecraft sources (downloaded by scripts/download-minecraft-source.ps1)
+/minecraft-source/

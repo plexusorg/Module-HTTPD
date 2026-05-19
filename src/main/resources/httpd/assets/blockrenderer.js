@@ -356,39 +356,62 @@ function addBoxFace(group, positions, uv, material) {
     group.add(new THREE.Mesh(geom, material));
 }
 
-function addShieldBox(group, from, to, frontUv, backUv, frontMat, backMat, sideMat) {
+// Adds one MC-style addBox()+texOffs() cuboid to the group, expressed in
+// item-display coords (i.e. after the scale(1, -1, -1) flip that ShieldSpecial-
+// Renderer.DEFAULT_TRANSFORMATION applies to the entity model) plus the
+// standard GUI +8 origin shift. UVs for all six faces are unwrapped exactly
+// the way ModelPart.Cube does it — entity NORTH/SOUTH become item +Z/-Z and
+// entity DOWN/UP become item +Y/-Y; MC's UP face also flips V on the atlas
+// region, and we preserve that flip below.
+function addUnwrappedBox(group, from, to, texU, texV, sx, sy, sz, mat, tw = 64, th = 64) {
     const [x1, y1, z1] = from;
     const [x2, y2, z2] = to;
-    const full = [0, 0, 0, 1, 1, 1, 1, 0];
-    addBoxFace(group, [x1,y2,z2, x1,y1,z2, x2,y1,z2, x2,y2,z2], frontUv, frontMat); // south/front
-    addBoxFace(group, [x2,y2,z1, x2,y1,z1, x1,y1,z1, x1,y2,z1], backUv, backMat);   // north/back
-    addBoxFace(group, [x1,y2,z1, x1,y2,z2, x2,y2,z2, x2,y2,z1], full, sideMat);     // top
-    addBoxFace(group, [x1,y1,z2, x1,y1,z1, x2,y1,z1, x2,y1,z2], full, sideMat);     // bottom
-    addBoxFace(group, [x2,y2,z2, x2,y1,z2, x2,y1,z1, x2,y2,z1], full, sideMat);     // right
-    addBoxFace(group, [x1,y2,z1, x1,y1,z1, x1,y1,z2, x1,y2,z2], full, sideMat);     // left
+    const u1 = texU + sz;
+    const u2 = u1 + sx;
+    const u3 = u2 + sz;
+    const u4 = u3 + sx;
+    const v1 = texV + sz;
+    const v2 = v1 + sy;
+    addBoxFace(group, [x1,y2,z2, x1,y1,z2, x2,y1,z2, x2,y2,z2],
+        atlasUv(u1,   v1, u2,        v2, tw, th), mat); // +Z (entity NORTH)
+    addBoxFace(group, [x2,y2,z1, x2,y1,z1, x1,y1,z1, x1,y2,z1],
+        atlasUv(u3,   v1, u4,        v2, tw, th), mat); // -Z (entity SOUTH)
+    addBoxFace(group, [x1,y2,z1, x1,y2,z2, x2,y2,z2, x2,y2,z1],
+        atlasUv(u1,   texV, u2,      v1, tw, th), mat); // +Y (entity DOWN)
+    addBoxFace(group, [x1,y1,z2, x1,y1,z1, x2,y1,z1, x2,y1,z2],
+        atlasUv(u2,   v1, u2 + sx,   texV, tw, th), mat); // -Y (entity UP, V flipped)
+    addBoxFace(group, [x2,y2,z2, x2,y1,z2, x2,y1,z1, x2,y2,z1],
+        atlasUv(u2,   v1, u3,        v2, tw, th), mat); // +X (entity EAST)
+    addBoxFace(group, [x1,y2,z1, x1,y1,z1, x1,y1,z2, x1,y2,z2],
+        atlasUv(texU, v1, u1,        v2, tw, th), mat); // -X (entity WEST)
 }
 
 async function buildShieldSprite() {
     const tex = await loadTexture('entity/shield/shield_base_nopattern');
-    const textured = new THREE.MeshBasicMaterial({
+    const mat = new THREE.MeshBasicMaterial({
         map: tex,
         transparent: true,
         alphaTest: 0.01,
         side: THREE.FrontSide,
     });
-    const side = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.48, 0.48, 0.52) });
-    const handle = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.30, 0.20, 0.10) });
     const group = new THREE.Group();
 
-    // Vanilla shields are special entity models, so they don't expose normal
-    // item-model elements. Build a small cuboid approximation from the entity
-    // texture atlas instead of drawing a flat sprite.
-    addShieldBox(group, [2, -3, 7], [14, 19, 9], atlasUv(1, 2, 13, 24), atlasUv(15, 2, 27, 24), textured, textured, side);
-    addShieldBox(group, [5, 4, 5], [11, 12, 7], atlasUv(29, 1, 35, 9), atlasUv(36, 1, 42, 9), textured, textured, handle);
+    // Mirrors ShieldModel.createLayer() (net.minecraft.client.model.object.equipment.ShieldModel):
+    //   plate:  texOffs(0,  0) + addBox(-6, -11, -2, 12, 22, 1)
+    //   handle: texOffs(26, 0) + addBox(-1,  -3, -1,  2,  6, 6)
+    // The from/to below are those addBox bounds after ShieldSpecialRenderer
+    // .DEFAULT_TRANSFORMATION (scale 1, -1, -1) — left in entity coord space
+    // (no +8 shift). applyGuiTransform's inner.position(-8,-8,-8) is the
+    // analogue of MC's ItemTransform translate(-0.5,-0.5,-0.5), placing the
+    // GUI rotation pivot at item-display (8,8,8). Because the shield is
+    // centred on the entity origin rather than on (8,8,8), the pivot ends up
+    // offset from the shield, so the display.gui rotation swings the shield
+    // around just like vanilla — which is what positions it correctly in
+    // the slot. The 64×64 atlas matches LayerDefinition.create(_, 64, 64).
+    addUnwrappedBox(group, [-6, -11,  1], [6,  11, 2],  0, 0, 12, 22, 1, mat);
+    addUnwrappedBox(group, [-1,  -3, -5], [1,   3, 1], 26, 0,  2,  6, 6, mat);
     return group;
 }
-
-const SHIELD_GUI_TRANSFORM = { rotation: [15, -35, -5], translation: [0, 0, 0], scale: [0.72, 0.72, 0.72] };
 
 function applyGuiTransform(group, display, isBlockShape) {
     const gui = (display && display.gui) || (isBlockShape ? DEFAULT_BLOCK_GUI : DEFAULT_GUI_TRANSFORM);
@@ -437,7 +460,7 @@ async function renderItem(name) {
                 : isBlockShape
                     ? await buildElementsModel(model, tintRgb)
                     : await buildLayeredSprite(model, tintRgb);
-            const outer = applyGuiTransform(inner, isShield ? { gui: SHIELD_GUI_TRANSFORM } : model.display, isBlockShape);
+            const outer = applyGuiTransform(inner, model.display, isBlockShape);
             // The next four lines must stay synchronous so concurrent
             // renderItem() callers can't interleave on the shared scene.
             scene.add(outer);

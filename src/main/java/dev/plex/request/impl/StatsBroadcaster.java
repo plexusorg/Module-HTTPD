@@ -3,9 +3,9 @@ package dev.plex.request.impl;
 import com.google.gson.GsonBuilder;
 import dev.plex.HTTPDModule;
 import jakarta.servlet.AsyncContext;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.io.PrintWriter;
 import java.lang.management.ManagementFactory;
@@ -52,7 +52,7 @@ public final class StatsBroadcaster
         System.currentTimeMillis() - ManagementFactory.getRuntimeMXBean().getUptime();
 
     private ScheduledExecutorService executor;
-    private BukkitTask bukkitTask;
+    private ScheduledTask bukkitTask;
     private ScheduledFuture<?> broadcastTask;
 
     private int maxConnections = 32;
@@ -77,7 +77,7 @@ public final class StatsBroadcaster
 
         try
         {
-            bukkitTask = (BukkitTask)HTTPDModule.plexApi().scheduler().runTimer(this::sampleBukkit, 0L, 40L);
+            bukkitTask = HTTPDModule.plexApi().scheduler().runGlobalTimer(this::sampleBukkit, 1L, 40L);
         }
         catch (Throwable t)
         {

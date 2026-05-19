@@ -3,6 +3,7 @@ package dev.plex.request.impl;
 import com.google.gson.GsonBuilder;
 import dev.plex.HTTPDModule;
 import jakarta.servlet.AsyncContext;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import org.bukkit.Bukkit;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
@@ -10,7 +11,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -60,10 +60,11 @@ public final class PlayerInventoryBroadcaster
     }
 
     private final Map<UUID, Set<Subscriber>> subscribers = new ConcurrentHashMap<>();
+    private final Map<UUID, String> cachedPayloads = new ConcurrentHashMap<>();
     private final AtomicInteger subscriberCount = new AtomicInteger();
 
     private ScheduledExecutorService executor;
-    private BukkitTask refreshTask;
+    private ScheduledTask refreshTask;
     private int maxConnections = 32;
 
     private PlayerInventoryBroadcaster() {}
@@ -84,7 +85,7 @@ public final class PlayerInventoryBroadcaster
 
         try
         {
-            refreshTask = (BukkitTask)HTTPDModule.plexApi().scheduler().runTimer(this::tick, 0L, REFRESH_TICKS);
+            refreshTask = HTTPDModule.plexApi().scheduler().runGlobalTimer(this::tick, 1L, REFRESH_TICKS);
         }
         catch (Throwable t)
         {
@@ -121,6 +122,7 @@ public final class PlayerInventoryBroadcaster
             }
         }
         subscribers.clear();
+        cachedPayloads.clear();
         subscriberCount.set(0);
     }
 
@@ -160,12 +162,10 @@ public final class PlayerInventoryBroadcaster
 
     public String currentPayload(UUID uuid)
     {
-        Player p = Bukkit.getPlayer(uuid);
-        if (p == null) return "{\"online\":false}";
-        return buildPayload(p);
+        return cachedPayloads.getOrDefault(uuid, "{\"online\":false}");
     }
 
-    // Runs on the Bukkit main thread.
+    // Runs on the global region and schedules per-player snapshots on entity schedulers.
     private void tick()
     {
         if (subscribers.isEmpty()) return;
@@ -174,29 +174,54 @@ public final class PlayerInventoryBroadcaster
             Set<Subscriber> set = entry.getValue();
             if (set.isEmpty()) continue;
             UUID uuid = entry.getKey();
-            String json;
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null)
+            {
+                publish(uuid, set, "{\"online\":false}");
+                continue;
+            }
             try
             {
-                Player p = Bukkit.getPlayer(uuid);
-                json = (p == null) ? "{\"online\":false}" : buildPayload(p);
+                ScheduledTask task = HTTPDModule.plexApi().scheduler().runEntity(player, () ->
+                {
+                    String json;
+                    try
+                    {
+                        json = buildPayload(player);
+                    }
+                    catch (Throwable t)
+                    {
+                        json = "{\"online\":false}";
+                    }
+                    publish(uuid, set, json);
+                });
+                if (task == null)
+                {
+                    publish(uuid, set, "{\"online\":false}");
+                }
             }
             catch (Throwable t)
             {
-                json = "{\"online\":false}";
+                publish(uuid, set, "{\"online\":false}");
             }
-            final String frame = "data: " + json + "\n\n";
-            ScheduledExecutorService exec = executor;
-            if (exec == null) return;
-            for (Subscriber sub : set)
+        }
+    }
+
+    private void publish(UUID uuid, Set<Subscriber> set, String json)
+    {
+        cachedPayloads.put(uuid, json);
+        final String frame = "data: " + json + "\n\n";
+        ScheduledExecutorService exec = executor;
+        if (exec == null) return;
+        for (Subscriber sub : set)
+        {
+            try
             {
-                try
-                {
-                    exec.execute(() -> writeFrame(uuid, sub, frame));
-                }
-                catch (Throwable t)
-                {
-                    drop(uuid, sub);
-                }
+                exec.execute(() -> writeFrame(uuid, sub, frame));
+            }
+            catch (Throwable t)
+            {
+                drop(uuid, sub);
             }
         }
     }

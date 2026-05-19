@@ -2,11 +2,11 @@ plugins {
     java
     `maven-publish`
     idea
-    id("dev.plex.module") version "1.1"
+    id("dev.plex.module") version "1.2"
 }
 
 group = "dev.plex"
-version = "1.7"
+version = "2.0"
 description = "Module-HTTPD"
 
 repositories {
@@ -25,8 +25,13 @@ repositories {
     }
 
     maven {
+        name = "codemc"
         url = uri("https://repo.codemc.io/repository/maven-public/")
     }
+}
+
+plexModule {
+    includeRepository("codemc")
 }
 
 dependencies {

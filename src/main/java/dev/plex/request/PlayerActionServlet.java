@@ -119,7 +119,7 @@ public class PlayerActionServlet extends HttpServlet
 
         final boolean kick = action.equals("ban") || action.equals("tempban");
         final PunishmentRequest toApply = punishment;
-        HTTPDModule.plexApi().scheduler().runSync(() ->
+        HTTPDModule.plexApi().scheduler().runGlobal(() ->
         {
             try
             {
@@ -135,8 +135,11 @@ public class PlayerActionServlet extends HttpServlet
                 Player online = Bukkit.getPlayer(uuid);
                 if (online != null)
                 {
-                    try { online.kick(Component.text("You have been banned: " + toApply.reason())); }
-                    catch (Throwable t) { t.printStackTrace(); }
+                    HTTPDModule.plexApi().scheduler().runEntity(online, () ->
+                    {
+                        try { online.kick(Component.text("You have been banned: " + toApply.reason())); }
+                        catch (Throwable t) { t.printStackTrace(); }
+                    });
                 }
             }
         });
@@ -156,24 +159,27 @@ public class PlayerActionServlet extends HttpServlet
 
         Log.log(ipAddress + " (xf:" + staff.username() + ") issued " + action + " on " + target.name() + " (" + uuid + ")" + (slot == null || slot.isBlank() ? "" : " slot " + slot));
 
-        HTTPDModule.plexApi().scheduler().runSync(() ->
+        HTTPDModule.plexApi().scheduler().runGlobal(() ->
         {
             Player online = Bukkit.getPlayer(uuid);
             if (online == null) return;
-            PlayerInventory inv = online.getInventory();
-            if ("clear-inventory".equals(action))
+            HTTPDModule.plexApi().scheduler().runEntity(online, () ->
             {
-                inv.clear();
-                inv.setArmorContents(null);
-                inv.setItemInOffHand(null);
-                online.updateInventory();
-                return;
-            }
-            if ("clear-selected".equals(action))
-            {
-                clearSlot(inv, slot);
-                online.updateInventory();
-            }
+                PlayerInventory inv = online.getInventory();
+                if ("clear-inventory".equals(action))
+                {
+                    inv.clear();
+                    inv.setArmorContents(null);
+                    inv.setItemInOffHand(null);
+                    online.updateInventory();
+                    return;
+                }
+                if ("clear-selected".equals(action))
+                {
+                    clearSlot(inv, slot);
+                    online.updateInventory();
+                }
+            });
         });
 
         response.sendRedirect("/player/" + uuid);

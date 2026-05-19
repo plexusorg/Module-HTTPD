@@ -3,6 +3,7 @@ package dev.plex.request.impl;
 import com.google.gson.GsonBuilder;
 import dev.plex.HTTPDModule;
 import jakarta.servlet.AsyncContext;
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -11,7 +12,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -51,7 +52,7 @@ public final class PlayersBroadcaster
     private volatile String cachedStaffFrame  = "{\"players\":[],\"max\":0}";
 
     private ScheduledExecutorService executor;
-    private BukkitTask refreshTask;
+    private ScheduledTask refreshTask;
     private Listener listener;
     private int maxConnections = 32;
 
@@ -83,7 +84,7 @@ public final class PlayersBroadcaster
 
         try
         {
-            refreshTask = (BukkitTask)HTTPDModule.plexApi().scheduler().runTimer(this::refreshAndBroadcast, 0L, REFRESH_TICKS);
+            refreshTask = HTTPDModule.plexApi().scheduler().runGlobalTimer(this::refreshAndBroadcast, 1L, REFRESH_TICKS);
         }
         catch (Throwable t)
         {
@@ -157,30 +158,92 @@ public final class PlayersBroadcaster
         {
             List<Player> online = new ArrayList<>(Bukkit.getOnlinePlayers());
             int max = Bukkit.getMaxPlayers();
-            String publicJson = buildPublicPayload(online, max);
-            String staffJson  = buildStaffPayload(online, max);
-            cachedPublicFrame = publicJson;
-            cachedStaffFrame  = staffJson;
-
-            ScheduledExecutorService exec = executor;
-            if (exec == null || subscribers.isEmpty()) return;
-
-            final String publicFrame = "data: " + publicJson + "\n\n";
-            final String staffFrame  = "data: " + staffJson  + "\n\n";
-            for (Subscriber sub : subscribers)
+            if (online.isEmpty())
             {
-                final String frame = sub.staff ? staffFrame : publicFrame;
+                publish(List.of(), List.of(), max);
+                return;
+            }
+
+            AtomicReferenceArray<Map<String, Object>> publicPlayers = new AtomicReferenceArray<>(online.size());
+            AtomicReferenceArray<Map<String, Object>> staffPlayers = new AtomicReferenceArray<>(online.size());
+            AtomicInteger remaining = new AtomicInteger(online.size());
+            for (int i = 0; i < online.size(); i++)
+            {
+                final int index = i;
+                Player player = online.get(i);
                 try
                 {
-                    exec.execute(() -> writeFrame(sub, frame));
+                    ScheduledTask task = HTTPDModule.plexApi().scheduler().runEntity(player, () ->
+                    {
+                        try
+                        {
+                            publicPlayers.set(index, buildPublicPlayer(player));
+                            staffPlayers.set(index, buildStaffPlayer(player));
+                        }
+                        catch (Throwable ignored) {}
+                        finally
+                        {
+                            if (remaining.decrementAndGet() == 0)
+                            {
+                                publish(compact(publicPlayers), compact(staffPlayers), max);
+                            }
+                        }
+                    });
+                    if (task == null && remaining.decrementAndGet() == 0)
+                    {
+                        publish(compact(publicPlayers), compact(staffPlayers), max);
+                    }
                 }
-                catch (Throwable t)
+                catch (Throwable ignored)
                 {
-                    dropSubscriber(sub);
+                    if (remaining.decrementAndGet() == 0)
+                    {
+                        publish(compact(publicPlayers), compact(staffPlayers), max);
+                    }
                 }
             }
         }
         catch (Throwable ignored) {}
+    }
+
+    private void publish(List<Map<String, Object>> publicPlayers, List<Map<String, Object>> staffPlayers, int max)
+    {
+        String publicJson = buildPayload(publicPlayers, max);
+        String staffJson = buildPayload(staffPlayers, max);
+        cachedPublicFrame = publicJson;
+        cachedStaffFrame = staffJson;
+
+        ScheduledExecutorService exec = executor;
+        if (exec == null || subscribers.isEmpty()) return;
+
+        final String publicFrame = "data: " + publicJson + "\n\n";
+        final String staffFrame  = "data: " + staffJson  + "\n\n";
+        for (Subscriber sub : subscribers)
+        {
+            final String frame = sub.staff ? staffFrame : publicFrame;
+            try
+            {
+                exec.execute(() -> writeFrame(sub, frame));
+            }
+            catch (Throwable t)
+            {
+                dropSubscriber(sub);
+            }
+        }
+    }
+
+    private static List<Map<String, Object>> compact(AtomicReferenceArray<Map<String, Object>> players)
+    {
+        List<Map<String, Object>> result = new ArrayList<>(players.length());
+        for (int i = 0; i < players.length(); i++)
+        {
+            Map<String, Object> player = players.get(i);
+            if (player != null)
+            {
+                result.add(player);
+            }
+        }
+        return result;
     }
 
     private void writeFrame(Subscriber sub, String frame)
@@ -213,7 +276,7 @@ public final class PlayersBroadcaster
         if (!refreshScheduled.compareAndSet(false, true)) return;
         try
         {
-            HTTPDModule.plexApi().scheduler().runLater(() ->
+            HTTPDModule.plexApi().scheduler().runGlobalLater(() ->
             {
                 refreshScheduled.set(false);
                 refreshAndBroadcast();
@@ -225,49 +288,34 @@ public final class PlayersBroadcaster
         }
     }
 
-    private String buildPublicPayload(List<Player> online, int max)
+    private String buildPayload(List<Map<String, Object>> players, int max)
     {
-        List<Map<String, Object>> players = new ArrayList<>();
-        for (Player p : online)
-        {
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("uuid", p.getUniqueId().toString());
-            m.put("name", p.getName());
-            try { m.put("world", p.getWorld() != null ? p.getWorld().getName() : ""); }
-            catch (Throwable ignored) { m.put("world", ""); }
-            int ping = 0;
-            try { ping = p.getPing(); } catch (Throwable ignored) {}
-            m.put("ping", ping);
-            players.add(m);
-        }
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("players", players);
         root.put("max", max);
         return new GsonBuilder().serializeNulls().create().toJson(root);
     }
 
-    private String buildStaffPayload(List<Player> online, int max)
+    private Map<String, Object> buildPublicPlayer(Player p)
     {
-        List<Map<String, Object>> players = new ArrayList<>();
-        for (Player p : online)
-        {
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("uuid", p.getUniqueId().toString());
-            m.put("name", p.getName());
-            try { m.put("world", p.getWorld() != null ? p.getWorld().getName() : ""); }
-            catch (Throwable ignored) { m.put("world", ""); }
-            try { m.put("op", p.isOp()); } catch (Throwable ignored) { m.put("op", false); }
-            try { m.put("gamemode", p.getGameMode().name()); }
-            catch (Throwable ignored) { m.put("gamemode", ""); }
-            int ping = 0;
-            try { ping = p.getPing(); } catch (Throwable ignored) {}
-            m.put("ping", ping);
-            players.add(m);
-        }
-        Map<String, Object> root = new LinkedHashMap<>();
-        root.put("players", players);
-        root.put("max", max);
-        return new GsonBuilder().serializeNulls().create().toJson(root);
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("uuid", p.getUniqueId().toString());
+        m.put("name", p.getName());
+        try { m.put("world", p.getWorld() != null ? p.getWorld().getName() : ""); }
+        catch (Throwable ignored) { m.put("world", ""); }
+        int ping = 0;
+        try { ping = p.getPing(); } catch (Throwable ignored) {}
+        m.put("ping", ping);
+        return m;
+    }
+
+    private Map<String, Object> buildStaffPlayer(Player p)
+    {
+        Map<String, Object> m = buildPublicPlayer(p);
+        try { m.put("op", p.isOp()); } catch (Throwable ignored) { m.put("op", false); }
+        try { m.put("gamemode", p.getGameMode().name()); }
+        catch (Throwable ignored) { m.put("gamemode", ""); }
+        return m;
     }
 
     private final class PlayersListener implements Listener

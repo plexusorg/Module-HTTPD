@@ -66,7 +66,7 @@ public class AbstractServlet extends HttpServlet
         /*Enumeration<String> headerz = req.getHeaderNames();
         while (headerz.hasMoreElements()) {
             String header = headerz.nextElement();
-            PlexLog.debug("Header: {0} Value {1}", header, req.getHeader(header));
+            HTTPDModule.plexApi().logging().debug("Header: {0} Value {1}", header, req.getHeader(header));
         }*/
         GET_MAPPINGS.stream().filter(mapping -> endpointMatchesRequest(mapping.getMapping().endpoint(), requestPath)).forEach(mapping ->
         {

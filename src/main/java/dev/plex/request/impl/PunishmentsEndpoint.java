@@ -1,9 +1,10 @@
 package dev.plex.request.impl;
 
 import com.google.gson.GsonBuilder;
+import dev.plex.HTTPDModule;
+import dev.plex.api.player.PlexPlayerView;
+import dev.plex.api.punishment.PunishmentView;
 import dev.plex.authentication.AuthenticatedUser;
-import dev.plex.cache.DataUtils;
-import dev.plex.player.PlexPlayer;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
 import dev.plex.util.adapter.ZonedDateTimeAdapter;
@@ -23,22 +24,22 @@ public class PunishmentsEndpoint extends AbstractServlet
             return readFile(this.getClass().getResourceAsStream("/httpd/punishments.html"));
         }
 
-        PlexPlayer punishedPlayer;
+        PlexPlayerView punishedPlayer;
         try
         {
             UUID pathUUID = UUID.fromString(request.getPathInfo().replace("/", ""));
-            punishedPlayer = DataUtils.getPlayer(pathUUID);
+            punishedPlayer = HTTPDModule.plexApi().players().byUuid(pathUUID).orElse(null);
         }
         catch (IllegalArgumentException ignored)
         {
-            punishedPlayer = DataUtils.getPlayer(request.getPathInfo().replace("/", ""));
+            punishedPlayer = HTTPDModule.plexApi().players().byName(request.getPathInfo().replace("/", "")).orElse(null);
         }
 
         if (punishedPlayer == null)
         {
             return punishmentsHTML("This player has never joined the server before.");
         }
-        if (punishedPlayer.getPunishments().isEmpty())
+        if (punishedPlayer.punishments().isEmpty())
         {
             return punishmentsGoodHTML("This player has been a good boy. They have no punishments!");
         }
@@ -47,9 +48,27 @@ public class PunishmentsEndpoint extends AbstractServlet
         response.setHeader("content-type", "application/json");
         if (viewer == null)
         {
-            return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeAdapter()).setPrettyPrinting().create().toJson(punishedPlayer.getPunishments().stream().peek(punishment -> punishment.setIp("")).toList());
+            return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeAdapter()).setPrettyPrinting().create().toJson(punishedPlayer.punishments().stream().map(PunishmentsEndpoint::hideIp).toList());
         }
-        return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeAdapter()).setPrettyPrinting().create().toJson(punishedPlayer.getPunishments().stream().toList());
+        return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeAdapter()).setPrettyPrinting().create().toJson(punishedPlayer.punishments().stream().toList());
+    }
+
+    private static Object hideIp(PunishmentView punishment)
+    {
+        return new Object()
+        {
+            public final UUID punished = punishment.punished();
+            public final UUID punisher = punishment.punisher();
+            public final String punisherName = punishment.punisherName();
+            public final String ip = "";
+            public final String punishedUsername = punishment.punishedUsername();
+            public final Object type = punishment.type();
+            public final String reason = punishment.reason();
+            public final boolean customTime = punishment.customTime();
+            public final boolean active = punishment.active();
+            public final ZonedDateTime issueDate = punishment.issueDate();
+            public final ZonedDateTime endDate = punishment.endDate();
+        };
     }
 
     private String punishmentsHTML(String message)

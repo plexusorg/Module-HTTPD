@@ -1,14 +1,11 @@
 package dev.plex.request;
 
-import dev.plex.Plex;
+import dev.plex.HTTPDModule;
+import dev.plex.api.player.PlexPlayerView;
+import dev.plex.api.punishment.PunishmentRequest;
+import dev.plex.api.punishment.PunishmentType;
 import dev.plex.authentication.AuthenticatedUser;
-import dev.plex.cache.DataUtils;
 import dev.plex.logging.Log;
-import dev.plex.player.PlexPlayer;
-import dev.plex.punishment.Punishment;
-import dev.plex.punishment.PunishmentType;
-import dev.plex.util.BungeeUtil;
-import dev.plex.util.TimeUtils;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,6 +13,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.PlayerInventory;
+import net.kyori.adventure.text.Component;
 
 import java.io.IOException;
 import java.time.ZoneId;
@@ -73,7 +71,7 @@ public class PlayerActionServlet extends HttpServlet
             return;
         }
 
-        PlexPlayer target = DataUtils.getPlayer(uuid);
+        PlexPlayerView target = HTTPDModule.plexApi().players().byUuid(uuid).orElse(null);
         if (target == null)
         {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -91,21 +89,25 @@ public class PlayerActionServlet extends HttpServlet
         if (safeReason.length() > 500) safeReason = safeReason.substring(0, 500);
 
         PunishmentType type = mapType(action);
-        ZonedDateTime now = ZonedDateTime.now(ZoneId.of(TimeUtils.TIMEZONE));
+        ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
         ZonedDateTime endDate = TEMP_ACTIONS.contains(action)
             ? now.plusSeconds(parseDurationSeconds(durationStr))
             : now.plusDays(FAR_FUTURE_DAYS);
 
-        Punishment punishment = new Punishment(uuid, null);
-        punishment.setType(type);
-        punishment.setReason(safeReason);
-        punishment.setPunishedUsername(target.getName());
-        punishment.setPunisherName("xf:" + staff.username());
-        punishment.setEndDate(endDate);
-        punishment.setCustomTime(TEMP_ACTIONS.contains(action));
-        punishment.setActive(true);
-        List<String> ips = target.getIps();
-        if (ips != null && !ips.isEmpty()) punishment.setIp(ips.getLast());
+        List<String> ips = target.ips();
+        String ip = ips == null || ips.isEmpty() ? "" : ips.getLast();
+        PunishmentRequest punishment = new PunishmentRequest(
+            uuid,
+            null,
+            "xf:" + staff.username(),
+            ip,
+            target.name(),
+            type,
+            safeReason,
+            TEMP_ACTIONS.contains(action),
+            true,
+            endDate
+        );
 
         String ipAddress = request.getRemoteAddr();
         if ("127.0.0.1".equals(ipAddress))
@@ -113,15 +115,15 @@ public class PlayerActionServlet extends HttpServlet
             String forwarded = request.getHeader("X-FORWARDED-FOR");
             if (forwarded != null) ipAddress = forwarded;
         }
-        Log.log(ipAddress + " (xf:" + staff.username() + ") issued " + action + " on " + target.getName() + " (" + uuid + ")");
+        Log.log(ipAddress + " (xf:" + staff.username() + ") issued " + action + " on " + target.name() + " (" + uuid + ")");
 
         final boolean kick = action.equals("ban") || action.equals("tempban");
-        final Punishment toApply = punishment;
-        Bukkit.getScheduler().runTask(Plex.get(), () ->
+        final PunishmentRequest toApply = punishment;
+        HTTPDModule.plexApi().scheduler().runSync(() ->
         {
             try
             {
-                Plex.get().getPunishmentManager().punish(target, toApply);
+                HTTPDModule.plexApi().punishments().punish(target, toApply);
             }
             catch (Throwable t)
             {
@@ -133,7 +135,7 @@ public class PlayerActionServlet extends HttpServlet
                 Player online = Bukkit.getPlayer(uuid);
                 if (online != null)
                 {
-                    try { BungeeUtil.kickPlayer(online, Punishment.generateBanMessage(toApply)); }
+                    try { online.kick(Component.text("You have been banned: " + toApply.reason())); }
                     catch (Throwable t) { t.printStackTrace(); }
                 }
             }
@@ -142,7 +144,7 @@ public class PlayerActionServlet extends HttpServlet
         response.sendRedirect("/player/" + uuid);
     }
 
-    private static void handleInventoryAction(HttpServletRequest request, HttpServletResponse response, AuthenticatedUser staff, UUID uuid, PlexPlayer target, String action, String slot)
+    private static void handleInventoryAction(HttpServletRequest request, HttpServletResponse response, AuthenticatedUser staff, UUID uuid, PlexPlayerView target, String action, String slot)
         throws IOException
     {
         String ipAddress = request.getRemoteAddr();
@@ -152,9 +154,9 @@ public class PlayerActionServlet extends HttpServlet
             if (forwarded != null) ipAddress = forwarded;
         }
 
-        Log.log(ipAddress + " (xf:" + staff.username() + ") issued " + action + " on " + target.getName() + " (" + uuid + ")" + (slot == null || slot.isBlank() ? "" : " slot " + slot));
+        Log.log(ipAddress + " (xf:" + staff.username() + ") issued " + action + " on " + target.name() + " (" + uuid + ")" + (slot == null || slot.isBlank() ? "" : " slot " + slot));
 
-        Bukkit.getScheduler().runTask(Plex.get(), () ->
+        HTTPDModule.plexApi().scheduler().runSync(() ->
         {
             Player online = Bukkit.getPlayer(uuid);
             if (online == null) return;

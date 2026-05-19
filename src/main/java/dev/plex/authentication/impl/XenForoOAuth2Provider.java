@@ -5,7 +5,6 @@ import dev.plex.authentication.AuthenticatedUser;
 import dev.plex.authentication.AuthenticationException;
 import dev.plex.authentication.OAuth2Provider;
 import dev.plex.authentication.UserType;
-import dev.plex.util.PlexLog;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -62,7 +61,7 @@ public class XenForoOAuth2Provider implements OAuth2Provider
 
         if (domain.isEmpty() || clientId.isEmpty() || clientSecret.isEmpty() || redirectUri.isEmpty())
         {
-            PlexLog.error("XenForo OAuth2 misconfigured: domain, clientId, clientSecret, redirectUri are all required.");
+            HTTPDModule.plexApi().logging().error("XenForo OAuth2 misconfigured: domain, clientId, clientSecret, redirectUri are all required.");
         }
 
         String base = "https://" + domain.replaceFirst("^https?://", "").replaceAll("/+$", "");
@@ -286,7 +285,7 @@ public class XenForoOAuth2Provider implements OAuth2Provider
         }
         catch (Exception e)
         {
-            PlexLog.debug("Failed to revoke XenForo token: {0}", e.getMessage());
+            HTTPDModule.plexApi().logging().debug("Failed to revoke XenForo token: {0}", e.getMessage());
         }
     }
 

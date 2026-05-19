@@ -5,7 +5,6 @@ import com.sk89q.worldedit.extent.clipboard.io.ClipboardFormats;
 import dev.plex.HTTPDModule;
 import dev.plex.authentication.AuthenticatedUser;
 import dev.plex.logging.Log;
-import dev.plex.util.PlexLog;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -68,7 +67,7 @@ public class SchematicUploadServlet extends HttpServlet
         ClipboardFormat schematicFormat = ClipboardFormats.findByFile(schematicFile);
         if (schematicFormat == null)
         {
-            PlexLog.log(user.username() + " FAILED to upload schematic with filename: " + filename);
+            HTTPDModule.plexApi().logging().info(user.username() + " FAILED to upload schematic with filename: " + filename);
             Log.log("{0} (xf:{1}) FAILED to upload schematic {2}", user.username(), user.userId(), filename);
             response.getWriter().println(schematicUploadBadHTML("Schematic is not a valid format."));
             FileUtils.deleteQuietly(schematicFile);
@@ -80,7 +79,7 @@ public class SchematicUploadServlet extends HttpServlet
         }
         catch (IOException e)
         {
-            PlexLog.log(user.username() + " FAILED to upload schematic with filename: " + filename);
+            HTTPDModule.plexApi().logging().info(user.username() + " FAILED to upload schematic with filename: " + filename);
             Log.log("{0} (xf:{1}) FAILED to upload schematic {2}", user.username(), user.userId(), filename);
             response.getWriter().println(schematicUploadBadHTML("Schematic is not a valid format."));
             FileUtils.deleteQuietly(schematicFile);
@@ -88,7 +87,7 @@ public class SchematicUploadServlet extends HttpServlet
         }
         inputStream.close();
         response.getWriter().println(schematicUploadGoodHTML("Successfully uploaded <b>" + filename + "</b>."));
-        PlexLog.log(user.username() + " uploaded schematic with filename: " + filename);
+        HTTPDModule.plexApi().logging().info(user.username() + " uploaded schematic with filename: " + filename);
         Log.log("{0} (xf:{1}) uploaded schematic {2}", user.username(), user.userId(), filename);
     }
 

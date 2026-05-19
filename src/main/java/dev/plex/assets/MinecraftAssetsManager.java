@@ -1,6 +1,6 @@
 package dev.plex.assets;
 
-import dev.plex.util.PlexLog;
+import dev.plex.HTTPDModule;
 import org.bukkit.Bukkit;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -63,7 +63,7 @@ public class MinecraftAssetsManager
             }
             catch (Exception e)
             {
-                PlexLog.log("Unable to download Minecraft assets for HTTPD inventory view: " + e.getMessage());
+                HTTPDModule.plexApi().logging().info("Unable to download Minecraft assets for HTTPD inventory view: " + e.getMessage());
                 e.printStackTrace();
             }
         });
@@ -90,13 +90,13 @@ public class MinecraftAssetsManager
         String cachedVersion = Files.exists(versionFile) ? Files.readString(versionFile).trim() : "";
         if (minecraftVersion.equals(cachedVersion) && hasAssets())
         {
-            PlexLog.debug("HTTPD Minecraft assets are already cached for {0}", minecraftVersion);
+            HTTPDModule.plexApi().logging().debug("HTTPD Minecraft assets are already cached for {0}", minecraftVersion);
             return;
         }
 
         if (!cachedVersion.isEmpty() && !minecraftVersion.equals(cachedVersion))
         {
-            PlexLog.log("Minecraft version changed from " + cachedVersion + " to " + minecraftVersion + "; recreating HTTPD asset cache");
+            HTTPDModule.plexApi().logging().info("Minecraft version changed from " + cachedVersion + " to " + minecraftVersion + "; recreating HTTPD asset cache");
         }
         recreateCache();
     }
@@ -114,7 +114,7 @@ public class MinecraftAssetsManager
         deleteDirectory(root);
         Files.createDirectories(root);
 
-        PlexLog.log("Downloading Minecraft " + minecraftVersion + " client assets for HTTPD inventory view");
+        HTTPDModule.plexApi().logging().info("Downloading Minecraft " + minecraftVersion + " client assets for HTTPD inventory view");
         JSONObject version = findVersionJson();
         String clientUrl = version.getJSONObject("downloads").getJSONObject("client").getString("url");
 
@@ -142,7 +142,7 @@ public class MinecraftAssetsManager
         }
 
         Files.writeString(versionFile, minecraftVersion + System.lineSeparator());
-        PlexLog.log("HTTPD Minecraft assets cached for " + minecraftVersion);
+        HTTPDModule.plexApi().logging().info("HTTPD Minecraft assets cached for " + minecraftVersion);
     }
 
     private JSONObject findVersionJson() throws IOException, InterruptedException

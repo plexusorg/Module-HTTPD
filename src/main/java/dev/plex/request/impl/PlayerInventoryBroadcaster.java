@@ -2,8 +2,6 @@ package dev.plex.request.impl;
 
 import com.google.gson.GsonBuilder;
 import dev.plex.HTTPDModule;
-import dev.plex.Plex;
-import dev.plex.util.PlexLog;
 import jakarta.servlet.AsyncContext;
 import org.bukkit.Bukkit;
 import org.bukkit.enchantments.Enchantment;
@@ -29,7 +27,6 @@ import java.lang.reflect.Method;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
-import org.bukkit.plugin.Plugin;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.KeybindComponent;
 import net.kyori.adventure.text.ScoreComponent;
@@ -87,12 +84,11 @@ public final class PlayerInventoryBroadcaster
 
         try
         {
-            refreshTask = Bukkit.getScheduler().runTaskTimer(
-                Plex.get(), this::tick, 0L, REFRESH_TICKS);
+            refreshTask = (BukkitTask)HTTPDModule.plexApi().scheduler().runTimer(this::tick, 0L, REFRESH_TICKS);
         }
         catch (Throwable t)
         {
-            PlexLog.debug("PlayerInventoryBroadcaster: could not register refresh task: " + t.getMessage());
+            HTTPDModule.plexApi().logging().debug("PlayerInventoryBroadcaster: could not register refresh task: " + t.getMessage());
         }
 
         try
@@ -101,7 +97,7 @@ public final class PlayerInventoryBroadcaster
         }
         catch (Throwable t)
         {
-            PlexLog.debug("PlayerInventoryBroadcaster: NBT-API preload failed: " + t.getMessage());
+            HTTPDModule.plexApi().logging().debug("PlayerInventoryBroadcaster: NBT-API preload failed: " + t.getMessage());
         }
     }
 
@@ -468,12 +464,7 @@ public final class PlayerInventoryBroadcaster
 
         private static Class<?> nbtClass() throws ClassNotFoundException
         {
-            Plugin plugin = Bukkit.getPluginManager().getPlugin("NBTAPI");
-            if (plugin == null || !plugin.isEnabled())
-            {
-                throw new ClassNotFoundException("NBTAPI plugin is not enabled");
-            }
-            return Class.forName("de.tr7zw.changeme.nbtapi.NBT", true, plugin.getClass().getClassLoader());
+            return Class.forName("de.tr7zw.changeme.nbtapi.NBT", true, PlayerInventoryBroadcaster.class.getClassLoader());
         }
     }
 

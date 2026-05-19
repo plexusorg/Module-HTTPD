@@ -3,6 +3,7 @@ package dev.plex;
 import dev.plex.assets.MinecraftAssetsManager;
 import dev.plex.authentication.AuthenticationManager;
 import dev.plex.cache.FileCache;
+import dev.plex.api.PlexApi;
 import dev.plex.config.ModuleConfig;
 import dev.plex.logging.Log;
 import dev.plex.module.PlexModule;
@@ -15,7 +16,6 @@ import dev.plex.request.SchematicUploadServlet;
 import dev.plex.request.StaffPlayersStreamServlet;
 import dev.plex.request.StatsStreamServlet;
 import dev.plex.request.impl.*;
-import dev.plex.util.PlexLog;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.MultipartConfigElement;
 import lombok.Getter;
@@ -38,6 +38,12 @@ public class HTTPDModule extends PlexModule
     private AtomicReference<Server> atomicServer = new AtomicReference<>();
 
     public static ModuleConfig moduleConfig;
+    private static PlexApi plexApi;
+
+    public static PlexApi plexApi()
+    {
+        return plexApi;
+    }
 
     public static final FileCache fileCache = new FileCache();
 
@@ -55,6 +61,7 @@ public class HTTPDModule extends PlexModule
     @Override
     public void load()
     {
+        plexApi = api();
         // Move it from /httpd/config.yml to /plugins/Plex/modules/Plex-HTTPD/config.yml
         moduleConfig = new ModuleConfig(this, "httpd/config.yml", "config.yml");
     }
@@ -63,7 +70,7 @@ public class HTTPDModule extends PlexModule
     public void enable()
     {
         moduleConfig.load();
-        PlexLog.debug("HTTPD Module Port: {0}", moduleConfig.getInt("server.port"));
+        HTTPDModule.plexApi().logging().debug("HTTPD Module Port: {0}", moduleConfig.getInt("server.port"));
 
         accessLogFile = new File(getDataFolder(), moduleConfig.getString("server.logging.file-path", "httpd.log"));
 
@@ -73,7 +80,7 @@ public class HTTPDModule extends PlexModule
         authenticationManager = new AuthenticationManager();
         if (authenticationManager.provider() == null)
         {
-            PlexLog.debug("Authentication is disabled or misconfigured");
+            HTTPDModule.plexApi().logging().debug("Authentication is disabled or misconfigured");
         }
 
 
@@ -153,13 +160,13 @@ public class HTTPDModule extends PlexModule
             }
         }, "Jetty-Server");
         serverThread.start();
-        PlexLog.log("Starting Jetty server on port " + moduleConfig.getInt("server.port"));
+        HTTPDModule.plexApi().logging().info("Starting Jetty server on port " + moduleConfig.getInt("server.port"));
     }
 
     @Override
     public void disable()
     {
-        PlexLog.debug("Stopping Jetty server");
+        HTTPDModule.plexApi().logging().debug("Stopping Jetty server");
         try
         {
             StatsBroadcaster.get().shutdown();

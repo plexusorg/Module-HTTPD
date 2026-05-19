@@ -1,7 +1,7 @@
 package dev.plex.request.impl;
 
 import com.google.gson.GsonBuilder;
-import dev.plex.Plex;
+import dev.plex.HTTPDModule;
 import dev.plex.authentication.AuthenticatedUser;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
@@ -20,7 +20,7 @@ public class IndefBansEndpoint extends AbstractServlet
         }
 
         response.setHeader("content-type", "application/json");
-        return new GsonBuilder().setPrettyPrinting().create().toJson(Plex.get().getPunishmentManager().getIndefiniteBans().stream().toList());
+        return new GsonBuilder().setPrettyPrinting().create().toJson(HTTPDModule.plexApi().punishments().indefiniteBans());
     }
 
     private String indefbansHTML(String message)

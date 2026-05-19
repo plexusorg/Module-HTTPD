@@ -5,7 +5,6 @@ import dev.plex.authentication.AuthenticatedUser;
 import dev.plex.logging.Log;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
-import dev.plex.util.PlexLog;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -76,7 +75,7 @@ public class SchematicDownloadEndpoint extends AbstractServlet
     {
         AuthenticatedUser user = currentUser(request);
         String who = user != null ? user.username() + " (xf:" + user.userId() + ")" : request.getRemoteAddr();
-        PlexLog.log("{0} downloaded schematic {1}", who, schemFile.getName());
+        HTTPDModule.plexApi().logging().info("{0} downloaded schematic {1}", who, schemFile.getName());
         Log.log("{0} downloaded schematic {1}", who, schemFile.getName());
     }
 
@@ -119,7 +118,7 @@ public class SchematicDownloadEndpoint extends AbstractServlet
         {
             if (fileEntry.isDirectory())
             {
-                PlexLog.debug("Found directory");
+                HTTPDModule.plexApi().logging().debug("Found directory");
                 listFilesForFolder(fileEntry);
             }
             else

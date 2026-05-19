@@ -2,7 +2,6 @@ package dev.plex.authentication;
 
 import dev.plex.HTTPDModule;
 import dev.plex.authentication.impl.XenForoOAuth2Provider;
-import dev.plex.util.PlexLog;
 
 public class AuthenticationManager
 {
@@ -17,7 +16,7 @@ public class AuthenticationManager
             return;
         }
 
-        PlexLog.log("[HTTPD] XenForo OAuth2 authentication is enabled");
+        HTTPDModule.plexApi().logging().info("[HTTPD] XenForo OAuth2 authentication is enabled");
         provider = new XenForoOAuth2Provider();
     }
 

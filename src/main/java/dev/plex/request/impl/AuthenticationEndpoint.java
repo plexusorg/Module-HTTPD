@@ -7,7 +7,6 @@ import dev.plex.authentication.OAuth2Provider;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
 import dev.plex.request.MappingHeaders;
-import dev.plex.util.PlexLog;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -64,7 +63,7 @@ public class AuthenticationEndpoint extends AbstractServlet
         }
         catch (AuthenticationException e)
         {
-            PlexLog.error("OAuth2 callback failed: " + e.getMessage());
+            HTTPDModule.plexApi().logging().error("OAuth2 callback failed: " + e.getMessage());
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("text/html; charset=UTF-8");
             return "<!doctype html><meta charset=utf-8><title>Sign-in failed</title>"

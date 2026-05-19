@@ -2,7 +2,7 @@ plugins {
     java
     `maven-publish`
     idea
-    id("dev.plex.module") version "1.0"
+    id("dev.plex.module") version "1.1"
 }
 
 group = "dev.plex"
@@ -20,21 +20,26 @@ repositories {
         url = uri("https://nexus.telesphoreo.me/repository/plex/")
     }
 
-    maven { url = uri("https://maven.enginehub.org/repo/") }
+    maven {
+        url = uri("https://maven.enginehub.org/repo/")
+    }
 
-    maven { url = uri("https://repo.codemc.io/repository/maven-public/") }
+    maven {
+        url = uri("https://repo.codemc.io/repository/maven-public/")
+    }
 }
 
 dependencies {
     implementation("org.projectlombok:lombok:1.18.46")
     annotationProcessor("org.projectlombok:lombok:1.18.46")
     compileOnly("io.papermc.paper:paper-api:26.1.2.build.+")
-    implementation("dev.plex:server:2.0-SNAPSHOT")
+    implementation("dev.plex:api:2.0-SNAPSHOT")
     implementation("org.json:json:20251224")
     implementation("org.reflections:reflections:0.10.2")
     plexLibrary("org.eclipse.jetty:jetty-server:12.1.9")
     plexLibrary("org.eclipse.jetty.ee10:jetty-ee10-servlet:12.1.9")
     plexLibrary("org.eclipse.jetty:jetty-proxy:12.1.9")
+    plexLibrary("de.tr7zw:item-nbt-api:2.15.7")
     implementation(platform("com.intellectualsites.bom:bom-newest:1.56")) // Ref: https://github.com/IntellectualSites/bom
     compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Core")
     implementation("commons-io:commons-io:2.22.0")

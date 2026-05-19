@@ -1,9 +1,9 @@
 package dev.plex.request.impl;
 
-import dev.plex.cache.DataUtils;
-import dev.plex.player.PlexPlayer;
-import dev.plex.punishment.Punishment;
-import dev.plex.punishment.PunishmentType;
+import dev.plex.HTTPDModule;
+import dev.plex.api.player.PlexPlayerView;
+import dev.plex.api.punishment.PunishmentType;
+import dev.plex.api.punishment.PunishmentView;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,67 +33,67 @@ public class PunishmentsUIEndpoint extends AbstractServlet
             return readFile(this.getClass().getResourceAsStream("/httpd/punishments.html"));
         }
 
-        PlexPlayer punished = lookupPlayer(query);
+        PlexPlayerView punished = lookupPlayer(query);
         if (punished == null)
         {
             return errorHTML("No player found matching <span class=\"font-mono text-foreground\">" + escapeHtml(query) + "</span>.");
         }
 
-        List<Punishment> punishments = punished.getPunishments();
+        List<? extends PunishmentView> punishments = punished.punishments();
         if (punishments == null || punishments.isEmpty())
         {
-            return goodHTML(escapeHtml(punished.getName()) + " has no punishments on record.");
+            return goodHTML(escapeHtml(punished.name()) + " has no punishments on record.");
         }
 
         boolean showIps = currentStaff(request) != null;
         return resultsHTML(punished, punishments, showIps);
     }
 
-    private static PlexPlayer lookupPlayer(String query)
+    private static PlexPlayerView lookupPlayer(String query)
     {
         try
         {
-            return DataUtils.getPlayer(UUID.fromString(query));
+            return HTTPDModule.plexApi().players().byUuid(UUID.fromString(query)).orElse(null);
         }
         catch (IllegalArgumentException ignored)
         {
-            return DataUtils.getPlayer(query);
+            return HTTPDModule.plexApi().players().byName(query).orElse(null);
         }
     }
 
-    private String resultsHTML(PlexPlayer player, List<Punishment> punishments, boolean showIps)
+    private String resultsHTML(PlexPlayerView player, List<? extends PunishmentView> punishments, boolean showIps)
     {
         StringBuilder cards = new StringBuilder();
-        for (Punishment p : punishments)
+        for (PunishmentView p : punishments)
         {
             cards.append(renderCard(p, showIps));
         }
         String file = readFile(this.getClass().getResourceAsStream("/httpd/punishments_results.html"));
-        file = file.replace("${player_name}", escapeHtml(player.getName()));
-        file = file.replace("${player_uuid}", player.getUuid().toString());
+        file = file.replace("${player_name}", escapeHtml(player.name()));
+        file = file.replace("${player_uuid}", player.uuid().toString());
         file = file.replace("${punishment_count}", String.valueOf(punishments.size()));
         file = file.replace("${punishment_label}", punishments.size() == 1 ? "punishment" : "punishments");
         file = file.replace("${punishments}", cards.toString());
         return file;
     }
 
-    private static String renderCard(Punishment p, boolean showIps)
+    private static String renderCard(PunishmentView p, boolean showIps)
     {
-        PunishmentType type = p.getType();
+        PunishmentType type = p.type();
         String typeName = type == null ? "UNKNOWN" : type.name();
         String accent = accentFor(type);
 
-        String rawReason = (p.getReason() == null || p.getReason().isBlank()) ? "" : p.getReason();
+        String rawReason = (p.reason() == null || p.reason().isBlank()) ? "" : p.reason();
         String reason = rawReason.isEmpty() ? "<span class=\"italic text-muted-foreground/70\">No reason provided</span>" : escapeHtml(rawReason);
         String punisher = resolvePunisher(p);
-        String endDate = p.getEndDate() == null ? "permanent" : escapeHtml(formatDate(p.getEndDate()));
+        String endDate = p.endDate() == null ? "permanent" : escapeHtml(formatDate(p.endDate()));
 
         boolean isBan = type == PunishmentType.BAN || type == PunishmentType.TEMPBAN;
         String status = "";
         String statusChip = "";
         if (isBan)
         {
-            if (p.isActive())
+            if (p.active())
             {
                 status = "active";
                 statusChip = "<span class=\"inline-flex h-5 items-center rounded-full bg-destructive/10 px-2 text-xs text-destructive\">Active</span>";
@@ -107,13 +107,13 @@ public class PunishmentsUIEndpoint extends AbstractServlet
 
         String ipRow = "";
         String ipBlob = "";
-        if (showIps && p.getIp() != null && !p.getIp().isBlank())
+        if (showIps && p.ip() != null && !p.ip().isBlank())
         {
-            ipBlob = p.getIp();
+            ipBlob = p.ip();
             ipRow = """
                 <dt class="text-muted-foreground">IP</dt>
                 <dd class="font-mono text-foreground/80 break-all">%s</dd>
-                """.formatted(escapeHtml(p.getIp()));
+                """.formatted(escapeHtml(p.ip()));
         }
 
         String searchBlob = escapeHtml((typeName + " " + rawReason + " " + punisher + " " + status + " " + ipBlob).toLowerCase());
@@ -148,17 +148,10 @@ public class PunishmentsUIEndpoint extends AbstractServlet
         };
     }
 
-    private static String resolvePunisher(Punishment p)
+    private static String resolvePunisher(PunishmentView p)
     {
-        try
-        {
-            String name = Punishment.punisherDisplayName(p);
-            if (name != null && !name.isBlank()) return name;
-        }
-        catch (Throwable ignored)
-        {
-        }
-        UUID uuid = p.getPunisher();
+        if (p.punisherName() != null && !p.punisherName().isBlank()) return p.punisherName();
+        UUID uuid = p.punisher();
         return uuid == null ? "CONSOLE" : uuid.toString();
     }
 

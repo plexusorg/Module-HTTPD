@@ -2,8 +2,6 @@ package dev.plex.request.impl;
 
 import com.google.gson.GsonBuilder;
 import dev.plex.HTTPDModule;
-import dev.plex.Plex;
-import dev.plex.util.PlexLog;
 import jakarta.servlet.AsyncContext;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -76,21 +74,20 @@ public final class PlayersBroadcaster
         listener = new PlayersListener();
         try
         {
-            Bukkit.getPluginManager().registerEvents(listener, Plex.get());
+            HTTPDModule.plexApi().listeners().register(listener);
         }
         catch (Throwable t)
         {
-            PlexLog.debug("PlayersBroadcaster: could not register Bukkit listener: " + t.getMessage());
+            HTTPDModule.plexApi().logging().debug("PlayersBroadcaster: could not register Bukkit listener: " + t.getMessage());
         }
 
         try
         {
-            refreshTask = Bukkit.getScheduler().runTaskTimer(
-                Plex.get(), this::refreshAndBroadcast, 0L, REFRESH_TICKS);
+            refreshTask = (BukkitTask)HTTPDModule.plexApi().scheduler().runTimer(this::refreshAndBroadcast, 0L, REFRESH_TICKS);
         }
         catch (Throwable t)
         {
-            PlexLog.debug("PlayersBroadcaster: could not register refresh task: " + t.getMessage());
+            HTTPDModule.plexApi().logging().debug("PlayersBroadcaster: could not register refresh task: " + t.getMessage());
         }
     }
 
@@ -216,7 +213,7 @@ public final class PlayersBroadcaster
         if (!refreshScheduled.compareAndSet(false, true)) return;
         try
         {
-            Bukkit.getScheduler().runTaskLater(Plex.get(), () ->
+            HTTPDModule.plexApi().scheduler().runLater(() ->
             {
                 refreshScheduled.set(false);
                 refreshAndBroadcast();

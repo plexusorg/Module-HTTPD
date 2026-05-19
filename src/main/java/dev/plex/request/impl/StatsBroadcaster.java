@@ -2,8 +2,6 @@ package dev.plex.request.impl;
 
 import com.google.gson.GsonBuilder;
 import dev.plex.HTTPDModule;
-import dev.plex.Plex;
-import dev.plex.util.PlexLog;
 import jakarta.servlet.AsyncContext;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -79,11 +77,11 @@ public final class StatsBroadcaster
 
         try
         {
-            bukkitTask = Bukkit.getScheduler().runTaskTimer(Plex.get(), this::sampleBukkit, 0L, 40L);
+            bukkitTask = (BukkitTask)HTTPDModule.plexApi().scheduler().runTimer(this::sampleBukkit, 0L, 40L);
         }
         catch (Throwable t)
         {
-            PlexLog.debug("StatsBroadcaster: could not register Bukkit sampling task: " + t.getMessage());
+            HTTPDModule.plexApi().logging().debug("StatsBroadcaster: could not register Bukkit sampling task: " + t.getMessage());
         }
 
         broadcastTask = executor.scheduleAtFixedRate(

@@ -1,8 +1,8 @@
 package dev.plex.request.impl;
 
-import dev.plex.Plex;
+import dev.plex.HTTPDModule;
 import dev.plex.authentication.AuthenticatedUser;
-import dev.plex.punishment.PunishmentManager.IndefiniteBan;
+import dev.plex.api.punishment.IndefiniteBanView;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,19 +22,19 @@ public class IndefBansUIEndpoint extends AbstractServlet
             return errorHTML(signInPrompt(request, "to view this page"));
         }
 
-        List<IndefiniteBan> bans = Plex.get().getPunishmentManager().getIndefiniteBans();
+        List<? extends IndefiniteBanView> bans = HTTPDModule.plexApi().punishments().indefiniteBans();
         return listHTML(bans);
     }
 
-    private String listHTML(List<IndefiniteBan> bans)
+    private String listHTML(List<? extends IndefiniteBanView> bans)
     {
         StringBuilder cards = new StringBuilder();
         int totalUsers = 0, totalUuids = 0, totalIps = 0;
-        for (IndefiniteBan ban : bans)
+        for (IndefiniteBanView ban : bans)
         {
-            totalUsers += ban.getUsernames().size();
-            totalUuids += ban.getUuids().size();
-            totalIps += ban.getIps().size();
+            totalUsers += ban.usernames().size();
+            totalUuids += ban.uuids().size();
+            totalIps += ban.ips().size();
             cards.append(renderCard(ban));
         }
         if (cards.length() == 0)
@@ -55,26 +55,26 @@ public class IndefBansUIEndpoint extends AbstractServlet
         return file;
     }
 
-    private static String renderCard(IndefiniteBan ban)
+    private static String renderCard(IndefiniteBanView ban)
     {
-        String reason = (ban.getReason() == null || ban.getReason().isBlank())
+        String reason = (ban.reason() == null || ban.reason().isBlank())
             ? "<span class=\"italic text-muted-foreground/70\">No reason provided</span>"
-            : escapeHtml(ban.getReason());
+            : escapeHtml(ban.reason());
 
-        int total = ban.getUsernames().size() + ban.getUuids().size() + ban.getIps().size();
+        int total = ban.usernames().size() + ban.uuids().size() + ban.ips().size();
 
         StringBuilder rows = new StringBuilder();
-        if (!ban.getUsernames().isEmpty())
+        if (!ban.usernames().isEmpty())
         {
-            rows.append(renderRow("Users", "text-foreground/90 break-all", ban.getUsernames().stream().map(IndefBansUIEndpoint::escapeHtml).toList()));
+            rows.append(renderRow("Users", "text-foreground/90 break-all", ban.usernames().stream().map(IndefBansUIEndpoint::escapeHtml).toList()));
         }
-        if (!ban.getUuids().isEmpty())
+        if (!ban.uuids().isEmpty())
         {
-            rows.append(renderRow("UUIDs", "font-mono text-foreground/55 break-all", ban.getUuids().stream().map(UUID::toString).toList()));
+            rows.append(renderRow("UUIDs", "font-mono text-foreground/55 break-all", ban.uuids().stream().map(UUID::toString).toList()));
         }
-        if (!ban.getIps().isEmpty())
+        if (!ban.ips().isEmpty())
         {
-            rows.append(renderRow("IPs", "font-mono text-warning break-all", ban.getIps().stream().map(IndefBansUIEndpoint::escapeHtml).toList()));
+            rows.append(renderRow("IPs", "font-mono text-warning break-all", ban.ips().stream().map(IndefBansUIEndpoint::escapeHtml).toList()));
         }
 
         return """

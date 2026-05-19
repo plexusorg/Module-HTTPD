@@ -1,4 +1,4 @@
-(function () {
+(async function () {
     const pingEl = document.querySelector('[data-player-ping]');
     const statusEl = document.querySelector('[data-player-status]');
     const worldEl = document.querySelector('[data-player-world]');
@@ -6,6 +6,8 @@
     if (!pingEl) return;
     const uuid = pingEl.getAttribute('data-uuid');
     if (!uuid) return;
+
+    const { renderItem } = await import('/assets/blockrenderer.js');
 
     // ---- Helpers ----
 
@@ -83,20 +85,38 @@
         const actionInput = form.querySelector('[data-action-input]');
         const actionLabel = form.querySelector('[data-action-label]');
         const durationField = form.querySelector('[data-duration-field]');
+        const reasonField = form.querySelector('[data-reason-field]');
         const reasonInput = form.querySelector('input[name="reason"]');
+        const slotInput = form.querySelector('[data-slot-input]');
+        const actionDescription = form.querySelector('[data-action-description]');
 
         document.querySelectorAll('[data-admin-action]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const action = btn.getAttribute('data-admin-action');
                 const isTemp = btn.getAttribute('data-admin-temp') === 'true';
+                const noReason = btn.getAttribute('data-admin-no-reason') === 'true';
+                const selectedRequired = btn.getAttribute('data-selected-required') === 'true';
+                if (selectedRequired && !selectedKey) return;
                 actionInput.value = action;
-                actionLabel.textContent = action;
+                actionLabel.textContent = action.replace(/-/g, ' ');
+                if (slotInput) slotInput.value = selectedRequired ? selectedKey : '';
                 durationField.hidden = !isTemp;
                 durationField.querySelector('select').disabled = !isTemp;
-                if (reasonInput) reasonInput.value = '';
+                if (reasonField) reasonField.hidden = noReason;
+                if (reasonInput) {
+                    reasonInput.disabled = noReason;
+                    reasonInput.required = !noReason;
+                    reasonInput.value = '';
+                }
+                if (actionDescription) {
+                    const target = 'Target: <span class="font-medium text-foreground">' + escapeHtml(document.querySelector('h1')?.textContent || 'player') + '</span>';
+                    actionDescription.innerHTML = selectedRequired
+                        ? target + '<br>Slot: <span class="font-mono text-foreground">' + escapeHtml(selectedKey) + '</span>'
+                        : target;
+                }
                 if (typeof dialog.showModal === 'function') dialog.showModal();
                 else dialog.setAttribute('open', '');
-                if (reasonInput) setTimeout(() => reasonInput.focus(), 0);
+                if (!noReason && reasonInput) setTimeout(() => reasonInput.focus(), 0);
             });
         });
 
@@ -114,6 +134,17 @@
     let lastInv = null;
     // Slot currently rendered in the detail panel (key like "storage-5"); kept across re-renders so the highlight survives data refreshes.
     let selectedKey = null;
+
+    function updateInventoryActionButtons() {
+        const selectedItem = getItemBySlotKey(lastInv, selectedKey);
+        const enabled = !!(lastInv && lastInv.online && selectedKey && selectedItem);
+        document.querySelectorAll('[data-selected-required]').forEach(btn => {
+            btn.disabled = !enabled;
+            if (enabled) btn.removeAttribute('disabled');
+            else btn.setAttribute('disabled', '');
+            btn.title = enabled ? 'Clear ' + selectedKey : 'Select an occupied inventory slot first';
+        });
+    }
 
     function renderDurabilityBar(item) {
         if (!item.maxDamage) return '';
@@ -143,23 +174,28 @@
         return escapeHtml(parts.join(' • '));
     }
 
-    function renderItemIcon(item, large = false) {
-        const tex = item.texture || {};
-        if (tex.top) {
-            const side = tex.side || tex.top;
-            const sizeClass = large ? 'iso-cube--lg' : 'iso-cube--sm';
-            return `
-                <div class="iso-cube ${sizeClass} pointer-events-none">
-                    <div class="iso-face iso-top"   style="background-image:url(${tex.top})"></div>
-                    <div class="iso-face iso-front" style="background-image:url(${side})"></div>
-                    <div class="iso-face iso-right" style="background-image:url(${side})"></div>
-                </div>
-            `;
-        }
-        if (tex.flat) {
-            return `<img src="${tex.flat}" alt="${escapeHtml(item.type)}" loading="lazy" class="size-full object-contain pointer-events-none">`;
-        }
-        return `<span class="absolute inset-0 grid place-items-center text-[8px] font-mono text-muted-foreground leading-tight px-0.5 text-center break-all pointer-events-none">${escapeHtml(item.type.toLowerCase().replace(/_/g, ' '))}</span>`;
+    function renderItemIcon(item) {
+        const name = item.type.toLowerCase();
+        const label = escapeHtml(name.replace(/_/g, ' '));
+        return `<span class="absolute inset-0 pointer-events-none" data-item-icon="${escapeHtml(name)}">
+            <span class="absolute inset-0 grid place-items-center text-[8px] font-mono text-muted-foreground leading-tight px-0.5 text-center break-all">${label}</span>
+        </span>`;
+    }
+
+    async function hydrateIcons(root) {
+        const targets = Array.from(root.querySelectorAll('[data-item-icon]:not([data-item-hydrated])'));
+        for (const el of targets) el.setAttribute('data-item-hydrated', '');
+        await Promise.all(targets.map(async el => {
+            const name = el.getAttribute('data-item-icon');
+            const url = await renderItem(name);
+            if (!url) return;
+            const img = document.createElement('img');
+            img.className = 'size-full object-contain pointer-events-none [image-rendering:pixelated]';
+            img.alt = name;
+            img.src = url;
+            el.innerHTML = '';
+            el.appendChild(img);
+        }));
     }
 
     function renderSlot(item, key) {
@@ -235,7 +271,7 @@
         const lines = [];
         lines.push(`<div class="flex items-start gap-3">
             <div class="ring-card relative size-16 shrink-0 rounded-md bg-muted/40">
-                ${renderItemIcon(item, true)}
+                ${renderItemIcon(item)}
             </div>
             <div class="min-w-0">
                 ${safeName ? `<p class="truncate text-base font-medium italic">${safeName}</p>` : ''}
@@ -325,20 +361,29 @@
     }
 
     function render(inv) {
+        const previousGrid = invRoot.querySelector('[data-inv-grid]');
+        const previousScrollLeft = previousGrid ? previousGrid.scrollLeft : 0;
         lastInv = inv;
         if (!inv.online) {
             selectedKey = null;
             invRoot.innerHTML = `<p class="py-6 text-center text-sm text-muted-foreground">Player is offline.</p>`;
+            updateInventoryActionButtons();
             return;
         }
         invRoot.innerHTML = `
             <div class="grid gap-6 lg:grid-cols-[auto_1fr]">
-                <div data-inv-grid>${renderInventoryGrid(inv)}</div>
+                <div data-inv-grid class="-mx-2 overflow-x-auto px-2 pb-2 sm:mx-0 sm:px-0">
+                    <div class="min-w-max">${renderInventoryGrid(inv)}</div>
+                </div>
                 <div data-inv-detail class="rounded-xl border border-border/40 bg-background/40 p-4">
                     ${renderDetailPanel(getItemBySlotKey(inv, selectedKey))}
                 </div>
             </div>
         `;
+        const grid = invRoot.querySelector('[data-inv-grid]');
+        if (grid) grid.scrollLeft = previousScrollLeft;
+        hydrateIcons(invRoot);
+        updateInventoryActionButtons();
     }
 
     invRoot.addEventListener('click', (evt) => {
@@ -360,13 +405,17 @@
         selectedKey = btn.getAttribute('data-slot-key');
         const item = getItemBySlotKey(lastInv, selectedKey);
         const detail = invRoot.querySelector('[data-inv-detail]');
-        if (detail) detail.innerHTML = renderDetailPanel(item);
+        if (detail) {
+            detail.innerHTML = renderDetailPanel(item);
+            hydrateIcons(detail);
+        }
         invRoot.querySelectorAll('[data-slot-key]').forEach(el => {
             const isSelected = el.getAttribute('data-slot-key') === selectedKey;
             el.classList.toggle('ring-2', isSelected);
             el.classList.toggle('ring-primary', isSelected);
             el.classList.toggle('ring-card', !isSelected);
         });
+        updateInventoryActionButtons();
     });
 
     const invSrc = new EventSource('/api/player/inventory/stream?uuid=' + encodeURIComponent(uuid));

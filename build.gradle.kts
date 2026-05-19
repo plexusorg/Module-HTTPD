@@ -35,7 +35,7 @@ dependencies {
     plexLibrary("org.eclipse.jetty:jetty-server:12.1.9")
     plexLibrary("org.eclipse.jetty.ee10:jetty-ee10-servlet:12.1.9")
     plexLibrary("org.eclipse.jetty:jetty-proxy:12.1.9")
-    plexLibrary("de.tr7zw:item-nbt-api:2.15.7")
+    implementation("de.tr7zw:item-nbt-api:2.15.7")
     implementation(platform("com.intellectualsites.bom:bom-newest:1.56")) // Ref: https://github.com/IntellectualSites/bom
     compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Core")
     implementation("commons-io:commons-io:2.22.0")
@@ -47,6 +47,10 @@ tasks.getByName<Jar>("jar") {
     archiveVersion.set("")
     from("src/main/resources") {
         exclude("dev/**")
+        exclude("httpd/assets/textures/**")
+        exclude("httpd/assets/models/**")
+        exclude("httpd/assets/items/**")
+        exclude("httpd/assets/.minecraft-version")
     }
 }
 
@@ -63,6 +67,10 @@ tasks {
     }
     processResources {
         filteringCharset = Charsets.UTF_8.name()
+        exclude("httpd/assets/textures/**")
+        exclude("httpd/assets/models/**")
+        exclude("httpd/assets/items/**")
+        exclude("httpd/assets/.minecraft-version")
     }
 }
 

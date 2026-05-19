@@ -85,34 +85,18 @@ PLAYERS
                     class="col-span-2 h-9 rounded-full bg-primary/10 px-4 text-sm font-medium text-primary transition-colors hover:bg-primary/20">
                 Freeze
             </button>
+            <button type="button" data-admin-action="clear-inventory" data-admin-temp="false" data-admin-no-reason="true"
+                    class="h-9 rounded-full bg-destructive/10 px-4 text-sm font-medium text-destructive transition-colors hover:bg-destructive/20">
+                Clear inventory
+            </button>
+            <button type="button" data-admin-action="clear-selected" data-admin-temp="false" data-admin-no-reason="true" data-selected-required="true" disabled
+                    class="h-9 rounded-full bg-destructive/10 px-4 text-sm font-medium text-destructive transition-colors hover:bg-destructive/20 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-destructive/10">
+                Clear selected
+            </button>
         </div>
     </article>
 
 </section>
-
-<style>
-    .iso-cube {
-        position: absolute;
-        inset: 0;
-        margin: auto;
-        transform-style: preserve-3d;
-        transform: rotateX(-30deg) rotateY(45deg);
-    }
-    .iso-cube--sm { width: 2.1rem; height: 2.1rem; --iso-half: 1.05rem; }
-    .iso-cube--lg { width: 2.8rem; height: 2.8rem; --iso-half: 1.4rem; }
-    .iso-face {
-        position: absolute;
-        inset: 0;
-        background-size: 100% 100%;
-        background-repeat: no-repeat;
-        image-rendering: pixelated;
-        image-rendering: crisp-edges;
-        backface-visibility: hidden;
-    }
-    .iso-face.iso-top   { transform: rotateX(90deg) translateZ(var(--iso-half)); filter: brightness(1.0); }
-    .iso-face.iso-front { transform: translateZ(var(--iso-half));                filter: brightness(0.82); }
-    .iso-face.iso-right { transform: rotateY(90deg) translateZ(var(--iso-half)); filter: brightness(0.66); }
-</style>
 
 <section class="rise rise-2 mt-4">
     <article class="ring-card rounded-2xl bg-card p-5">
@@ -122,21 +106,22 @@ PLAYERS
 </section>
 
 <dialog id="action-dialog"
-        class="ring-card w-[min(28rem,calc(100%-2rem))] rounded-2xl bg-card p-5 text-foreground shadow-2xl backdrop:bg-background/60 backdrop:backdrop-blur-sm">
+        class="fixed inset-0 m-auto ring-card w-[min(28rem,calc(100%-2rem))] rounded-2xl bg-card p-5 text-foreground shadow-2xl backdrop:bg-background/60 backdrop:backdrop-blur-sm">
     <form method="POST" action="/api/admin/action" id="action-form" class="flex flex-col gap-4">
         <input type="hidden" name="uuid" value="${player_uuid}">
         <input type="hidden" name="action" value="" data-action-input>
+        <input type="hidden" name="slot" value="" data-slot-input>
 
         <header>
             <h3 class="text-lg font-medium">
                 Confirm <span data-action-label class="capitalize">action</span>
             </h3>
-            <p class="mt-1 text-sm text-muted-foreground">
+            <p class="mt-1 text-sm text-muted-foreground" data-action-description>
                 Target: <span class="font-medium text-foreground">${player_name}</span>
             </p>
         </header>
 
-        <label class="flex flex-col gap-1.5 text-sm">
+        <label class="flex flex-col gap-1.5 text-sm" data-reason-field>
             <span class="text-muted-foreground">Reason</span>
             <input name="reason" type="text" required minlength="1" maxlength="500"
                    placeholder="Required"

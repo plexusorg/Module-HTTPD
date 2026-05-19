@@ -55,6 +55,12 @@ public class RateLimitFilter implements Filter
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
+        if (isExempt(httpRequest))
+        {
+            chain.doFilter(request, response);
+            return;
+        }
+
         if (!globalBucket.tryConsume())
         {
             reject(httpRequest, httpResponse, globalBucket.retryAfterSeconds(), "global");
@@ -70,6 +76,17 @@ public class RateLimitFilter implements Filter
         }
 
         chain.doFilter(request, response);
+    }
+
+    private static boolean isExempt(HttpServletRequest request)
+    {
+        String path = request.getRequestURI();
+        if (path == null) return false;
+
+        // Inventory rendering can legitimately burst dozens of item/model/texture
+        // requests at once when a staff member opens a full inventory. These are
+        // static/cacheable files and should not spend the interactive API budget.
+        return "GET".equalsIgnoreCase(request.getMethod()) && path.startsWith("/assets/");
     }
 
     private TokenBucket bucketFor(String ip)

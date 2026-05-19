@@ -32,7 +32,6 @@ import de.tr7zw.changeme.nbtapi.NBT;
 import de.tr7zw.changeme.nbtapi.iface.ReadableItemNBT;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.persistence.PersistentDataContainer;
@@ -47,8 +46,6 @@ public final class PlayerInventoryBroadcaster
 {
     private static final PlayerInventoryBroadcaster INSTANCE = new PlayerInventoryBroadcaster();
     private static final long REFRESH_TICKS = 20L; // 1 second
-    private static final Map<String, Boolean> TEXTURE_EXISTS = new ConcurrentHashMap<>();
-    private static final Map<String, Map<String, String>> TEXTURE_RESOLVED = new ConcurrentHashMap<>();
 
     public static PlayerInventoryBroadcaster get()
     {
@@ -257,9 +254,6 @@ public final class PlayerInventoryBroadcaster
         m.put("type", type);
         m.put("amount", item.getAmount());
 
-        Map<String, String> texture = resolveTextures(item.getType());
-        if (texture != null && !texture.isEmpty()) m.put("texture", texture);
-
         try
         {
             short maxDur = item.getType().getMaxDurability();
@@ -352,111 +346,6 @@ public final class PlayerInventoryBroadcaster
             catch (Throwable ignored) {}
         }
         return m;
-    }
-
-    /**
-     * Resolves textures for a Material. For blocks held in 3D form (no
-     * dedicated item sprite, but has block face textures) returns
-     * {@code {top, side}} so the client can render an isometric cube. Items
-     * with a dedicated item sprite — including blocks that render as 2D
-     * sprites in inventory like doors and signs — return {@code {flat}}.
-     * Variant blocks (slab, stairs, wall, fence, etc.) fall back to the
-     * parent block's textures when no dedicated texture exists, mirroring how
-     * Minecraft itself reuses the parent's faces. Results are cached per-material.
-     */
-    private static Map<String, String> resolveTextures(Material material)
-    {
-        if (material == null) return null;
-        String key = material.name().toLowerCase();
-        Map<String, String> cached = TEXTURE_RESOLVED.get(key);
-        if (cached != null) return cached.isEmpty() ? null : cached;
-
-        Map<String, String> result = resolveTexturesForName(material, key);
-
-        if (result.isEmpty())
-        {
-            String base = stripVariantSuffix(key);
-            if (base != null)
-            {
-                // Stone-style variants reuse the base block (cobblestone_slab → cobblestone);
-                // wood variants reuse planks (oak_slab → oak_planks);
-                // brick variants use the plural form (stone_brick_slab → stone_bricks).
-                for (String candidate : List.of(base, base + "_planks", base + "s"))
-                {
-                    result = resolveTexturesForName(material, candidate);
-                    if (!result.isEmpty()) break;
-                }
-            }
-        }
-
-        TEXTURE_RESOLVED.put(key, result);
-        return result.isEmpty() ? null : result;
-    }
-
-    private static String stripVariantSuffix(String key)
-    {
-        String[] suffixes = {
-            "_slab", "_stairs", "_wall", "_fence_gate", "_fence",
-            "_pressure_plate", "_button"
-        };
-        for (String suffix : suffixes)
-        {
-            if (key.endsWith(suffix)) return key.substring(0, key.length() - suffix.length());
-        }
-        return null;
-    }
-
-    private static Map<String, String> resolveTexturesForName(Material material, String key)
-    {
-        Map<String, String> result = new LinkedHashMap<>();
-        boolean hasItemSprite = textureExists("item/" + key + ".png");
-
-        if (material.isBlock() && !hasItemSprite)
-        {
-            String top = pickFirstTexture(
-                "block/" + key + "_top.png",
-                "block/" + key + ".png",
-                "block/" + key + "_side.png",
-                "block/" + key + "_front.png");
-            String side = pickFirstTexture(
-                "block/" + key + "_side.png",
-                "block/" + key + ".png",
-                "block/" + key + "_front.png",
-                "block/" + key + "_top.png");
-            if (top != null)
-            {
-                result.put("top", "/assets/textures/" + top);
-                result.put("side", "/assets/textures/" + (side != null ? side : top));
-            }
-        }
-
-        if (result.isEmpty())
-        {
-            String flat = pickFirstTexture(
-                "item/" + key + ".png",
-                "block/" + key + ".png",
-                "block/" + key + "_side.png",
-                "block/" + key + "_front.png",
-                "block/" + key + "_top.png");
-            if (flat != null) result.put("flat", "/assets/textures/" + flat);
-        }
-
-        return result;
-    }
-
-    private static String pickFirstTexture(String... candidates)
-    {
-        for (String c : candidates)
-        {
-            if (textureExists(c)) return c;
-        }
-        return null;
-    }
-
-    private static boolean textureExists(String relative)
-    {
-        return TEXTURE_EXISTS.computeIfAbsent(relative, p ->
-            PlayerInventoryBroadcaster.class.getResource("/httpd/assets/textures/" + p) != null);
     }
 
     private static final class Subscriber

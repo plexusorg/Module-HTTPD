@@ -1,5 +1,6 @@
 package dev.plex;
 
+import dev.plex.assets.MinecraftAssetsManager;
 import dev.plex.authentication.AuthenticationManager;
 import dev.plex.cache.FileCache;
 import dev.plex.config.ModuleConfig;
@@ -48,6 +49,9 @@ public class HTTPDModule extends PlexModule
     @Getter
     private static File accessLogFile;
 
+    @Getter
+    private static MinecraftAssetsManager minecraftAssetsManager;
+
     @Override
     public void load()
     {
@@ -62,6 +66,9 @@ public class HTTPDModule extends PlexModule
         PlexLog.debug("HTTPD Module Port: {0}", moduleConfig.getInt("server.port"));
 
         accessLogFile = new File(getDataFolder(), moduleConfig.getString("server.logging.file-path", "httpd.log"));
+
+        minecraftAssetsManager = new MinecraftAssetsManager(getDataFolder().toPath());
+        minecraftAssetsManager.refreshAsync();
 
         authenticationManager = new AuthenticationManager();
         if (authenticationManager.provider() == null)

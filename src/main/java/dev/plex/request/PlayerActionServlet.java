@@ -15,6 +15,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.PlayerInventory;
 
 import java.io.IOException;
 import java.time.ZoneId;
@@ -27,6 +28,7 @@ public class PlayerActionServlet extends HttpServlet
     private static final long FAR_FUTURE_DAYS = 365L * 50L;
     private static final List<String> PERMANENT_ACTIONS = List.of("ban", "mute");
     private static final List<String> TEMP_ACTIONS = List.of("tempban", "tempmute", "freeze");
+    private static final List<String> INVENTORY_ACTIONS = List.of("clear-inventory", "clear-selected");
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
@@ -44,6 +46,7 @@ public class PlayerActionServlet extends HttpServlet
         String action = request.getParameter("action");
         String reason = request.getParameter("reason");
         String durationStr = request.getParameter("duration");
+        String slot = request.getParameter("slot");
 
         if (uuidStr == null || action == null)
         {
@@ -51,7 +54,7 @@ public class PlayerActionServlet extends HttpServlet
             response.getWriter().write("Missing parameters.");
             return;
         }
-        if (!PERMANENT_ACTIONS.contains(action) && !TEMP_ACTIONS.contains(action))
+        if (!PERMANENT_ACTIONS.contains(action) && !TEMP_ACTIONS.contains(action) && !INVENTORY_ACTIONS.contains(action))
         {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             response.getWriter().write("Unknown action.");
@@ -75,6 +78,12 @@ public class PlayerActionServlet extends HttpServlet
         {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             response.getWriter().write("Player not found.");
+            return;
+        }
+
+        if (INVENTORY_ACTIONS.contains(action))
+        {
+            handleInventoryAction(request, response, staff, uuid, target, action, slot);
             return;
         }
 
@@ -131,6 +140,80 @@ public class PlayerActionServlet extends HttpServlet
         });
 
         response.sendRedirect("/player/" + uuid);
+    }
+
+    private static void handleInventoryAction(HttpServletRequest request, HttpServletResponse response, AuthenticatedUser staff, UUID uuid, PlexPlayer target, String action, String slot)
+        throws IOException
+    {
+        String ipAddress = request.getRemoteAddr();
+        if ("127.0.0.1".equals(ipAddress))
+        {
+            String forwarded = request.getHeader("X-FORWARDED-FOR");
+            if (forwarded != null) ipAddress = forwarded;
+        }
+
+        Log.log(ipAddress + " (xf:" + staff.username() + ") issued " + action + " on " + target.getName() + " (" + uuid + ")" + (slot == null || slot.isBlank() ? "" : " slot " + slot));
+
+        Bukkit.getScheduler().runTask(Plex.get(), () ->
+        {
+            Player online = Bukkit.getPlayer(uuid);
+            if (online == null) return;
+            PlayerInventory inv = online.getInventory();
+            if ("clear-inventory".equals(action))
+            {
+                inv.clear();
+                inv.setArmorContents(null);
+                inv.setItemInOffHand(null);
+                online.updateInventory();
+                return;
+            }
+            if ("clear-selected".equals(action))
+            {
+                clearSlot(inv, slot);
+                online.updateInventory();
+            }
+        });
+
+        response.sendRedirect("/player/" + uuid);
+    }
+
+    private static void clearSlot(PlayerInventory inv, String slot)
+    {
+        if (slot == null) return;
+        if (slot.startsWith("hotbar-"))
+        {
+            Integer index = parseSlotIndex(slot.substring(7), 0, 8);
+            if (index != null) inv.setItem(index, null);
+            return;
+        }
+        if (slot.startsWith("storage-"))
+        {
+            Integer index = parseSlotIndex(slot.substring(8), 0, 26);
+            if (index != null) inv.setItem(index + 9, null);
+            return;
+        }
+        switch (slot)
+        {
+            case "armor-helmet" -> inv.setHelmet(null);
+            case "armor-chest" -> inv.setChestplate(null);
+            case "armor-legs" -> inv.setLeggings(null);
+            case "armor-boots" -> inv.setBoots(null);
+            case "offhand" -> inv.setItemInOffHand(null);
+            default -> { }
+        }
+    }
+
+    private static Integer parseSlotIndex(String value, int min, int max)
+    {
+        try
+        {
+            int index = Integer.parseInt(value);
+            return index >= min && index <= max ? index : null;
+        }
+        catch (NumberFormatException e)
+        {
+            return null;
+        }
     }
 
     private static PunishmentType mapType(String action)

@@ -3,6 +3,10 @@
 *.iml
 /target/
 /src/main/resources/build.properties
+/src/main/resources/httpd/assets/textures/
+/src/main/resources/httpd/assets/models/
+/src/main/resources/httpd/assets/items/
+/src/main/resources/httpd/assets/.minecraft-version
 
 # OS
 .DS_Store

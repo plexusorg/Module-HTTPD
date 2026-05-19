@@ -30,10 +30,6 @@ repositories {
     }
 }
 
-plexModule {
-    includeRepository("codemc")
-}
-
 dependencies {
     implementation("org.projectlombok:lombok:1.18.46")
     annotationProcessor("org.projectlombok:lombok:1.18.46")
@@ -44,7 +40,7 @@ dependencies {
     plexLibrary("org.eclipse.jetty:jetty-server:12.1.9")
     plexLibrary("org.eclipse.jetty.ee10:jetty-ee10-servlet:12.1.9")
     plexLibrary("org.eclipse.jetty:jetty-proxy:12.1.9")
-    plexLibrary("de.tr7zw:item-nbt-api:2.15.7")
+    compileOnly("de.tr7zw:item-nbt-api:2.15.7")
     implementation(platform("com.intellectualsites.bom:bom-newest:1.56")) // Ref: https://github.com/IntellectualSites/bom
     compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Core")
     implementation("commons-io:commons-io:2.22.0")

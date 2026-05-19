@@ -1,6 +1,7 @@
 package dev.plex.request.impl;
 
 import com.google.gson.GsonBuilder;
+import de.tr7zw.changeme.nbtapi.NBT;
 import dev.plex.HTTPDModule;
 import jakarta.servlet.AsyncContext;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
@@ -23,9 +24,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.lang.reflect.Method;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.KeybindComponent;
@@ -94,7 +93,7 @@ public final class PlayerInventoryBroadcaster
 
         try
         {
-            NbtApiBridge.preload();
+            NBT.preloadApi();
         }
         catch (Throwable t)
         {
@@ -444,7 +443,10 @@ public final class PlayerInventoryBroadcaster
 
             try
             {
-                String snbt = NbtApiBridge.toSnbt(item);
+                String snbt = NBT.get(item, nbt ->
+                {
+                    return nbt.toString();
+                });
                 if (snbt != null && !snbt.isEmpty() && !"{}".equals(snbt))
                 {
                     putLimited(m, "nbt", snbt, MAX_NBT_CHARS);
@@ -456,42 +458,6 @@ public final class PlayerInventoryBroadcaster
     }
 
     private record LimitedText(String text, int totalChars, boolean truncated) {}
-
-    private static final class NbtApiBridge
-    {
-        private static volatile Method getMethod;
-        private static volatile Method preloadMethod;
-        static void preload() throws Exception
-        {
-            Method method = preloadMethod;
-            if (method == null)
-            {
-                Class<?> nbt = nbtClass();
-                method = nbt.getMethod("preloadApi");
-                preloadMethod = method;
-            }
-            method.invoke(null);
-        }
-
-        static String toSnbt(ItemStack item) throws Exception
-        {
-            Method method = getMethod;
-            if (method == null)
-            {
-                Class<?> nbt = nbtClass();
-                method = nbt.getMethod("get", ItemStack.class, Function.class);
-                getMethod = method;
-            }
-            Function<Object, String> stringify = Object::toString;
-            Object result = method.invoke(null, item, stringify);
-            return result instanceof String s ? s : null;
-        }
-
-        private static Class<?> nbtClass() throws ClassNotFoundException
-        {
-            return Class.forName("de.tr7zw.changeme.nbtapi.NBT", true, PlayerInventoryBroadcaster.class.getClassLoader());
-        }
-    }
 
     private static final class Subscriber
     {

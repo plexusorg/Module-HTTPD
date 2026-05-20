@@ -1,7 +1,7 @@
 package dev.plex.request.impl;
 
+import dev.plex.HTTPDModule;
 import dev.plex.command.PlexCommand;
-import dev.plex.command.annotation.CommandPermissions;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,7 +36,14 @@ public class CommandsEndpoint extends AbstractServlet
 
     private static String buildSections()
     {
-        final SortedMap<String, List<Command>> commandMap = new TreeMap<>();
+        final SortedMap<String, List<CommandInfo>> commandMap = new TreeMap<>();
+
+        List<CommandInfo> plexCommands = commandMap.computeIfAbsent("Plex", k -> new ArrayList<>());
+        for (PlexCommand command : HTTPDModule.plexApi().commands().registeredCommands())
+        {
+            plexCommands.add(CommandInfo.from(command));
+        }
+
         final CommandMap map = Bukkit.getCommandMap();
         for (Command command : map.getKnownCommands().values())
         {
@@ -45,29 +52,30 @@ public class CommandsEndpoint extends AbstractServlet
             {
                 plugin = pic.getPlugin().getName();
             }
-            List<Command> pluginCommands = commandMap.computeIfAbsent(plugin, k -> new ArrayList<>());
-            if (!pluginCommands.contains(command))
+            List<CommandInfo> pluginCommands = commandMap.computeIfAbsent(plugin, k -> new ArrayList<>());
+            CommandInfo commandInfo = CommandInfo.from(command);
+            if (!pluginCommands.contains(commandInfo))
             {
-                pluginCommands.add(command);
+                pluginCommands.add(commandInfo);
             }
         }
 
         StringBuilder sb = new StringBuilder();
         for (String key : commandMap.keySet())
         {
-            List<Command> commands = commandMap.get(key);
-            commands.sort(Comparator.comparing(Command::getName));
+            List<CommandInfo> commands = commandMap.get(key);
+            commands.sort(Comparator.comparing(CommandInfo::name));
             sb.append(renderSection(key, commands));
         }
         return sb.toString();
     }
 
-    private static String renderSection(String plugin, List<Command> commands)
+    private static String renderSection(String plugin, List<CommandInfo> commands)
     {
         StringBuilder cards = new StringBuilder();
-        for (Command c : commands)
+        for (CommandInfo command : commands)
         {
-            cards.append(renderCard(c));
+            cards.append(renderCard(command));
         }
         String name = escapeHtml(plugin);
         return """
@@ -88,13 +96,13 @@ public class CommandsEndpoint extends AbstractServlet
             """.formatted(name, name, commands.size(), commands.size() == 1 ? "command" : "commands", cards);
     }
 
-    private static String renderCard(Command c)
+    private static String renderCard(CommandInfo command)
     {
-        String name = escapeHtml(c.getName());
-        String aliases = c.getAliases() == null || c.getAliases().isEmpty() ? "" : String.join(", ", c.getAliases());
-        String description = c.getDescription() == null || c.getDescription().isBlank() ? "" : escapeHtml(c.getDescription());
-        String usage = cleanUsage(c.getUsage());
-        String permission = resolvePermission(c);
+        String name = escapeHtml(command.name());
+        String aliases = command.aliases().isEmpty() ? "" : String.join(", ", command.aliases());
+        String description = command.description().isBlank() ? "" : escapeHtml(command.description());
+        String usage = cleanUsage(command.usage());
+        String permission = cleanPermission(command.permission());
 
         String aliasMarkup = aliases.isEmpty()
             ? ""
@@ -123,17 +131,8 @@ public class CommandsEndpoint extends AbstractServlet
             """.formatted(searchBlob, name, aliasMarkup, descMarkup, usage, permission);
     }
 
-    private static String resolvePermission(Command c)
+    private static String cleanPermission(String permission)
     {
-        String permission = c.getPermission();
-        if (c instanceof PlexCommand plexCmd)
-        {
-            CommandPermissions perms = plexCmd.getClass().getAnnotation(CommandPermissions.class);
-            if (perms != null)
-            {
-                permission = perms.permission().isBlank() ? "N/A" : perms.permission();
-            }
-        }
         if (permission == null || permission.isBlank()) return "N/A";
         return escapeHtml(permission).replace(";", "<br>");
     }
@@ -152,5 +151,19 @@ public class CommandsEndpoint extends AbstractServlet
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;");
+    }
+
+    private record CommandInfo(String name, List<String> aliases, String description, String usage, String permission)
+    {
+        private static CommandInfo from(PlexCommand command)
+        {
+            return new CommandInfo(command.getName(), command.getAliases(), command.getDescription(), command.getUsage(), command.getPermission());
+        }
+
+        private static CommandInfo from(Command command)
+        {
+            List<String> aliases = command.getAliases() == null ? List.of() : command.getAliases();
+            return new CommandInfo(command.getName(), aliases, command.getDescription(), command.getUsage(), command.getPermission());
+        }
     }
 }

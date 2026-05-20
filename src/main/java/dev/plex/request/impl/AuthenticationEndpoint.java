@@ -21,10 +21,15 @@ public class AuthenticationEndpoint extends AbstractServlet
 {
     private static final String RETURN_TO_COOKIE = "plex_return_to";
 
+    public AuthenticationEndpoint(HTTPDModule module)
+    {
+        super(module);
+    }
+
     @GetMapping(endpoint = "/oauth2/login")
     public String login(HttpServletRequest request, HttpServletResponse response) throws IOException
     {
-        OAuth2Provider provider = HTTPDModule.getAuthenticationManager().provider();
+        OAuth2Provider provider = module.getAuthenticationManager().provider();
         if (provider == null)
         {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Authentication is not enabled.");
@@ -51,7 +56,7 @@ public class AuthenticationEndpoint extends AbstractServlet
     @GetMapping(endpoint = "/oauth2/callback")
     public String callback(HttpServletRequest request, HttpServletResponse response) throws IOException
     {
-        OAuth2Provider provider = HTTPDModule.getAuthenticationManager().provider();
+        OAuth2Provider provider = module.getAuthenticationManager().provider();
         if (provider == null)
         {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Authentication is not enabled.");
@@ -63,7 +68,7 @@ public class AuthenticationEndpoint extends AbstractServlet
         }
         catch (AuthenticationException e)
         {
-            HTTPDModule.plexApi().logging().error("OAuth2 callback failed: " + e.getMessage());
+            module.api().logging().error("OAuth2 callback failed: " + e.getMessage());
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("text/html; charset=UTF-8");
             return "<!doctype html><meta charset=utf-8><title>Sign-in failed</title>"
@@ -84,7 +89,7 @@ public class AuthenticationEndpoint extends AbstractServlet
     @GetMapping(endpoint = "/oauth2/logout")
     public String logout(HttpServletRequest request, HttpServletResponse response) throws IOException
     {
-        OAuth2Provider provider = HTTPDModule.getAuthenticationManager().provider();
+        OAuth2Provider provider = module.getAuthenticationManager().provider();
         if (provider == null)
         {
             response.sendRedirect("/");
@@ -106,7 +111,7 @@ public class AuthenticationEndpoint extends AbstractServlet
     @MappingHeaders(headers = "content-type;application/json")
     public String me(HttpServletRequest request, HttpServletResponse response)
     {
-        OAuth2Provider provider = HTTPDModule.getAuthenticationManager().provider();
+        OAuth2Provider provider = module.getAuthenticationManager().provider();
         if (provider == null)
         {
             return "{\"authenticated\":false,\"reason\":\"disabled\"}";

@@ -28,9 +28,11 @@ import org.eclipse.jetty.ee10.servlet.ServletHolder;
 public class AbstractServlet extends HttpServlet
 {
     private final List<Mapping> GET_MAPPINGS = Lists.newArrayList();
+    protected final HTTPDModule module;
 
-    public AbstractServlet()
+    public AbstractServlet(HTTPDModule module)
     {
+        this.module = module;
         for (Method declaredMethod : this.getClass().getDeclaredMethods())
         {
             declaredMethod.setAccessible(true);
@@ -46,7 +48,7 @@ public class AbstractServlet extends HttpServlet
                 ServletHolder holder = new ServletHolder(this);
                 String endpoint = getMapping.endpoint();
                 String pattern = endpoint.endsWith("/") ? endpoint + "*" : endpoint;
-                HTTPDModule.context.addServlet(holder, pattern);
+                module.getContext().addServlet(holder, pattern);
             }
         }
     }
@@ -63,11 +65,6 @@ public class AbstractServlet extends HttpServlet
         String requestPath = getRequestPath(req);
         Log.log(ipAddress + " visited endpoint " + requestPath);
 
-        /*Enumeration<String> headerz = req.getHeaderNames();
-        while (headerz.hasMoreElements()) {
-            String header = headerz.nextElement();
-            HTTPDModule.plexApi().logging().debug("Header: {0} Value {1}", header, req.getHeader(header));
-        }*/
         GET_MAPPINGS.stream().filter(mapping -> endpointMatchesRequest(mapping.getMapping().endpoint(), requestPath)).forEach(mapping ->
         {
             resp.setCharacterEncoding("UTF-8");
@@ -137,27 +134,42 @@ public class AbstractServlet extends HttpServlet
         return requestPath.isEmpty() ? "/" : requestPath;
     }
 
-    public static AuthenticatedUser currentUser(HttpServletRequest request)
+    protected AuthenticatedUser currentUser(HttpServletRequest request)
     {
-        AuthenticationManager manager = HTTPDModule.getAuthenticationManager();
+        return currentUser(module, request);
+    }
+
+    public static AuthenticatedUser currentUser(HTTPDModule module, HttpServletRequest request)
+    {
+        AuthenticationManager manager = module.getAuthenticationManager();
         if (manager == null) return null;
         OAuth2Provider provider = manager.provider();
         if (provider == null) return null;
         return provider.lookup(request);
     }
 
-    public static AuthenticatedUser currentStaff(HttpServletRequest request)
+    protected AuthenticatedUser currentStaff(HttpServletRequest request)
     {
-        AuthenticatedUser user = currentUser(request);
+        return currentStaff(module, request);
+    }
+
+    public static AuthenticatedUser currentStaff(HTTPDModule module, HttpServletRequest request)
+    {
+        AuthenticatedUser user = currentUser(module, request);
         return (user != null && user.staff()) ? user : null;
     }
 
-    public static String signInPrompt(String action)
+    protected String signInPrompt(String action)
     {
         return signInPrompt(null, action);
     }
 
-    public static String signInPrompt(HttpServletRequest request, String action)
+    protected String signInPrompt(HttpServletRequest request, String action)
+    {
+        return signInPrompt(module, request, action);
+    }
+
+    public static String signInPrompt(HTTPDModule module, HttpServletRequest request, String action)
     {
         String href = "/oauth2/login";
         if (request != null)
@@ -170,9 +182,14 @@ public class AbstractServlet extends HttpServlet
         return "You must <a class=\"text-primary underline\" href=\"" + href + "\">sign in</a> as staff " + action + ".";
     }
 
-    public static String readFile(InputStream filename)
+    protected String readFile(InputStream filename)
     {
-        String base = HTTPDModule.template;
+        return readFile(module, filename);
+    }
+
+    public static String readFile(HTTPDModule module, InputStream filename)
+    {
+        String base = module.getTemplate();
         String page = readFileReal(filename);
         String[] info = page.split("\\r?\\n", 3);
         String title = info.length > 0 ? info[0] : "";

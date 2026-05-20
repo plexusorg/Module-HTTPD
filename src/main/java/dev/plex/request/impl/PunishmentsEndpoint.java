@@ -16,6 +16,11 @@ import java.util.UUID;
 
 public class PunishmentsEndpoint extends AbstractServlet
 {
+    public PunishmentsEndpoint(HTTPDModule module)
+    {
+        super(module);
+    }
+
     @GetMapping(endpoint = "/api/punishments/")
     public String getPunishments(HttpServletRequest request, HttpServletResponse response)
     {
@@ -28,11 +33,11 @@ public class PunishmentsEndpoint extends AbstractServlet
         try
         {
             UUID pathUUID = UUID.fromString(request.getPathInfo().replace("/", ""));
-            punishedPlayer = HTTPDModule.plexApi().players().byUuid(pathUUID).orElse(null);
+            punishedPlayer = module.api().players().byUuid(pathUUID).orElse(null);
         }
         catch (IllegalArgumentException ignored)
         {
-            punishedPlayer = HTTPDModule.plexApi().players().byName(request.getPathInfo().replace("/", "")).orElse(null);
+            punishedPlayer = module.api().players().byName(request.getPathInfo().replace("/", "")).orElse(null);
         }
 
         if (punishedPlayer == null)

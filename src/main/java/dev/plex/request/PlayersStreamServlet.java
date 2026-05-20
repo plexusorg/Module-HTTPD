@@ -15,6 +15,13 @@ import java.io.PrintWriter;
 
 public class PlayersStreamServlet extends HttpServlet
 {
+    private final PlayersBroadcaster broadcaster;
+
+    public PlayersStreamServlet(PlayersBroadcaster broadcaster)
+    {
+        this.broadcaster = broadcaster;
+    }
+
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
         throws ServletException, IOException
@@ -27,7 +34,6 @@ public class PlayersStreamServlet extends HttpServlet
         }
         Log.log(ipAddress + " opened SSE stream /api/players/stream");
 
-        PlayersBroadcaster broadcaster = PlayersBroadcaster.get();
         if (broadcaster.atCapacity())
         {
             response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);

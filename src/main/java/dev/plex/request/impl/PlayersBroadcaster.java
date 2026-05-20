@@ -36,14 +36,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class PlayersBroadcaster
 {
-    private static final PlayersBroadcaster INSTANCE = new PlayersBroadcaster();
     private static final long REFRESH_TICKS = 100L; // 5 seconds at 20 TPS
 
-    public static PlayersBroadcaster get()
-    {
-        return INSTANCE;
-    }
-
+    private final HTTPDModule module;
     private final Set<Subscriber> subscribers = ConcurrentHashMap.newKeySet();
     private final AtomicInteger subscriberCount = new AtomicInteger();
     private final AtomicBoolean refreshScheduled = new AtomicBoolean(false);
@@ -56,14 +51,17 @@ public final class PlayersBroadcaster
     private Listener listener;
     private int maxConnections = 32;
 
-    private PlayersBroadcaster() {}
+    public PlayersBroadcaster(HTTPDModule module)
+    {
+        this.module = module;
+    }
 
     public synchronized void start()
     {
         if (executor != null) return;
 
-        maxConnections = HTTPDModule.moduleConfig.getInt("server.sse.max-connections", 32);
-        int threads = Math.max(1, HTTPDModule.moduleConfig.getInt("server.sse.threads", 2));
+        maxConnections = module.getModuleConfig().getInt("server.sse.max-connections", 32);
+        int threads = Math.max(1, module.getModuleConfig().getInt("server.sse.threads", 2));
 
         executor = Executors.newScheduledThreadPool(threads, r ->
         {
@@ -75,20 +73,20 @@ public final class PlayersBroadcaster
         listener = new PlayersListener();
         try
         {
-            HTTPDModule.plexApi().listeners().register(listener);
+            module.api().listeners().register(listener);
         }
         catch (Throwable t)
         {
-            HTTPDModule.plexApi().logging().debug("PlayersBroadcaster: could not register Bukkit listener: " + t.getMessage());
+            module.api().logging().debug("PlayersBroadcaster: could not register Bukkit listener: " + t.getMessage());
         }
 
         try
         {
-            refreshTask = HTTPDModule.plexApi().scheduler().runGlobalTimer(this::refreshAndBroadcast, 1L, REFRESH_TICKS);
+            refreshTask = module.api().scheduler().runGlobalTimer(this::refreshAndBroadcast, 1L, REFRESH_TICKS);
         }
         catch (Throwable t)
         {
-            HTTPDModule.plexApi().logging().debug("PlayersBroadcaster: could not register refresh task: " + t.getMessage());
+            module.api().logging().debug("PlayersBroadcaster: could not register refresh task: " + t.getMessage());
         }
     }
 
@@ -173,7 +171,7 @@ public final class PlayersBroadcaster
                 Player player = online.get(i);
                 try
                 {
-                    ScheduledTask task = HTTPDModule.plexApi().scheduler().runEntity(player, () ->
+                    ScheduledTask task = module.api().scheduler().runEntity(player, () ->
                     {
                         try
                         {
@@ -276,7 +274,7 @@ public final class PlayersBroadcaster
         if (!refreshScheduled.compareAndSet(false, true)) return;
         try
         {
-            HTTPDModule.plexApi().scheduler().runGlobalLater(() ->
+            module.api().scheduler().runGlobalLater(() ->
             {
                 refreshScheduled.set(false);
                 refreshAndBroadcast();

@@ -22,6 +22,11 @@ public class CommandsEndpoint extends AbstractServlet
 {
     private String cachedHtml;
 
+    public CommandsEndpoint(HTTPDModule module)
+    {
+        super(module);
+    }
+
     @GetMapping(endpoint = "/api/commands/")
     public String getCommands(HttpServletRequest request, HttpServletResponse response)
     {
@@ -34,12 +39,12 @@ public class CommandsEndpoint extends AbstractServlet
         return file;
     }
 
-    private static String buildSections()
+    private String buildSections()
     {
         final SortedMap<String, List<CommandInfo>> commandMap = new TreeMap<>();
 
         List<CommandInfo> plexCommands = commandMap.computeIfAbsent("Plex", k -> new ArrayList<>());
-        for (PlexCommand command : HTTPDModule.plexApi().commands().registeredCommands())
+        for (PlexCommand command : module.api().commands().registeredCommands())
         {
             plexCommands.add(CommandInfo.from(command));
         }

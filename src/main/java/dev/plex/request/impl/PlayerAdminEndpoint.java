@@ -23,6 +23,11 @@ public class PlayerAdminEndpoint extends AbstractServlet
 {
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z");
 
+    public PlayerAdminEndpoint(HTTPDModule module)
+    {
+        super(module);
+    }
+
     @GetMapping(endpoint = "/player/")
     public String getPlayer(HttpServletRequest request, HttpServletResponse response)
     {
@@ -54,15 +59,15 @@ public class PlayerAdminEndpoint extends AbstractServlet
         return file;
     }
 
-    private static PlexPlayerView lookupPlayer(String query)
+    private PlexPlayerView lookupPlayer(String query)
     {
         try
         {
-            return HTTPDModule.plexApi().players().byUuid(UUID.fromString(query)).orElse(null);
+            return module.api().players().byUuid(UUID.fromString(query)).orElse(null);
         }
         catch (IllegalArgumentException ignored)
         {
-            return HTTPDModule.plexApi().players().byName(query).orElse(null);
+            return module.api().players().byName(query).orElse(null);
         }
     }
 

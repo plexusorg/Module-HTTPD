@@ -27,13 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class StatsBroadcaster
 {
-    private static final StatsBroadcaster INSTANCE = new StatsBroadcaster();
-
-    public static StatsBroadcaster get()
-    {
-        return INSTANCE;
-    }
-
+    private final HTTPDModule module;
     private final Set<Subscriber> subscribers = ConcurrentHashMap.newKeySet();
     private final AtomicInteger subscriberCount = new AtomicInteger();
 
@@ -58,15 +52,18 @@ public final class StatsBroadcaster
     private int maxConnections = 32;
     private long broadcastIntervalMs = 2000L;
 
-    private StatsBroadcaster() {}
+    public StatsBroadcaster(HTTPDModule module)
+    {
+        this.module = module;
+    }
 
     public synchronized void start()
     {
         if (executor != null) return;
 
-        maxConnections = HTTPDModule.moduleConfig.getInt("server.sse.max-connections", 32);
-        broadcastIntervalMs = HTTPDModule.moduleConfig.getLong("server.sse.broadcast-interval-ms", 2000L);
-        int threads = Math.max(1, HTTPDModule.moduleConfig.getInt("server.sse.threads", 2));
+        maxConnections = module.getModuleConfig().getInt("server.sse.max-connections", 32);
+        broadcastIntervalMs = module.getModuleConfig().getLong("server.sse.broadcast-interval-ms", 2000L);
+        int threads = Math.max(1, module.getModuleConfig().getInt("server.sse.threads", 2));
 
         executor = Executors.newScheduledThreadPool(threads, r ->
         {
@@ -77,11 +74,11 @@ public final class StatsBroadcaster
 
         try
         {
-            bukkitTask = HTTPDModule.plexApi().scheduler().runGlobalTimer(this::sampleBukkit, 1L, 40L);
+            bukkitTask = module.api().scheduler().runGlobalTimer(this::sampleBukkit, 1L, 40L);
         }
         catch (Throwable t)
         {
-            HTTPDModule.plexApi().logging().debug("StatsBroadcaster: could not register Bukkit sampling task: " + t.getMessage());
+            module.api().logging().debug("StatsBroadcaster: could not register Bukkit sampling task: " + t.getMessage());
         }
 
         broadcastTask = executor.scheduleAtFixedRate(

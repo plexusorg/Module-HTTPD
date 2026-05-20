@@ -1,6 +1,6 @@
 package dev.plex.logging;
 
-import dev.plex.HTTPDModule;
+import dev.plex.config.ModuleConfig;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -11,19 +11,30 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.function.BooleanSupplier;
 
 public class Log
 {
     private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS z");
 
+    private static BooleanSupplier consoleLoggingEnabled = () -> false;
+    private static BooleanSupplier fileLoggingEnabled = () -> false;
+    private static File accessLogFile;
     private static BufferedWriter writer;
     private static File writerTarget;
+
+    public static synchronized void configure(ModuleConfig moduleConfig, File target)
+    {
+        consoleLoggingEnabled = () -> moduleConfig.getBoolean("server.logging.console", false);
+        fileLoggingEnabled = () -> moduleConfig.getBoolean("server.logging.file", true);
+        accessLogFile = target;
+    }
 
     public static void log(String message, Object... strings)
     {
         String formatted = format(message, strings);
         writeFile(formatted);
-        if (HTTPDModule.moduleConfig != null && HTTPDModule.moduleConfig.getBoolean("server.logging.console", false))
+        if (consoleLoggingEnabled.getAsBoolean())
         {
             Bukkit.getConsoleSender().sendMessage(Component.text("[Plex HTTPD] ").color(NamedTextColor.DARK_AQUA).append(Component.text(formatted).color(NamedTextColor.GRAY)));
         }
@@ -42,6 +53,9 @@ public class Log
             writer = null;
             writerTarget = null;
         }
+        consoleLoggingEnabled = () -> false;
+        fileLoggingEnabled = () -> false;
+        accessLogFile = null;
     }
 
     private static String format(String message, Object... strings)
@@ -59,9 +73,8 @@ public class Log
 
     private static synchronized void writeFile(String formatted)
     {
-        if (HTTPDModule.moduleConfig == null) return;
-        if (!HTTPDModule.moduleConfig.getBoolean("server.logging.file", true)) return;
-        File target = HTTPDModule.getAccessLogFile();
+        if (!fileLoggingEnabled.getAsBoolean()) return;
+        File target = accessLogFile;
         if (target == null) return;
         if (writer == null || !target.equals(writerTarget))
         {

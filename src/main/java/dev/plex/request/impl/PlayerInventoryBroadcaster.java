@@ -44,7 +44,6 @@ import org.bukkit.persistence.PersistentDataContainer;
  */
 public final class PlayerInventoryBroadcaster
 {
-    private static final PlayerInventoryBroadcaster INSTANCE = new PlayerInventoryBroadcaster();
     private static final long REFRESH_TICKS = 20L; // 1 second
     private static final int MAX_NAME_CHARS = 256;
     private static final int MAX_LORE_LINES = 20;
@@ -53,11 +52,7 @@ public final class PlayerInventoryBroadcaster
     private static final int MAX_PDC_KEYS = 64;
     private static final int MAX_PDC_KEY_CHARS = 128;
 
-    public static PlayerInventoryBroadcaster get()
-    {
-        return INSTANCE;
-    }
-
+    private final HTTPDModule module;
     private final Map<UUID, Set<Subscriber>> subscribers = new ConcurrentHashMap<>();
     private final Map<UUID, String> cachedPayloads = new ConcurrentHashMap<>();
     private final AtomicInteger subscriberCount = new AtomicInteger();
@@ -66,14 +61,17 @@ public final class PlayerInventoryBroadcaster
     private ScheduledTask refreshTask;
     private int maxConnections = 32;
 
-    private PlayerInventoryBroadcaster() {}
+    public PlayerInventoryBroadcaster(HTTPDModule module)
+    {
+        this.module = module;
+    }
 
     public synchronized void start()
     {
         if (executor != null) return;
 
-        maxConnections = HTTPDModule.moduleConfig.getInt("server.sse.max-connections", 32);
-        int threads = Math.max(1, HTTPDModule.moduleConfig.getInt("server.sse.threads", 2));
+        maxConnections = module.getModuleConfig().getInt("server.sse.max-connections", 32);
+        int threads = Math.max(1, module.getModuleConfig().getInt("server.sse.threads", 2));
 
         executor = Executors.newScheduledThreadPool(threads, r ->
         {
@@ -84,11 +82,11 @@ public final class PlayerInventoryBroadcaster
 
         try
         {
-            refreshTask = HTTPDModule.plexApi().scheduler().runGlobalTimer(this::tick, 1L, REFRESH_TICKS);
+            refreshTask = module.api().scheduler().runGlobalTimer(this::tick, 1L, REFRESH_TICKS);
         }
         catch (Throwable t)
         {
-            HTTPDModule.plexApi().logging().debug("PlayerInventoryBroadcaster: could not register refresh task: " + t.getMessage());
+            module.api().logging().debug("PlayerInventoryBroadcaster: could not register refresh task: " + t.getMessage());
         }
 
         try
@@ -97,7 +95,7 @@ public final class PlayerInventoryBroadcaster
         }
         catch (Throwable t)
         {
-            HTTPDModule.plexApi().logging().debug("PlayerInventoryBroadcaster: NBT-API preload failed: " + t.getMessage());
+            module.api().logging().debug("PlayerInventoryBroadcaster: NBT-API preload failed: " + t.getMessage());
         }
     }
 
@@ -181,7 +179,7 @@ public final class PlayerInventoryBroadcaster
             }
             try
             {
-                ScheduledTask task = HTTPDModule.plexApi().scheduler().runEntity(player, () ->
+                ScheduledTask task = module.api().scheduler().runEntity(player, () ->
                 {
                     String json;
                     try

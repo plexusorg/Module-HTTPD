@@ -13,6 +13,11 @@ import java.util.UUID;
 
 public class IndefBansUIEndpoint extends AbstractServlet
 {
+    public IndefBansUIEndpoint(HTTPDModule module)
+    {
+        super(module);
+    }
+
     @GetMapping(endpoint = "/indefbans/")
     public String getBans(HttpServletRequest request, HttpServletResponse response)
     {
@@ -22,7 +27,7 @@ public class IndefBansUIEndpoint extends AbstractServlet
             return errorHTML(signInPrompt(request, "to view this page"));
         }
 
-        List<? extends IndefiniteBanView> bans = HTTPDModule.plexApi().punishments().indefiniteBans();
+        List<? extends IndefiniteBanView> bans = module.api().punishments().indefiniteBans();
         return listHTML(bans);
     }
 

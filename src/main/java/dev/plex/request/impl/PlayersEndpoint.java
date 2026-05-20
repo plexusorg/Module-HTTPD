@@ -1,5 +1,6 @@
 package dev.plex.request.impl;
 
+import dev.plex.HTTPDModule;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
 import jakarta.servlet.http.HttpServletRequest;
@@ -7,6 +8,11 @@ import jakarta.servlet.http.HttpServletResponse;
 
 public class PlayersEndpoint extends AbstractServlet
 {
+    public PlayersEndpoint(HTTPDModule module)
+    {
+        super(module);
+    }
+
     @GetMapping(endpoint = "/players/")
     public String getPlayers(HttpServletRequest request, HttpServletResponse response)
     {

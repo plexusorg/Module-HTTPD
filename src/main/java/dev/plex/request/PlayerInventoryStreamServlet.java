@@ -1,5 +1,6 @@
 package dev.plex.request;
 
+import dev.plex.HTTPDModule;
 import dev.plex.logging.Log;
 import dev.plex.request.impl.PlayerInventoryBroadcaster;
 import jakarta.servlet.AsyncContext;
@@ -16,11 +17,20 @@ import java.util.UUID;
 
 public class PlayerInventoryStreamServlet extends HttpServlet
 {
+    private final HTTPDModule module;
+    private final PlayerInventoryBroadcaster broadcaster;
+
+    public PlayerInventoryStreamServlet(HTTPDModule module, PlayerInventoryBroadcaster broadcaster)
+    {
+        this.module = module;
+        this.broadcaster = broadcaster;
+    }
+
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
         throws ServletException, IOException
     {
-        if (AbstractServlet.currentStaff(request) == null)
+        if (AbstractServlet.currentStaff(module, request) == null)
         {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return;
@@ -51,7 +61,6 @@ public class PlayerInventoryStreamServlet extends HttpServlet
         }
         Log.log(ipAddress + " opened inventory stream for " + uuid);
 
-        PlayerInventoryBroadcaster broadcaster = PlayerInventoryBroadcaster.get();
         if (broadcaster.atCapacity())
         {
             response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);

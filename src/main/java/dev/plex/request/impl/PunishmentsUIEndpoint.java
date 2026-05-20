@@ -18,6 +18,11 @@ public class PunishmentsUIEndpoint extends AbstractServlet
 {
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z");
 
+    public PunishmentsUIEndpoint(HTTPDModule module)
+    {
+        super(module);
+    }
+
     @GetMapping(endpoint = "/punishments/")
     public String getPunishments(HttpServletRequest request, HttpServletResponse response)
     {
@@ -49,15 +54,15 @@ public class PunishmentsUIEndpoint extends AbstractServlet
         return resultsHTML(punished, punishments, showIps);
     }
 
-    private static PlexPlayerView lookupPlayer(String query)
+    private PlexPlayerView lookupPlayer(String query)
     {
         try
         {
-            return HTTPDModule.plexApi().players().byUuid(UUID.fromString(query)).orElse(null);
+            return module.api().players().byUuid(UUID.fromString(query)).orElse(null);
         }
         catch (IllegalArgumentException ignored)
         {
-            return HTTPDModule.plexApi().players().byName(query).orElse(null);
+            return module.api().players().byName(query).orElse(null);
         }
     }
 

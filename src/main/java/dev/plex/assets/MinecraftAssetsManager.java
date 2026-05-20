@@ -1,6 +1,6 @@
 package dev.plex.assets;
 
-import dev.plex.HTTPDModule;
+import dev.plex.api.PlexApi;
 import org.bukkit.Bukkit;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -35,12 +35,14 @@ public class MinecraftAssetsManager
     private final AtomicBoolean ready = new AtomicBoolean(false);
     private final AtomicBoolean refreshStarted = new AtomicBoolean(false);
     private final String minecraftVersion;
+    private final PlexApi api;
 
-    public MinecraftAssetsManager(Path dataFolder)
+    public MinecraftAssetsManager(Path dataFolder, PlexApi api)
     {
         this.root = dataFolder.resolve("minecraft-assets");
         this.versionFile = root.resolve("version.txt");
         this.minecraftVersion = detectMinecraftVersion();
+        this.api = api;
         this.client = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .connectTimeout(Duration.ofSeconds(20))
@@ -63,7 +65,7 @@ public class MinecraftAssetsManager
             }
             catch (Exception e)
             {
-                HTTPDModule.plexApi().logging().info("Unable to download Minecraft assets for HTTPD inventory view: " + e.getMessage());
+                api.logging().info("Unable to download Minecraft assets for HTTPD inventory view: " + e.getMessage());
                 e.printStackTrace();
             }
         });
@@ -90,13 +92,13 @@ public class MinecraftAssetsManager
         String cachedVersion = Files.exists(versionFile) ? Files.readString(versionFile).trim() : "";
         if (minecraftVersion.equals(cachedVersion) && hasAssets())
         {
-            HTTPDModule.plexApi().logging().debug("HTTPD Minecraft assets are already cached for {0}", minecraftVersion);
+            api.logging().debug("HTTPD Minecraft assets are already cached for {0}", minecraftVersion);
             return;
         }
 
         if (!cachedVersion.isEmpty() && !minecraftVersion.equals(cachedVersion))
         {
-            HTTPDModule.plexApi().logging().info("Minecraft version changed from " + cachedVersion + " to " + minecraftVersion + "; recreating HTTPD asset cache");
+            api.logging().info("Minecraft version changed from " + cachedVersion + " to " + minecraftVersion + "; recreating HTTPD asset cache");
         }
         recreateCache();
     }
@@ -114,7 +116,7 @@ public class MinecraftAssetsManager
         deleteDirectory(root);
         Files.createDirectories(root);
 
-        HTTPDModule.plexApi().logging().info("Downloading Minecraft " + minecraftVersion + " client assets for HTTPD inventory view");
+        api.logging().info("Downloading Minecraft " + minecraftVersion + " client assets for HTTPD inventory view");
         JSONObject version = findVersionJson();
         String clientUrl = version.getJSONObject("downloads").getJSONObject("client").getString("url");
 
@@ -142,7 +144,7 @@ public class MinecraftAssetsManager
         }
 
         Files.writeString(versionFile, minecraftVersion + System.lineSeparator());
-        HTTPDModule.plexApi().logging().info("HTTPD Minecraft assets cached for " + minecraftVersion);
+        api.logging().info("HTTPD Minecraft assets cached for " + minecraftVersion);
     }
 
     private JSONObject findVersionJson() throws IOException, InterruptedException

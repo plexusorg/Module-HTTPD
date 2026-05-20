@@ -1,5 +1,6 @@
 package dev.plex.request;
 
+import dev.plex.HTTPDModule;
 import dev.plex.logging.Log;
 import dev.plex.request.impl.PlayersBroadcaster;
 import jakarta.servlet.AsyncContext;
@@ -15,11 +16,20 @@ import java.io.PrintWriter;
 
 public class StaffPlayersStreamServlet extends HttpServlet
 {
+    private final HTTPDModule module;
+    private final PlayersBroadcaster broadcaster;
+
+    public StaffPlayersStreamServlet(HTTPDModule module, PlayersBroadcaster broadcaster)
+    {
+        this.module = module;
+        this.broadcaster = broadcaster;
+    }
+
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
         throws ServletException, IOException
     {
-        if (AbstractServlet.currentStaff(request) == null)
+        if (AbstractServlet.currentStaff(module, request) == null)
         {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return;
@@ -33,7 +43,6 @@ public class StaffPlayersStreamServlet extends HttpServlet
         }
         Log.log(ipAddress + " opened SSE stream /api/players/stream/staff");
 
-        PlayersBroadcaster broadcaster = PlayersBroadcaster.get();
         if (broadcaster.atCapacity())
         {
             response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);

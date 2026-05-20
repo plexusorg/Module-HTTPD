@@ -3,7 +3,6 @@ package dev.plex;
 import dev.plex.assets.MinecraftAssetsManager;
 import dev.plex.authentication.AuthenticationManager;
 import dev.plex.cache.FileCache;
-import dev.plex.api.PlexApi;
 import dev.plex.config.ModuleConfig;
 import dev.plex.logging.Log;
 import dev.plex.module.PlexModule;
@@ -33,35 +32,41 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class HTTPDModule extends PlexModule
 {
-    public static ServletContextHandler context;
+    @Getter
+    private ServletContextHandler context;
     private Thread serverThread;
-    private AtomicReference<Server> atomicServer = new AtomicReference<>();
-
-    public static ModuleConfig moduleConfig;
-    private static PlexApi plexApi;
-
-    public static PlexApi plexApi()
-    {
-        return plexApi;
-    }
-
-    public static final FileCache fileCache = new FileCache();
-
-    public static final String template = AbstractServlet.readFileReal(HTTPDModule.class.getResourceAsStream("/httpd/template.html"));
+    private final AtomicReference<Server> atomicServer = new AtomicReference<>();
 
     @Getter
-    private static AuthenticationManager authenticationManager;
+    private ModuleConfig moduleConfig;
 
     @Getter
-    private static File accessLogFile;
+    private final FileCache fileCache = new FileCache();
 
     @Getter
-    private static MinecraftAssetsManager minecraftAssetsManager;
+    private final String template = AbstractServlet.readFileReal(HTTPDModule.class.getResourceAsStream("/httpd/template.html"));
+
+    @Getter
+    private AuthenticationManager authenticationManager;
+
+    @Getter
+    private File accessLogFile;
+
+    @Getter
+    private MinecraftAssetsManager minecraftAssetsManager;
+
+    @Getter
+    private StatsBroadcaster statsBroadcaster;
+
+    @Getter
+    private PlayersBroadcaster playersBroadcaster;
+
+    @Getter
+    private PlayerInventoryBroadcaster playerInventoryBroadcaster;
 
     @Override
     public void load()
     {
-        plexApi = api();
         // Move it from /httpd/config.yml to /plugins/Plex/modules/Plex-HTTPD/config.yml
         moduleConfig = new ModuleConfig(this, "httpd/config.yml", "config.yml");
     }
@@ -70,17 +75,18 @@ public class HTTPDModule extends PlexModule
     public void enable()
     {
         moduleConfig.load();
-        HTTPDModule.plexApi().logging().debug("HTTPD Module Port: {0}", moduleConfig.getInt("server.port"));
+        api().logging().debug("HTTPD Module Port: {0}", moduleConfig.getInt("server.port"));
 
         accessLogFile = new File(getDataFolder(), moduleConfig.getString("server.logging.file-path", "httpd.log"));
+        Log.configure(moduleConfig, accessLogFile);
 
-        minecraftAssetsManager = new MinecraftAssetsManager(getDataFolder().toPath());
+        minecraftAssetsManager = new MinecraftAssetsManager(getDataFolder().toPath(), api());
         minecraftAssetsManager.refreshAsync();
 
-        authenticationManager = new AuthenticationManager();
+        authenticationManager = new AuthenticationManager(this);
         if (authenticationManager.provider() == null)
         {
-            HTTPDModule.plexApi().logging().debug("Authentication is disabled or misconfigured");
+            api().logging().debug("Authentication is disabled or misconfigured");
         }
 
 
@@ -110,33 +116,37 @@ public class HTTPDModule extends PlexModule
             connector.setIdleTimeout(moduleConfig.getLong("server.limits.idle-timeout-ms", 15_000L));
             connector.setAcceptQueueSize(moduleConfig.getInt("server.limits.accept-queue", 32));
 
-            context.addFilter(new FilterHolder(new RateLimitFilter()), "/*", EnumSet.of(DispatcherType.REQUEST));
+            context.addFilter(new FilterHolder(new RateLimitFilter(moduleConfig)), "/*", EnumSet.of(DispatcherType.REQUEST));
 
-            StatsBroadcaster.get().start();
-            PlayersBroadcaster.get().start();
-            PlayerInventoryBroadcaster.get().start();
+            statsBroadcaster = new StatsBroadcaster(this);
+            playersBroadcaster = new PlayersBroadcaster(this);
+            playerInventoryBroadcaster = new PlayerInventoryBroadcaster(this);
+            statsBroadcaster.start();
+            playersBroadcaster.start();
+            playerInventoryBroadcaster.start();
 
-            new IndefBansEndpoint();
-            new IndexEndpoint();
-            new ListEndpoint();
-            new PunishmentsEndpoint();
-            new CommandsEndpoint();
-            new SchematicDownloadEndpoint();
-            new SchematicUploadEndpoint();
-            new PlayersEndpoint();
-            new PlayerAdminEndpoint();
-            new AssetsEndpoint();
-            new PunishmentsUIEndpoint();
-            new IndefBansUIEndpoint();
-            new AuthenticationEndpoint();
+            new IndefBansEndpoint(this);
+            new IndexEndpoint(this);
+            new ListEndpoint(this);
+            new PunishmentsEndpoint(this);
+            new CommandsEndpoint(this);
+            new SchematicDownloadEndpoint(this);
+            new SchematicUploadEndpoint(this);
+            new PlayersEndpoint(this);
+            new PlayerAdminEndpoint(this);
+            new AssetsEndpoint(this);
+            new PunishmentsUIEndpoint(this);
+            new IndefBansUIEndpoint(this);
+            new AuthenticationEndpoint(this);
 
-            HTTPDModule.context.addServlet(StatsStreamServlet.class, "/api/stats/stream");
-            HTTPDModule.context.addServlet(PlayersStreamServlet.class, "/api/players/stream");
-            HTTPDModule.context.addServlet(StaffPlayersStreamServlet.class, "/api/players/stream/staff");
-            HTTPDModule.context.addServlet(PlayerActionServlet.class, "/api/admin/action");
-            HTTPDModule.context.addServlet(PlayerInventoryStreamServlet.class, "/api/player/inventory/stream");
+            context.addServlet(new ServletHolder(new StatsStreamServlet(statsBroadcaster)), "/api/stats/stream");
+            context.addServlet(new ServletHolder(new PlayersStreamServlet(playersBroadcaster)), "/api/players/stream");
+            context.addServlet(new ServletHolder(new StaffPlayersStreamServlet(this, playersBroadcaster)), "/api/players/stream/staff");
+            context.addServlet(new ServletHolder(new PlayerActionServlet(this)), "/api/admin/action");
+            context.addServlet(new ServletHolder(new PlayerInventoryStreamServlet(this, playerInventoryBroadcaster)), "/api/player/inventory/stream");
 
-            ServletHolder uploadHolder = HTTPDModule.context.addServlet(SchematicUploadServlet.class, "/api/schematics/uploading");
+            ServletHolder uploadHolder = new ServletHolder(new SchematicUploadServlet(this));
+            context.addServlet(uploadHolder, "/api/schematics/uploading");
 
             File uploadLoc = new File(System.getProperty("java.io.tmpdir"), "schematic-temp-dir");
             if (!uploadLoc.exists())
@@ -160,16 +170,19 @@ public class HTTPDModule extends PlexModule
             }
         }, "Jetty-Server");
         serverThread.start();
-        HTTPDModule.plexApi().logging().info("Starting Jetty server on port " + moduleConfig.getInt("server.port"));
+        api().logging().info("Starting Jetty server on port " + moduleConfig.getInt("server.port"));
     }
 
     @Override
     public void disable()
     {
-        HTTPDModule.plexApi().logging().debug("Stopping Jetty server");
+        api().logging().debug("Stopping Jetty server");
         try
         {
-            StatsBroadcaster.get().shutdown();
+            if (statsBroadcaster != null)
+            {
+                statsBroadcaster.shutdown();
+            }
         }
         catch (Throwable t)
         {
@@ -177,7 +190,10 @@ public class HTTPDModule extends PlexModule
         }
         try
         {
-            PlayersBroadcaster.get().shutdown();
+            if (playersBroadcaster != null)
+            {
+                playersBroadcaster.shutdown();
+            }
         }
         catch (Throwable t)
         {
@@ -185,7 +201,10 @@ public class HTTPDModule extends PlexModule
         }
         try
         {
-            PlayerInventoryBroadcaster.get().shutdown();
+            if (playerInventoryBroadcaster != null)
+            {
+                playerInventoryBroadcaster.shutdown();
+            }
         }
         catch (Throwable t)
         {
@@ -193,8 +212,12 @@ public class HTTPDModule extends PlexModule
         }
         try
         {
-            atomicServer.get().stop();
-            atomicServer.get().destroy();
+            Server server = atomicServer.get();
+            if (server != null)
+            {
+                server.stop();
+                server.destroy();
+            }
         }
         catch (Exception e)
         {

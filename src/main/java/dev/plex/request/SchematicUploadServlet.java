@@ -22,14 +22,20 @@ import java.util.regex.Pattern;
 public class SchematicUploadServlet extends HttpServlet
 {
     private static final Pattern schemNameMatcher = Pattern.compile("^[a-z0-9'!,_ -]{1,30}\\.schem(atic)?$", Pattern.CASE_INSENSITIVE);
+    private final HTTPDModule module;
+
+    public SchematicUploadServlet(HTTPDModule module)
+    {
+        this.module = module;
+    }
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
     {
-        AuthenticatedUser user = AbstractServlet.currentStaff(request);
+        AuthenticatedUser user = AbstractServlet.currentStaff(module, request);
         if (user == null)
         {
-            response.getWriter().println(schematicUploadBadHTML(AbstractServlet.signInPrompt(request, "to upload schematics")));
+            response.getWriter().println(schematicUploadBadHTML(AbstractServlet.signInPrompt(module, request, "to upload schematics")));
             return;
         }
         File worldeditFolder = HTTPDModule.getWorldeditFolder();
@@ -67,7 +73,7 @@ public class SchematicUploadServlet extends HttpServlet
         ClipboardFormat schematicFormat = ClipboardFormats.findByFile(schematicFile);
         if (schematicFormat == null)
         {
-            HTTPDModule.plexApi().logging().info(user.username() + " FAILED to upload schematic with filename: " + filename);
+            module.api().logging().info(user.username() + " FAILED to upload schematic with filename: " + filename);
             Log.log("{0} (xf:{1}) FAILED to upload schematic {2}", user.username(), user.userId(), filename);
             response.getWriter().println(schematicUploadBadHTML("Schematic is not a valid format."));
             FileUtils.deleteQuietly(schematicFile);
@@ -79,7 +85,7 @@ public class SchematicUploadServlet extends HttpServlet
         }
         catch (IOException e)
         {
-            HTTPDModule.plexApi().logging().info(user.username() + " FAILED to upload schematic with filename: " + filename);
+            module.api().logging().info(user.username() + " FAILED to upload schematic with filename: " + filename);
             Log.log("{0} (xf:{1}) FAILED to upload schematic {2}", user.username(), user.userId(), filename);
             response.getWriter().println(schematicUploadBadHTML("Schematic is not a valid format."));
             FileUtils.deleteQuietly(schematicFile);
@@ -87,20 +93,20 @@ public class SchematicUploadServlet extends HttpServlet
         }
         inputStream.close();
         response.getWriter().println(schematicUploadGoodHTML("Successfully uploaded <b>" + filename + "</b>."));
-        HTTPDModule.plexApi().logging().info(user.username() + " uploaded schematic with filename: " + filename);
+        module.api().logging().info(user.username() + " uploaded schematic with filename: " + filename);
         Log.log("{0} (xf:{1}) uploaded schematic {2}", user.username(), user.userId(), filename);
     }
 
     private String schematicUploadBadHTML(String message)
     {
-        String file = AbstractServlet.readFile(this.getClass().getResourceAsStream("/httpd/schematic_upload_bad.html"));
+        String file = AbstractServlet.readFile(module, this.getClass().getResourceAsStream("/httpd/schematic_upload_bad.html"));
         file = file.replace("${MESSAGE}", message);
         return file;
     }
 
     private String schematicUploadGoodHTML(String message)
     {
-        String file = AbstractServlet.readFile(this.getClass().getResourceAsStream("/httpd/schematic_upload_good.html"));
+        String file = AbstractServlet.readFile(module, this.getClass().getResourceAsStream("/httpd/schematic_upload_good.html"));
         file = file.replace("${MESSAGE}", message);
         return file;
     }

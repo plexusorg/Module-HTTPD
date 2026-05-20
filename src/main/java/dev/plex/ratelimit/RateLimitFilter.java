@@ -1,6 +1,6 @@
 package dev.plex.ratelimit;
 
-import dev.plex.HTTPDModule;
+import dev.plex.config.ModuleConfig;
 import dev.plex.logging.Log;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
@@ -28,14 +28,14 @@ public class RateLimitFilter implements Filter
     private final ConcurrentHashMap<String, TokenBucket> ipBuckets = new ConcurrentHashMap<>();
     private final AtomicLong nextEvictMillis = new AtomicLong(System.currentTimeMillis() + EVICT_INTERVAL_MILLIS);
 
-    public RateLimitFilter()
+    public RateLimitFilter(ModuleConfig config)
     {
-        this.enabled = HTTPDModule.moduleConfig.getBoolean("rate-limit.enabled", true);
-        double globalCapacity = HTTPDModule.moduleConfig.getDouble("rate-limit.global.capacity", 200.0);
-        double globalRate = HTTPDModule.moduleConfig.getDouble("rate-limit.global.per-second", 100.0);
+        this.enabled = config.getBoolean("rate-limit.enabled", true);
+        double globalCapacity = config.getDouble("rate-limit.global.capacity", 200.0);
+        double globalRate = config.getDouble("rate-limit.global.per-second", 100.0);
         this.globalBucket = new TokenBucket(globalCapacity, globalRate);
-        this.ipCapacity = HTTPDModule.moduleConfig.getDouble("rate-limit.per-ip.capacity", 30.0);
-        this.ipRefillPerSecond = HTTPDModule.moduleConfig.getDouble("rate-limit.per-ip.per-second", 10.0);
+        this.ipCapacity = config.getDouble("rate-limit.per-ip.capacity", 30.0);
+        this.ipRefillPerSecond = config.getDouble("rate-limit.per-ip.per-second", 10.0);
     }
 
     @Override

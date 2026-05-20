@@ -7,17 +7,17 @@ public class AuthenticationManager
 {
     private final OAuth2Provider provider;
 
-    public AuthenticationManager()
+    public AuthenticationManager(HTTPDModule module)
     {
-        final boolean enabled = HTTPDModule.moduleConfig.getBoolean("authentication.enabled", false);
+        final boolean enabled = module.getModuleConfig().getBoolean("authentication.enabled", false);
         if (!enabled)
         {
             provider = null;
             return;
         }
 
-        HTTPDModule.plexApi().logging().info("[HTTPD] XenForo OAuth2 authentication is enabled");
-        provider = new XenForoOAuth2Provider();
+        module.api().logging().info("[HTTPD] XenForo OAuth2 authentication is enabled");
+        provider = new XenForoOAuth2Provider(module);
     }
 
     public OAuth2Provider provider()

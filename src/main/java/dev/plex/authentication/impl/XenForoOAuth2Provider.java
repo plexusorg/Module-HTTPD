@@ -49,19 +49,21 @@ public class XenForoOAuth2Provider implements OAuth2Provider
     private final String clientSecret;
     private final String redirectUri;
     private final Duration sessionTtl;
+    private final HTTPDModule module;
 
-    public XenForoOAuth2Provider()
+    public XenForoOAuth2Provider(HTTPDModule module)
     {
-        String domain = HTTPDModule.moduleConfig.getString("authentication.provider.xenforo.domain", "");
-        this.clientId = HTTPDModule.moduleConfig.getString("authentication.provider.xenforo.clientId", "");
-        this.clientSecret = HTTPDModule.moduleConfig.getString("authentication.provider.xenforo.clientSecret", "");
-        this.redirectUri = HTTPDModule.moduleConfig.getString("authentication.provider.redirectUri", "");
-        long ttlMinutes = HTTPDModule.moduleConfig.getLong("authentication.provider.xenforo.sessionMinutes", 1440L);
+        this.module = module;
+        String domain = module.getModuleConfig().getString("authentication.provider.xenforo.domain", "");
+        this.clientId = module.getModuleConfig().getString("authentication.provider.xenforo.clientId", "");
+        this.clientSecret = module.getModuleConfig().getString("authentication.provider.xenforo.clientSecret", "");
+        this.redirectUri = module.getModuleConfig().getString("authentication.provider.redirectUri", "");
+        long ttlMinutes = module.getModuleConfig().getLong("authentication.provider.xenforo.sessionMinutes", 1440L);
         this.sessionTtl = Duration.ofMinutes(Math.max(ttlMinutes, 1L));
 
         if (domain.isEmpty() || clientId.isEmpty() || clientSecret.isEmpty() || redirectUri.isEmpty())
         {
-            HTTPDModule.plexApi().logging().error("XenForo OAuth2 misconfigured: domain, clientId, clientSecret, redirectUri are all required.");
+            module.api().logging().error("XenForo OAuth2 misconfigured: domain, clientId, clientSecret, redirectUri are all required.");
         }
 
         String base = "https://" + domain.replaceFirst("^https?://", "").replaceAll("/+$", "");
@@ -285,7 +287,7 @@ public class XenForoOAuth2Provider implements OAuth2Provider
         }
         catch (Exception e)
         {
-            HTTPDModule.plexApi().logging().debug("Failed to revoke XenForo token: {0}", e.getMessage());
+            module.api().logging().debug("Failed to revoke XenForo token: {0}", e.getMessage());
         }
     }
 

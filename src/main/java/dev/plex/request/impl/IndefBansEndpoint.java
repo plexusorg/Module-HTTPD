@@ -10,6 +10,11 @@ import jakarta.servlet.http.HttpServletResponse;
 
 public class IndefBansEndpoint extends AbstractServlet
 {
+    public IndefBansEndpoint(HTTPDModule module)
+    {
+        super(module);
+    }
+
     @GetMapping(endpoint = "/api/indefbans/")
     public String getBans(HttpServletRequest request, HttpServletResponse response)
     {
@@ -20,7 +25,7 @@ public class IndefBansEndpoint extends AbstractServlet
         }
 
         response.setHeader("content-type", "application/json");
-        return new GsonBuilder().setPrettyPrinting().create().toJson(HTTPDModule.plexApi().punishments().indefiniteBans());
+        return new GsonBuilder().setPrettyPrinting().create().toJson(module.api().punishments().indefiniteBans());
     }
 
     private String indefbansHTML(String message)

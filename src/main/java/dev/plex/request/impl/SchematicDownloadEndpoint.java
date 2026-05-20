@@ -19,6 +19,11 @@ public class SchematicDownloadEndpoint extends AbstractServlet
 {
     List<File> files = new ArrayList<>();
 
+    public SchematicDownloadEndpoint(HTTPDModule module)
+    {
+        super(module);
+    }
+
     @GetMapping(endpoint = "/api/schematics/download/")
     public String downloadSchematic(HttpServletRequest request, HttpServletResponse response)
     {
@@ -57,7 +62,7 @@ public class SchematicDownloadEndpoint extends AbstractServlet
             {
                 try
                 {
-                    byte[] schemData = HTTPDModule.fileCache.getFile(schemFile);
+                    byte[] schemData = module.getFileCache().getFile(schemFile);
                     if (schemData != null)
                     {
                         outputStream.write(schemData);
@@ -71,11 +76,11 @@ public class SchematicDownloadEndpoint extends AbstractServlet
         }
     }
 
-    private static void logDownload(HttpServletRequest request, File schemFile)
+    private void logDownload(HttpServletRequest request, File schemFile)
     {
         AuthenticatedUser user = currentUser(request);
         String who = user != null ? user.username() + " (xf:" + user.userId() + ")" : request.getRemoteAddr();
-        HTTPDModule.plexApi().logging().info("{0} downloaded schematic {1}", who, schemFile.getName());
+        module.api().logging().info("{0} downloaded schematic {1}", who, schemFile.getName());
         Log.log("{0} downloaded schematic {1}", who, schemFile.getName());
     }
 
@@ -118,7 +123,7 @@ public class SchematicDownloadEndpoint extends AbstractServlet
         {
             if (fileEntry.isDirectory())
             {
-                HTTPDModule.plexApi().logging().debug("Found directory");
+                module.api().logging().debug("Found directory");
                 listFilesForFolder(fileEntry);
             }
             else

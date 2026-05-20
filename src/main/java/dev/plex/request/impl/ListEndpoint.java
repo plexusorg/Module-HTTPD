@@ -1,6 +1,7 @@
 package dev.plex.request.impl;
 
 import com.google.gson.GsonBuilder;
+import dev.plex.HTTPDModule;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
 import dev.plex.request.MappingHeaders;
@@ -14,6 +15,11 @@ import org.bukkit.entity.Player;
 
 public class ListEndpoint extends AbstractServlet
 {
+    public ListEndpoint(HTTPDModule module)
+    {
+        super(module);
+    }
+
     @GetMapping(endpoint = "/api/list/")
     @MappingHeaders(headers = "content-type;application/json")
     public String getOnlinePlayers(HttpServletRequest request, HttpServletResponse response)

@@ -27,12 +27,18 @@ public class PlayerActionServlet extends HttpServlet
     private static final List<String> PERMANENT_ACTIONS = List.of("ban", "mute");
     private static final List<String> TEMP_ACTIONS = List.of("tempban", "tempmute", "freeze");
     private static final List<String> INVENTORY_ACTIONS = List.of("clear-inventory", "clear-selected");
+    private final HTTPDModule module;
+
+    public PlayerActionServlet(HTTPDModule module)
+    {
+        this.module = module;
+    }
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
         throws ServletException, IOException
     {
-        AuthenticatedUser staff = AbstractServlet.currentStaff(request);
+        AuthenticatedUser staff = AbstractServlet.currentStaff(module, request);
         if (staff == null)
         {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
@@ -71,7 +77,7 @@ public class PlayerActionServlet extends HttpServlet
             return;
         }
 
-        PlexPlayerView target = HTTPDModule.plexApi().players().byUuid(uuid).orElse(null);
+        PlexPlayerView target = module.api().players().byUuid(uuid).orElse(null);
         if (target == null)
         {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
@@ -119,11 +125,11 @@ public class PlayerActionServlet extends HttpServlet
 
         final boolean kick = action.equals("ban") || action.equals("tempban");
         final PunishmentRequest toApply = punishment;
-        HTTPDModule.plexApi().scheduler().runGlobal(() ->
+        module.api().scheduler().runGlobal(() ->
         {
             try
             {
-                HTTPDModule.plexApi().punishments().punish(target, toApply);
+                module.api().punishments().punish(target, toApply);
             }
             catch (Throwable t)
             {
@@ -135,7 +141,7 @@ public class PlayerActionServlet extends HttpServlet
                 Player online = Bukkit.getPlayer(uuid);
                 if (online != null)
                 {
-                    HTTPDModule.plexApi().scheduler().runEntity(online, () ->
+                    module.api().scheduler().runEntity(online, () ->
                     {
                         try { online.kick(Component.text("You have been banned: " + toApply.reason())); }
                         catch (Throwable t) { t.printStackTrace(); }
@@ -147,7 +153,7 @@ public class PlayerActionServlet extends HttpServlet
         response.sendRedirect("/player/" + uuid);
     }
 
-    private static void handleInventoryAction(HttpServletRequest request, HttpServletResponse response, AuthenticatedUser staff, UUID uuid, PlexPlayerView target, String action, String slot)
+    private void handleInventoryAction(HttpServletRequest request, HttpServletResponse response, AuthenticatedUser staff, UUID uuid, PlexPlayerView target, String action, String slot)
         throws IOException
     {
         String ipAddress = request.getRemoteAddr();
@@ -159,11 +165,11 @@ public class PlayerActionServlet extends HttpServlet
 
         Log.log(ipAddress + " (xf:" + staff.username() + ") issued " + action + " on " + target.name() + " (" + uuid + ")" + (slot == null || slot.isBlank() ? "" : " slot " + slot));
 
-        HTTPDModule.plexApi().scheduler().runGlobal(() ->
+        module.api().scheduler().runGlobal(() ->
         {
             Player online = Bukkit.getPlayer(uuid);
             if (online == null) return;
-            HTTPDModule.plexApi().scheduler().runEntity(online, () ->
+            module.api().scheduler().runEntity(online, () ->
             {
                 PlayerInventory inv = online.getInventory();
                 if ("clear-inventory".equals(action))

@@ -20,6 +20,10 @@ public class AssetsEndpoint extends AbstractServlet
     private static final Pattern MODEL_PATH = Pattern.compile("(item|block)/[a-z0-9_]+\\.json");
     private static final Pattern ITEM_DEF_PATH = Pattern.compile("[a-z0-9_]+\\.json");
 
+    public AssetsEndpoint(HTTPDModule module)
+    {
+        super(module);
+    }
 
     @GetMapping(endpoint = "/assets/dashboard.js")
     @MappingHeaders(headers = {"content-type;application/javascript; charset=utf-8", "cache-control;public, max-age=300"})
@@ -97,7 +101,7 @@ public class AssetsEndpoint extends AbstractServlet
         return null;
     }
 
-    private static void servePathUnder(HttpServletRequest request, HttpServletResponse response, String urlPrefix, Pattern allowed, String cacheCategory, String resourcePrefix)
+    private void servePathUnder(HttpServletRequest request, HttpServletResponse response, String urlPrefix, Pattern allowed, String cacheCategory, String resourcePrefix)
     {
         String uri = request.getRequestURI();
         if (!uri.startsWith(urlPrefix))
@@ -123,13 +127,13 @@ public class AssetsEndpoint extends AbstractServlet
         serveResource(resourcePrefix + rest, response);
     }
 
-    private static boolean serveCached(String category, String relativePath, HttpServletResponse response)
+    private boolean serveCached(String category, String relativePath, HttpServletResponse response)
     {
-        if (HTTPDModule.getMinecraftAssetsManager() == null)
+        if (module.getMinecraftAssetsManager() == null)
         {
             return false;
         }
-        Path path = HTTPDModule.getMinecraftAssetsManager().resolve(category, relativePath);
+        Path path = module.getMinecraftAssetsManager().resolve(category, relativePath);
         if (path == null)
         {
             return false;

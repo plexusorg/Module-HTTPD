@@ -59,7 +59,7 @@
     <p class="mt-4 text-sm text-muted-foreground">No commands match that filter.</p>
 {:else}
     <section class="rise mt-4 space-y-3">
-        {#each visibleGroups as group (group.plugin)}
+        {#each visibleGroups as group, groupIndex (`${group.plugin}:${groupIndex}`)}
             <Card class="overflow-hidden">
                 <details open={!collapsed}>
                     <summary
@@ -69,7 +69,7 @@
                             commands</span><HugeiconsIcon icon={ArrowDown01Icon} class="size-4"/></span>
                     </summary>
                     <div class="divide-y divide-border/60">
-                        {#each group.commands as command (command.name)}
+                        {#each group.commands as command, commandIndex (`${command.name}:${commandIndex}`)}
                             <article class="grid gap-2 px-4 py-3 md:grid-cols-[14rem_1fr]">
                                 <div class="min-w-0">
                                     <p class="break-all font-mono text-sm font-medium text-foreground">

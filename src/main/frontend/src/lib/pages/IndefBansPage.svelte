@@ -5,29 +5,69 @@
     import {api} from '$lib/api';
     import {Card} from '$lib/components/ui/card';
     import {Input} from '$lib/components/ui/input';
-    import {lowerSearch, titleCase} from '$lib/utils';
+    import {lowerSearch} from '$lib/utils';
+
+    interface BanGroup {
+        usernames: string[];
+        uuids: string[];
+        ips: string[];
+        reason: string;
+    }
 
     let bans: Array<Record<string, unknown>> = $state([]);
     let loading = $state(true);
     let error = $state<string | null>(null);
     let filter = $state('');
 
-    const visible = $derived(bans.filter((ban) => !filter.trim() || lowerSearch(ban).includes(filter.toLowerCase().trim())));
+    const groups = $derived(bans.map(toGroup));
+    const visible = $derived.by(() => {
+        const q = filter.toLowerCase().trim();
+        return groups.filter((group) => !q || lowerSearch(group).includes(q));
+    });
     const totals = $derived.by(() => {
-        const text = JSON.stringify(bans);
         return {
-            groups: bans.length,
-            users: (text.match(/user(name)?/gi) ?? []).length,
-            uuids: (text.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi) ?? []).length,
-            ips: (text.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) ?? []).length
+            groups: groups.length,
+            users: groups.reduce((total, group) => total + group.usernames.length, 0),
+            uuids: groups.reduce((total, group) => total + group.uuids.length, 0),
+            ips: groups.reduce((total, group) => total + group.ips.length, 0)
         };
     });
 
-    function display(value: unknown): string {
-        if (value == null || value === '') return '-';
-        if (Array.isArray(value)) return value.map(display).join(', ');
-        if (typeof value === 'object') return JSON.stringify(value);
-        return String(value);
+    function isRecord(value: unknown): value is Record<string, unknown> {
+        return typeof value === 'object' && value !== null && !Array.isArray(value);
+    }
+
+    function listValues(value: unknown): string[] {
+        if (value == null) return [];
+        if (Array.isArray(value)) return value.flatMap(listValues);
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            return trimmed ? [trimmed] : [];
+        }
+        if (typeof value === 'number' || typeof value === 'boolean') return [String(value)];
+        if (isRecord(value)) return Object.values(value).flatMap(listValues);
+        return [];
+    }
+
+    function toGroup(ban: Record<string, unknown>): BanGroup {
+        const entries = Object.entries(ban);
+        const nested = entries.length === 1 && isRecord(entries[0][1]) ? entries[0][1] : ban;
+        const reason = listValues(nested.reason).join(', ');
+
+        return {
+            usernames: listValues(nested.usernames ?? nested.users ?? nested.names),
+            uuids: listValues(nested.uuids ?? nested.uuid),
+            ips: listValues(nested.ips ?? nested.ip),
+            reason: reason || listValues(ban.reason).join(', ')
+        };
+    }
+
+    function entryCount(group: BanGroup): number {
+        return group.usernames.length + group.uuids.length + group.ips.length;
+    }
+
+    function groupKey(group: BanGroup, index: number): string {
+        return `${index}:${group.usernames[0] ?? ''}:${group.uuids[0] ?? ''}:${group.ips[0] ?? ''}`;
     }
 
     onMount(async () => {
@@ -45,7 +85,7 @@
     <h1 class="text-3xl font-medium tracking-tight md:text-4xl">Indefinite bans</h1>
     <div class="flex flex-wrap items-center gap-4 text-sm text-muted-foreground tabular">
         <span><span class="text-foreground">{totals.groups}</span> groups</span>
-        <span><span class="text-foreground">{totals.users}</span> user keys</span>
+        <span><span class="text-foreground">{totals.users}</span> users</span>
         <span><span class="text-foreground">{totals.uuids}</span> uuids</span>
         <span><span class="text-foreground">{totals.ips}</span> ips</span>
     </div>
@@ -63,18 +103,52 @@
     <p class="mt-4 text-sm text-muted-foreground">Loading bans...</p>
 {:else if error}
     <p class="mt-4 text-sm text-destructive">{error}</p>
+{:else if groups.length === 0}
+    <Card class="mt-4 p-10 text-center">
+        <p class="text-sm text-muted-foreground">No indefinite bans configured.</p>
+    </Card>
 {:else if visible.length === 0}
     <p class="mt-4 text-sm text-muted-foreground">No indefinite bans match that filter.</p>
 {:else}
     <section class="rise mt-4 grid gap-3 md:grid-cols-2">
-        {#each visible as ban, index (index)}
-            <Card class="p-4">
-                <h2 class="text-sm font-medium">Group {index + 1}</h2>
-                <dl class="mt-3 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs">
-                    {#each Object.entries(ban) as [key, value] (key)}
-                        <dt class="text-muted-foreground">{titleCase(key)}</dt>
-                        <dd class="break-all font-mono text-foreground/80">{display(value)}</dd>
-                    {/each}
+        {#each visible as group, index (groupKey(group, index))}
+            {@const total = entryCount(group)}
+            <Card class="p-5">
+                <header class="flex flex-wrap items-baseline justify-between gap-3">
+                    <p class="text-sm">
+                        {#if group.reason}
+                            {group.reason}
+                        {:else}
+                            <span class="italic text-muted-foreground/70">No reason provided</span>
+                        {/if}
+                    </p>
+                    <span class="text-xs text-muted-foreground">{total} {total === 1 ? 'entry' : 'entries'}</span>
+                </header>
+                <dl class="mt-4 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 border-t border-border/60 pt-3 text-xs">
+                    {#if group.usernames.length}
+                        <dt class="text-muted-foreground">Users</dt>
+                        <dd class="flex flex-wrap gap-x-3 gap-y-1 break-all text-foreground/90">
+                            {#each group.usernames as username, usernameIndex (`${username}:${usernameIndex}`)}
+                                <span>{username}</span>
+                            {/each}
+                        </dd>
+                    {/if}
+                    {#if group.uuids.length}
+                        <dt class="text-muted-foreground">UUIDs</dt>
+                        <dd class="flex flex-wrap gap-x-3 gap-y-1 break-all font-mono text-foreground/55">
+                            {#each group.uuids as uuid, uuidIndex (`${uuid}:${uuidIndex}`)}
+                                <span>{uuid}</span>
+                            {/each}
+                        </dd>
+                    {/if}
+                    {#if group.ips.length}
+                        <dt class="text-muted-foreground">IPs</dt>
+                        <dd class="flex flex-wrap gap-x-3 gap-y-1 break-all font-mono text-warning">
+                            {#each group.ips as ip, ipIndex (`${ip}:${ipIndex}`)}
+                                <span>{ip}</span>
+                            {/each}
+                        </dd>
+                    {/if}
                 </dl>
             </Card>
         {/each}

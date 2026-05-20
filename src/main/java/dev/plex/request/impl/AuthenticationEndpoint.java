@@ -62,6 +62,11 @@ public class AuthenticationEndpoint extends AbstractServlet
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Authentication is not enabled.");
             return null;
         }
+        if ("access_denied".equals(request.getParameter("error")))
+        {
+            module.api().logging().info("OAuth2 sign-in cancelled by user.");
+            return signInFailed(response, HttpServletResponse.SC_UNAUTHORIZED, "Sign-in was cancelled.");
+        }
         try
         {
             provider.handleCallback(request, response);
@@ -69,13 +74,7 @@ public class AuthenticationEndpoint extends AbstractServlet
         catch (AuthenticationException e)
         {
             module.api().logging().error("OAuth2 callback failed: " + e.getMessage());
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("text/html; charset=UTF-8");
-            return "<!doctype html><meta charset=utf-8><title>Sign-in failed</title>"
-                    + "<body style=\"font-family:system-ui;padding:2rem;max-width:30rem;margin:auto\">"
-                    + "<h1 style=\"font-size:1.25rem\">Sign-in failed</h1>"
-                    + "<p>" + escape(e.getMessage()) + "</p>"
-                    + "<p><a href=\"/oauth2/login\">Try again</a></p>";
+            return signInFailed(response, HttpServletResponse.SC_UNAUTHORIZED, e.getMessage());
         }
 
         String raw = readCookie(request, RETURN_TO_COOKIE);
@@ -84,6 +83,17 @@ public class AuthenticationEndpoint extends AbstractServlet
         clearReturnToCookie(request, response);
         response.sendRedirect(target == null ? "/" : target);
         return null;
+    }
+
+    private static String signInFailed(HttpServletResponse response, int status, String message)
+    {
+        response.setStatus(status);
+        response.setContentType("text/html; charset=UTF-8");
+        return "<!doctype html><meta charset=utf-8><title>Sign-in failed</title>"
+                + "<body style=\"font-family:system-ui;padding:2rem;max-width:30rem;margin:auto\">"
+                + "<h1 style=\"font-size:1.25rem\">Sign-in failed</h1>"
+                + "<p>" + escape(message) + "</p>"
+                + "<p><a href=\"/oauth2/login\">Try again</a></p>";
     }
 
     @GetMapping(endpoint = "/oauth2/logout")

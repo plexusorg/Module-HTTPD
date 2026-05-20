@@ -6,17 +6,29 @@ import type {
     Schematic
 } from '$lib/types/api';
 
-export async function getJson<T>(url: string): Promise<T> {
-    const response = await fetch(url, {
-        credentials: 'same-origin',
-        headers: {Accept: 'application/json'}
-    });
-    const body = await response.json().catch(() => null);
-    if (!response.ok || (body && typeof body === 'object' && 'error' in body)) {
-        const message = body && typeof body === 'object' && 'error' in body ? String(body.error) : `${response.status} ${response.statusText}`;
-        throw new Error(message);
+export async function getJson<T>(url: string, timeoutMs = 15_000): Promise<T> {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const response = await fetch(url, {
+            credentials: 'same-origin',
+            headers: {Accept: 'application/json'},
+            signal: controller.signal
+        });
+        const body = await response.json().catch(() => null);
+        if (!response.ok || (body && typeof body === 'object' && 'error' in body)) {
+            const message = body && typeof body === 'object' && 'error' in body ? String(body.error) : `${response.status} ${response.statusText}`;
+            throw new Error(message);
+        }
+        return body as T;
+    } catch (cause) {
+        if (cause instanceof DOMException && cause.name === 'AbortError') {
+            throw new Error('Request timed out.');
+        }
+        throw cause;
+    } finally {
+        window.clearTimeout(timeout);
     }
-    return body as T;
 }
 
 export async function getAuth(): Promise<AuthState> {

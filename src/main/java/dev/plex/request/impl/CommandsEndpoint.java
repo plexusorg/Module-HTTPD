@@ -11,9 +11,11 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -35,13 +37,21 @@ public class CommandsEndpoint extends AbstractServlet
     @MappingHeaders(headers = "content-type;application/json; charset=utf-8")
     public String getCommands(HttpServletRequest request, HttpServletResponse response)
     {
-        if (cachedGroups == null)
+        try
         {
-            cachedGroups = buildGroups();
+            if (cachedGroups == null)
+            {
+                cachedGroups = buildGroups();
+            }
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("groups", cachedGroups);
+            return JsonResponse.json(response, body);
         }
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("groups", cachedGroups);
-        return JsonResponse.json(response, body);
+        catch (RuntimeException e)
+        {
+            module.api().logging().error("Failed to build HTTPD command list: " + e.getMessage());
+            return JsonResponse.error(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to load commands.");
+        }
     }
 
     private List<CommandGroup> buildGroups()
@@ -55,8 +65,13 @@ public class CommandsEndpoint extends AbstractServlet
         }
 
         final CommandMap map = Bukkit.getCommandMap();
+        Set<Command> seenCommands = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
         for (Command command : map.getKnownCommands().values())
         {
+            if (!seenCommands.add(command))
+            {
+                continue;
+            }
             String plugin = "Bukkit";
             if (command instanceof PluginIdentifiableCommand pic)
             {
@@ -100,14 +115,30 @@ public class CommandsEndpoint extends AbstractServlet
     {
         private static CommandInfo from(PlexCommand command)
         {
-            List<String> aliases = command.getAliases() == null ? List.of() : command.getAliases();
-            return new CommandInfo(command.getName(), aliases, command.getDescription(), cleanUsage(command.getUsage()), cleanPermission(command.getPermission()));
+            return new CommandInfo(clean(command.getName()), cleanAliases(command.getAliases()), clean(command.getDescription()), cleanUsage(command.getUsage()), cleanPermission(command.getPermission()));
         }
 
         private static CommandInfo from(Command command)
         {
-            List<String> aliases = command.getAliases() == null ? List.of() : command.getAliases();
-            return new CommandInfo(command.getName(), aliases, command.getDescription(), cleanUsage(command.getUsage()), cleanPermission(command.getPermission()));
+            return new CommandInfo(clean(command.getName()), cleanAliases(command.getAliases()), clean(command.getDescription()), cleanUsage(command.getUsage()), cleanPermission(command.getPermission()));
         }
+    }
+
+    private static List<String> cleanAliases(List<String> aliases)
+    {
+        if (aliases == null || aliases.isEmpty())
+        {
+            return List.of();
+        }
+        return aliases.stream()
+                .filter(alias -> alias != null && !alias.isBlank())
+                .map(String::trim)
+                .distinct()
+                .toList();
+    }
+
+    private static String clean(String value)
+    {
+        return value == null ? "" : value;
     }
 }

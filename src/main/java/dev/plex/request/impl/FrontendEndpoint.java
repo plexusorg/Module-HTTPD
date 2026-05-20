@@ -41,6 +41,10 @@ public class FrontendEndpoint extends AbstractServlet
     @GetMapping(endpoint = "/player/")
     public String player(HttpServletRequest request, HttpServletResponse response)
     {
+        if (currentStaff(request) == null)
+        {
+            return staffOnly(request, response, "to access player admin tools");
+        }
         return indexHtml(response);
     }
 
@@ -59,13 +63,43 @@ public class FrontendEndpoint extends AbstractServlet
     @GetMapping(endpoint = "/indefbans/")
     public String indefBans(HttpServletRequest request, HttpServletResponse response)
     {
+        if (currentStaff(request) == null)
+        {
+            return staffOnly(request, response, "to view this page");
+        }
         return indexHtml(response);
     }
 
     @GetMapping(endpoint = "/schematics/")
     public String schematics(HttpServletRequest request, HttpServletResponse response)
     {
+        if (requestPath(request).startsWith("/schematics/upload") && currentStaff(request) == null)
+        {
+            return staffOnly(request, response, "to upload schematics");
+        }
         return indexHtml(response);
+    }
+
+    private String staffOnly(HttpServletRequest request, HttpServletResponse response, String action)
+    {
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        response.setContentType("text/html; charset=UTF-8");
+        return "<!doctype html><meta charset=utf-8><title>Staff access required</title>"
+                + "<body style=\"font-family:system-ui;padding:2rem;max-width:34rem;margin:auto\">"
+                + "<h1 style=\"font-size:1.25rem\">Staff access required</h1>"
+                + "<p>" + signInPrompt(request, action) + "</p>"
+                + "<p><a href=\"/\">Back to overview</a></p>";
+    }
+
+    private static String requestPath(HttpServletRequest request)
+    {
+        String uri = request.getRequestURI();
+        String contextPath = request.getContextPath();
+        if (contextPath != null && !contextPath.isEmpty() && !contextPath.equals("/") && uri.startsWith(contextPath))
+        {
+            uri = uri.substring(contextPath.length());
+        }
+        return uri.isEmpty() ? "/" : uri;
     }
 
     public static String indexHtml(HttpServletResponse response)

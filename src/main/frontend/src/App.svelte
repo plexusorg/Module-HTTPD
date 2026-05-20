@@ -1,5 +1,6 @@
 <script lang="ts">
     import {onMount} from 'svelte';
+    import StaffRequired from '$lib/components/auth/StaffRequired.svelte';
     import AppShell from '$lib/components/layout/AppShell.svelte';
     import {getAuth} from '$lib/api';
     import {isInternalAppLink, navigate, parseRoute} from '$lib/router';
@@ -8,6 +9,7 @@
     let route = $state(parseRoute(window.location.pathname));
     let auth: AuthState | null = $state(null);
     let dark = $state(false);
+    const staff = $derived((auth as AuthState | null)?.is_staff === true);
 
     function syncRoute() {
         route = parseRoute(window.location.pathname);
@@ -48,13 +50,21 @@
             <HomePage/>
         {/await}
     {:else if route.path === 'players'}
-        {#await import('$lib/pages/PlayersPage.svelte') then {default: PlayersPage}}
-            <PlayersPage staff={Boolean(auth?.is_staff)}/>
-        {/await}
+        {#if auth === null}
+            <p class="rise text-sm text-muted-foreground">Loading players...</p>
+        {:else}
+            {#await import('$lib/pages/PlayersPage.svelte') then {default: PlayersPage}}
+                <PlayersPage {staff}/>
+            {/await}
+        {/if}
     {:else if route.path === 'player'}
-        {#await import('$lib/pages/PlayerPage.svelte') then {default: PlayerPage}}
-            <PlayerPage id={route.params.id} staff={Boolean(auth?.is_staff)}/>
-        {/await}
+        {#if staff}
+            {#await import('$lib/pages/PlayerPage.svelte') then {default: PlayerPage}}
+                <PlayerPage id={route.params.id} {staff}/>
+            {/await}
+        {:else}
+            <StaffRequired {auth} action="access player admin tools"/>
+        {/if}
     {:else if route.path === 'commands'}
         {#await import('$lib/pages/CommandsPage.svelte') then {default: CommandsPage}}
             <CommandsPage/>
@@ -68,17 +78,25 @@
             <PunishmentsDetailPage id={route.params.id}/>
         {/await}
     {:else if route.path === 'indefbans'}
-        {#await import('$lib/pages/IndefBansPage.svelte') then {default: IndefBansPage}}
-            <IndefBansPage/>
-        {/await}
+        {#if staff}
+            {#await import('$lib/pages/IndefBansPage.svelte') then {default: IndefBansPage}}
+                <IndefBansPage/>
+            {/await}
+        {:else}
+            <StaffRequired {auth} action="view indefinite bans"/>
+        {/if}
     {:else if route.path === 'schematics'}
         {#await import('$lib/pages/SchematicsPage.svelte') then {default: SchematicsPage}}
-            <SchematicsPage/>
+            <SchematicsPage {staff}/>
         {/await}
     {:else if route.path === 'schematics-upload'}
-        {#await import('$lib/pages/SchematicUploadPage.svelte') then {default: SchematicUploadPage}}
-            <SchematicUploadPage/>
-        {/await}
+        {#if staff}
+            {#await import('$lib/pages/SchematicUploadPage.svelte') then {default: SchematicUploadPage}}
+                <SchematicUploadPage/>
+            {/await}
+        {:else}
+            <StaffRequired {auth} action="upload schematics"/>
+        {/if}
     {:else}
         <section class="rise">
             <h1 class="text-3xl font-medium tracking-tight md:text-4xl">Not found</h1>

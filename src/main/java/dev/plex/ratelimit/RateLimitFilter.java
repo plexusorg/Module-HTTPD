@@ -86,7 +86,7 @@ public class RateLimitFilter implements Filter
         // Inventory rendering can legitimately burst dozens of item/model/texture
         // requests at once when a staff member opens a full inventory. These are
         // static/cacheable files and should not spend the interactive API budget.
-        return "GET".equalsIgnoreCase(request.getMethod()) && path.startsWith("/assets/");
+        return "GET".equalsIgnoreCase(request.getMethod()) && (path.startsWith("/assets/") || path.startsWith("/app/assets/"));
     }
 
     private TokenBucket bucketFor(String ip)

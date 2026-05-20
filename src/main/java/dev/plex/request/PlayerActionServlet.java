@@ -41,8 +41,7 @@ public class PlayerActionServlet extends HttpServlet
         AuthenticatedUser staff = AbstractServlet.currentStaff(module, request);
         if (staff == null)
         {
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            response.getWriter().write("Not authorized.");
+            response.getWriter().write(JsonResponse.error(response, HttpServletResponse.SC_FORBIDDEN, "Not authorized."));
             return;
         }
 
@@ -54,14 +53,12 @@ public class PlayerActionServlet extends HttpServlet
 
         if (uuidStr == null || action == null)
         {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().write("Missing parameters.");
+            response.getWriter().write(JsonResponse.error(response, HttpServletResponse.SC_BAD_REQUEST, "Missing parameters."));
             return;
         }
         if (!PERMANENT_ACTIONS.contains(action) && !TEMP_ACTIONS.contains(action) && !INVENTORY_ACTIONS.contains(action))
         {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().write("Unknown action.");
+            response.getWriter().write(JsonResponse.error(response, HttpServletResponse.SC_BAD_REQUEST, "Unknown action."));
             return;
         }
 
@@ -72,16 +69,14 @@ public class PlayerActionServlet extends HttpServlet
         }
         catch (IllegalArgumentException e)
         {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().write("Bad UUID.");
+            response.getWriter().write(JsonResponse.error(response, HttpServletResponse.SC_BAD_REQUEST, "Bad UUID."));
             return;
         }
 
         PlexPlayerView target = module.api().players().byUuid(uuid).orElse(null);
         if (target == null)
         {
-            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            response.getWriter().write("Player not found.");
+            response.getWriter().write(JsonResponse.error(response, HttpServletResponse.SC_NOT_FOUND, "Player not found."));
             return;
         }
 
@@ -150,7 +145,7 @@ public class PlayerActionServlet extends HttpServlet
             }
         });
 
-        response.sendRedirect("/player/" + uuid);
+        response.getWriter().write(JsonResponse.ok(response, "Action queued."));
     }
 
     private void handleInventoryAction(HttpServletRequest request, HttpServletResponse response, AuthenticatedUser staff, UUID uuid, PlexPlayerView target, String action, String slot)
@@ -188,7 +183,7 @@ public class PlayerActionServlet extends HttpServlet
             });
         });
 
-        response.sendRedirect("/player/" + uuid);
+        response.getWriter().write(JsonResponse.ok(response, "Inventory action queued."));
     }
 
     private static void clearSlot(PlayerInventory inv, String slot)

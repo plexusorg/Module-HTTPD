@@ -7,7 +7,6 @@ import dev.plex.config.ModuleConfig;
 import dev.plex.logging.Log;
 import dev.plex.module.PlexModule;
 import dev.plex.ratelimit.RateLimitFilter;
-import dev.plex.request.AbstractServlet;
 import dev.plex.request.PlayerActionServlet;
 import dev.plex.request.PlayerInventoryStreamServlet;
 import dev.plex.request.PlayersStreamServlet;
@@ -42,9 +41,6 @@ public class HTTPDModule extends PlexModule
 
     @Getter
     private final FileCache fileCache = new FileCache();
-
-    @Getter
-    private final String template = AbstractServlet.readFileReal(HTTPDModule.class.getResourceAsStream("/httpd/template.html"));
 
     @Getter
     private AuthenticationManager authenticationManager;
@@ -131,22 +127,19 @@ public class HTTPDModule extends PlexModule
             new PunishmentsEndpoint(this);
             new CommandsEndpoint(this);
             new SchematicDownloadEndpoint(this);
-            new SchematicUploadEndpoint(this);
-            new PlayersEndpoint(this);
             new PlayerAdminEndpoint(this);
             new AssetsEndpoint(this);
-            new PunishmentsUIEndpoint(this);
-            new IndefBansUIEndpoint(this);
             new AuthenticationEndpoint(this);
+            new FrontendEndpoint(this);
 
             context.addServlet(new ServletHolder(new StatsStreamServlet(statsBroadcaster)), "/api/stats/stream");
             context.addServlet(new ServletHolder(new PlayersStreamServlet(playersBroadcaster)), "/api/players/stream");
             context.addServlet(new ServletHolder(new StaffPlayersStreamServlet(this, playersBroadcaster)), "/api/players/stream/staff");
-            context.addServlet(new ServletHolder(new PlayerActionServlet(this)), "/api/admin/action");
+            context.addServlet(new ServletHolder(new PlayerActionServlet(this)), "/api/admin/player-action");
             context.addServlet(new ServletHolder(new PlayerInventoryStreamServlet(this, playerInventoryBroadcaster)), "/api/player/inventory/stream");
 
             ServletHolder uploadHolder = new ServletHolder(new SchematicUploadServlet(this));
-            context.addServlet(uploadHolder, "/api/schematics/uploading");
+            context.addServlet(uploadHolder, "/api/schematics/upload");
 
             File uploadLoc = new File(System.getProperty("java.io.tmpdir"), "schematic-temp-dir");
             if (!uploadLoc.exists())

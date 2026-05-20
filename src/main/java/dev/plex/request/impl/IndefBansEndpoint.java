@@ -1,10 +1,11 @@
 package dev.plex.request.impl;
 
-import com.google.gson.GsonBuilder;
 import dev.plex.HTTPDModule;
 import dev.plex.authentication.AuthenticatedUser;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
+import dev.plex.request.JsonResponse;
+import dev.plex.request.MappingHeaders;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -16,22 +17,15 @@ public class IndefBansEndpoint extends AbstractServlet
     }
 
     @GetMapping(endpoint = "/api/indefbans/")
+    @MappingHeaders(headers = "content-type;application/json; charset=utf-8")
     public String getBans(HttpServletRequest request, HttpServletResponse response)
     {
         AuthenticatedUser user = currentStaff(request);
         if (user == null)
         {
-            return indefbansHTML(signInPrompt(request, "to view this page"));
+            return JsonResponse.error(response, HttpServletResponse.SC_FORBIDDEN, "You must sign in as staff to view indefinite bans.");
         }
 
-        response.setHeader("content-type", "application/json");
-        return new GsonBuilder().setPrettyPrinting().create().toJson(module.api().punishments().indefiniteBans());
-    }
-
-    private String indefbansHTML(String message)
-    {
-        String file = readFile(this.getClass().getResourceAsStream("/httpd/indefbans.html"));
-        file = file.replace("${MESSAGE}", message);
-        return file;
+        return JsonResponse.json(response, module.api().punishments().indefiniteBans());
     }
 }

@@ -54,10 +54,11 @@ dependencies {
 
 val frontendDir = layout.projectDirectory.dir("src/main/frontend")
 val frontendOutputDir = layout.buildDirectory.dir("generated/frontend-resources/httpd/app")
+val bunExecutable = findProperty("bunPath")?.toString() ?: "bun"
 
 tasks.register<Exec>("bunInstallFrontend") {
     workingDir = frontendDir.asFile
-    commandLine("bun", "install", "--frozen-lockfile")
+    commandLine(bunExecutable, "install", "--frozen-lockfile")
     inputs.files(
         frontendDir.file("package.json"),
         frontendDir.file("bun.lock")
@@ -67,7 +68,7 @@ tasks.register<Exec>("bunInstallFrontend") {
 
 tasks.register<Exec>("buildFrontend") {
     workingDir = frontendDir.asFile
-    commandLine("bun", "run", "build")
+    commandLine(bunExecutable, "run", "build")
     dependsOn("bunInstallFrontend")
     inputs.dir(frontendDir.dir("src"))
     inputs.files(

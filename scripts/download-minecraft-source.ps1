@@ -29,10 +29,10 @@ function Download-IfMissing($Url, $Target) {
     Invoke-WebRequest -Uri $Url -OutFile $Target -TimeoutSec 600
 }
 
-# Resolve version (explicit > cached > latest)
+# Resolve version (explicit > local debug asset cache > latest)
 $manifest = Invoke-RestMethod -Uri $ManifestUrl -TimeoutSec 30
 if ([string]::IsNullOrWhiteSpace($Version)) {
-    $cachedFile = Join-Path $ProjectRoot "src/main/resources/httpd/assets/.minecraft-version"
+    $cachedFile = Join-Path $ProjectRoot "minecraft-assets/version.txt"
     if (Test-Path $cachedFile) {
         $Version = (Get-Content $cachedFile -Raw).Trim()
     } else {

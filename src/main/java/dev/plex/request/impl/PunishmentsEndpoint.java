@@ -1,17 +1,20 @@
 package dev.plex.request.impl;
 
-import com.google.gson.GsonBuilder;
 import dev.plex.HTTPDModule;
 import dev.plex.api.player.PlexPlayerView;
 import dev.plex.api.punishment.PunishmentView;
 import dev.plex.authentication.AuthenticatedUser;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
-import dev.plex.util.adapter.ZonedDateTimeAdapter;
+import dev.plex.request.JsonResponse;
+import dev.plex.request.MappingHeaders;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.time.ZonedDateTime;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public class PunishmentsEndpoint extends AbstractServlet
@@ -22,11 +25,12 @@ public class PunishmentsEndpoint extends AbstractServlet
     }
 
     @GetMapping(endpoint = "/api/punishments/")
+    @MappingHeaders(headers = "content-type;application/json; charset=utf-8")
     public String getPunishments(HttpServletRequest request, HttpServletResponse response)
     {
         if (request.getPathInfo() == null || request.getPathInfo().equals("/"))
         {
-            return readFile(this.getClass().getResourceAsStream("/httpd/punishments.html"));
+            return JsonResponse.error(response, HttpServletResponse.SC_BAD_REQUEST, "Missing player UUID or username.");
         }
 
         PlexPlayerView punishedPlayer;
@@ -42,20 +46,29 @@ public class PunishmentsEndpoint extends AbstractServlet
 
         if (punishedPlayer == null)
         {
-            return punishmentsHTML("This player has never joined the server before.");
-        }
-        if (punishedPlayer.punishments().isEmpty())
-        {
-            return punishmentsGoodHTML("This player has been a good boy. They have no punishments!");
+            return JsonResponse.error(response, HttpServletResponse.SC_NOT_FOUND, "This player has never joined the server before.");
         }
 
         AuthenticatedUser viewer = currentStaff(request);
-        response.setHeader("content-type", "application/json");
+        List<?> punishments;
         if (viewer == null)
         {
-            return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeAdapter()).setPrettyPrinting().create().toJson(punishedPlayer.punishments().stream().map(PunishmentsEndpoint::hideIp).toList());
+            punishments = punishedPlayer.punishments().stream().map(PunishmentsEndpoint::hideIp).toList();
         }
-        return new GsonBuilder().registerTypeAdapter(ZonedDateTime.class, new ZonedDateTimeAdapter()).setPrettyPrinting().create().toJson(punishedPlayer.punishments().stream().toList());
+        else
+        {
+            punishments = punishedPlayer.punishments().stream().toList();
+        }
+
+        Map<String, Object> player = new LinkedHashMap<>();
+        player.put("uuid", punishedPlayer.uuid());
+        player.put("name", punishedPlayer.name());
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("player", player);
+        body.put("punishments", punishments);
+        body.put("canViewIps", viewer != null);
+        return JsonResponse.json(response, body);
     }
 
     private static Object hideIp(PunishmentView punishment)
@@ -76,17 +89,4 @@ public class PunishmentsEndpoint extends AbstractServlet
         };
     }
 
-    private String punishmentsHTML(String message)
-    {
-        String file = readFile(this.getClass().getResourceAsStream("/httpd/punishments_error.html"));
-        file = file.replace("${MESSAGE}", message);
-        return file;
-    }
-
-    private String punishmentsGoodHTML(String message)
-    {
-        String file = readFile(this.getClass().getResourceAsStream("/httpd/punishments_good.html"));
-        file = file.replace("${MESSAGE}", message);
-        return file;
-    }
 }

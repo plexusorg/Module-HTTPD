@@ -30,6 +30,12 @@ repositories {
     }
 }
 
+sourceSets {
+    main {
+        resources.srcDir(layout.buildDirectory.dir("generated/frontend-resources"))
+    }
+}
+
 dependencies {
     implementation("org.projectlombok:lombok:1.18.46")
     annotationProcessor("org.projectlombok:lombok:1.18.46")
@@ -46,17 +52,41 @@ dependencies {
     implementation("commons-io:commons-io:2.22.0")
 }
 
+val frontendDir = layout.projectDirectory.dir("src/main/frontend")
+val frontendOutputDir = layout.buildDirectory.dir("generated/frontend-resources/httpd/app")
+
+tasks.register<Exec>("bunInstallFrontend") {
+    workingDir = frontendDir.asFile
+    commandLine("bun", "install", "--frozen-lockfile")
+    inputs.files(
+        frontendDir.file("package.json"),
+        frontendDir.file("bun.lock")
+    )
+    outputs.dir(frontendDir.dir("node_modules"))
+}
+
+tasks.register<Exec>("buildFrontend") {
+    workingDir = frontendDir.asFile
+    commandLine("bun", "run", "build")
+    dependsOn("bunInstallFrontend")
+    inputs.dir(frontendDir.dir("src"))
+    inputs.files(
+        frontendDir.file("index.html"),
+        frontendDir.file("vite.config.ts"),
+        frontendDir.file("svelte.config.js"),
+        frontendDir.file("tsconfig.json"),
+        frontendDir.file("tsconfig.node.json"),
+        frontendDir.file("components.json"),
+        frontendDir.file("package.json"),
+        frontendDir.file("bun.lock")
+    )
+    outputs.dir(frontendOutputDir)
+}
+
 tasks.getByName<Jar>("jar") {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     archiveBaseName.set("Module-HTTPD")
     archiveVersion.set("")
-    from("src/main/resources") {
-        exclude("dev/**")
-        exclude("httpd/assets/textures/**")
-        exclude("httpd/assets/models/**")
-        exclude("httpd/assets/items/**")
-        exclude("httpd/assets/.minecraft-version")
-    }
 }
 
 java {
@@ -71,11 +101,10 @@ tasks {
         options.encoding = Charsets.UTF_8.name()
     }
     processResources {
+        dependsOn("buildFrontend")
         filteringCharset = Charsets.UTF_8.name()
-        exclude("httpd/assets/textures/**")
-        exclude("httpd/assets/models/**")
-        exclude("httpd/assets/items/**")
-        exclude("httpd/assets/.minecraft-version")
+        exclude("dev/**")
+        exclude("httpd/assets/**")
     }
 }
 

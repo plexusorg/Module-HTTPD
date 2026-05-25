@@ -3,10 +3,7 @@
 *.iml
 /target/
 /src/main/resources/build.properties
-/src/main/resources/httpd/assets/textures/
-/src/main/resources/httpd/assets/models/
-/src/main/resources/httpd/assets/items/
-/src/main/resources/httpd/assets/.minecraft-version
+/src/main/frontend/node_modules/
 
 # OS
 .DS_Store
@@ -22,3 +19,6 @@ Thumbs.db
 
 # Decompiled Minecraft sources (downloaded by scripts/download-minecraft-source.ps1)
 /minecraft-source/
+
+# Local mirror of the runtime HTTPD Minecraft asset cache
+/minecraft-assets/

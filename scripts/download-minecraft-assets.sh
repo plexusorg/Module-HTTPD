@@ -2,15 +2,16 @@
 set -eu
 
 # Downloads the vanilla Minecraft assets used by the HTTPD live inventory view
-# into src/main/resources/httpd/assets for local development.
+# into the same minecraft-assets cache layout used by the running module.
 #
 # Usage:
 #   ./scripts/download-minecraft-assets.sh              # latest release
-#   ./scripts/download-minecraft-assets.sh 1.21.10      # specific version
+#   ./scripts/download-minecraft-assets.sh 26.1.2       # specific version
+#   ./scripts/download-minecraft-assets.sh 26.1.2 "plugins/Plex/modules/<HTTPD module>/minecraft-assets"
 
 VERSION="${1:-}"
 PROJECT_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-ASSET_ROOT="$PROJECT_ROOT/src/main/resources/httpd/assets"
+ASSET_ROOT="${2:-${PLEX_HTTPD_ASSET_ROOT:-$PROJECT_ROOT/minecraft-assets}}"
 
 python3 - "$VERSION" "$ASSET_ROOT" <<'PY'
 import json
@@ -71,6 +72,6 @@ with tempfile.TemporaryDirectory() as tmp:
                 shutil.copyfileobj(source, out)
             extracted += 1
 
-(asset_root / ".minecraft-version").write_text(version + "\n", encoding="utf-8")
+(asset_root / "version.txt").write_text(version + "\n", encoding="utf-8")
 print(f"Extracted {extracted} files to {asset_root}")
 PY

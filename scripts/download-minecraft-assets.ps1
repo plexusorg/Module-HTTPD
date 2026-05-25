@@ -1,18 +1,22 @@
 param(
-    [string]$Version = ""
+    [string]$Version = "",
+    [string]$AssetRoot = ""
 )
 
 # Downloads the vanilla Minecraft assets used by the HTTPD live inventory view
-# into src/main/resources/httpd/assets for local development.
+# into the same minecraft-assets cache layout used by the running module.
 #
 # Usage:
 #   ./scripts/download-minecraft-assets.ps1             # latest release
-#   ./scripts/download-minecraft-assets.ps1 1.21.10     # specific version
+#   ./scripts/download-minecraft-assets.ps1 26.1.2      # specific version
+#   ./scripts/download-minecraft-assets.ps1 -AssetRoot "plugins/Plex/modules/<HTTPD module>/minecraft-assets"
 
 $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
-$AssetRoot = Join-Path $ProjectRoot "src/main/resources/httpd/assets"
+if ([string]::IsNullOrWhiteSpace($AssetRoot)) {
+    $AssetRoot = if ($env:PLEX_HTTPD_ASSET_ROOT) { $env:PLEX_HTTPD_ASSET_ROOT } else { Join-Path $ProjectRoot "minecraft-assets" }
+}
 $ManifestUrl = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
 
 $manifest = Invoke-RestMethod -Uri $ManifestUrl -TimeoutSec 30
@@ -76,7 +80,7 @@ try {
         $zip.Dispose()
     }
 
-    Set-Content -Path (Join-Path $AssetRoot ".minecraft-version") -Value $Version -Encoding UTF8
+    Set-Content -Path (Join-Path $AssetRoot "version.txt") -Value $Version -Encoding UTF8
     Write-Host "Extracted $extracted files to $AssetRoot"
 }
 finally {

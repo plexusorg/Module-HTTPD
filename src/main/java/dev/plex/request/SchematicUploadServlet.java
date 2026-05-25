@@ -35,13 +35,13 @@ public class SchematicUploadServlet extends HttpServlet
         AuthenticatedUser user = AbstractServlet.currentStaff(module, request);
         if (user == null)
         {
-            response.getWriter().println(schematicUploadBadHTML(AbstractServlet.signInPrompt(module, request, "to upload schematics")));
+            response.getWriter().println(JsonResponse.error(response, HttpServletResponse.SC_FORBIDDEN, "You must sign in as staff to upload schematics."));
             return;
         }
         File worldeditFolder = HTTPDModule.getWorldeditFolder();
         if (worldeditFolder == null)
         {
-            response.getWriter().println(schematicUploadBadHTML("Worldedit is not installed!"));
+            response.getWriter().println(JsonResponse.error(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE, "WorldEdit is not installed."));
             return;
         }
         File[] schematics = worldeditFolder.listFiles();
@@ -52,19 +52,19 @@ public class SchematicUploadServlet extends HttpServlet
         }
         catch (IllegalStateException e)
         {
-            response.getWriter().println(schematicUploadBadHTML("That schematic is too large!"));
+            response.getWriter().println(JsonResponse.error(response, HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, "That schematic is too large."));
             return;
         }
         String filename = uploadPart.getSubmittedFileName().replaceAll("[^a-zA-Z0-9'!,_ .-]", "_");
         if (!schemNameMatcher.matcher(filename).matches())
         {
-            response.getWriter().println(schematicUploadBadHTML("That is not a valid schematic filename!"));
+            response.getWriter().println(JsonResponse.error(response, HttpServletResponse.SC_BAD_REQUEST, "That is not a valid schematic filename."));
             return;
         }
         boolean alreadyExists = schematics != null && Arrays.stream(schematics).anyMatch(file -> HTTPDModule.fileNameEquals(file.getName(), filename));
         if (alreadyExists)
         {
-            response.getWriter().println(schematicUploadBadHTML("A schematic with the name <b>" + filename + "</b> already exists!"));
+            response.getWriter().println(JsonResponse.error(response, HttpServletResponse.SC_CONFLICT, "A schematic with the name " + filename + " already exists."));
             return;
         }
         InputStream inputStream = uploadPart.getInputStream();
@@ -75,7 +75,7 @@ public class SchematicUploadServlet extends HttpServlet
         {
             module.api().logging().info(user.username() + " FAILED to upload schematic with filename: " + filename);
             Log.log("{0} (xf:{1}) FAILED to upload schematic {2}", user.username(), user.userId(), filename);
-            response.getWriter().println(schematicUploadBadHTML("Schematic is not a valid format."));
+            response.getWriter().println(JsonResponse.error(response, HttpServletResponse.SC_BAD_REQUEST, "Schematic is not a valid format."));
             FileUtils.deleteQuietly(schematicFile);
             return;
         }
@@ -87,27 +87,13 @@ public class SchematicUploadServlet extends HttpServlet
         {
             module.api().logging().info(user.username() + " FAILED to upload schematic with filename: " + filename);
             Log.log("{0} (xf:{1}) FAILED to upload schematic {2}", user.username(), user.userId(), filename);
-            response.getWriter().println(schematicUploadBadHTML("Schematic is not a valid format."));
+            response.getWriter().println(JsonResponse.error(response, HttpServletResponse.SC_BAD_REQUEST, "Schematic is not a valid format."));
             FileUtils.deleteQuietly(schematicFile);
             return;
         }
         inputStream.close();
-        response.getWriter().println(schematicUploadGoodHTML("Successfully uploaded <b>" + filename + "</b>."));
+        response.getWriter().println(JsonResponse.ok(response, "Successfully uploaded " + filename + "."));
         module.api().logging().info(user.username() + " uploaded schematic with filename: " + filename);
         Log.log("{0} (xf:{1}) uploaded schematic {2}", user.username(), user.userId(), filename);
-    }
-
-    private String schematicUploadBadHTML(String message)
-    {
-        String file = AbstractServlet.readFile(module, this.getClass().getResourceAsStream("/httpd/schematic_upload_bad.html"));
-        file = file.replace("${MESSAGE}", message);
-        return file;
-    }
-
-    private String schematicUploadGoodHTML(String message)
-    {
-        String file = AbstractServlet.readFile(module, this.getClass().getResourceAsStream("/httpd/schematic_upload_good.html"));
-        file = file.replace("${MESSAGE}", message);
-        return file;
     }
 }

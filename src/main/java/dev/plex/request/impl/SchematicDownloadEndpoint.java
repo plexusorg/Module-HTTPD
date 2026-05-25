@@ -5,23 +5,56 @@ import dev.plex.authentication.AuthenticatedUser;
 import dev.plex.logging.Log;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
+import dev.plex.request.JsonResponse;
+import dev.plex.request.MappingHeaders;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class SchematicDownloadEndpoint extends AbstractServlet
 {
-    List<File> files = new ArrayList<>();
-
     public SchematicDownloadEndpoint(HTTPDModule module)
     {
         super(module);
+    }
+
+    @GetMapping(endpoint = "/api/schematics/list")
+    @MappingHeaders(headers = "content-type;application/json; charset=utf-8")
+    public String listSchematics(HttpServletRequest request, HttpServletResponse response)
+    {
+        File worldeditFolder = HTTPDModule.getWorldeditFolder();
+        if (worldeditFolder == null)
+        {
+            return JsonResponse.error(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE, "WorldEdit is not installed.");
+        }
+
+        List<Map<String, Object>> schematics = new ArrayList<>();
+        for (File file : listFilesForFolder(worldeditFolder))
+        {
+            String name = file.getName();
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("name", name);
+            entry.put("size", file.length());
+            entry.put("formattedSize", formattedSize(file.length()));
+            entry.put("downloadUrl", "/api/schematics/download/" + name);
+            schematics.add(entry);
+        }
+        schematics.sort(Comparator.comparing(entry -> String.valueOf(entry.get("name")), String.CASE_INSENSITIVE_ORDER));
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("schematics", schematics);
+        return JsonResponse.json(response, body);
     }
 
     @GetMapping(endpoint = "/api/schematics/download/")
@@ -29,51 +62,38 @@ public class SchematicDownloadEndpoint extends AbstractServlet
     {
         if (request.getPathInfo() == null || request.getPathInfo().equals("/"))
         {
-            return schematicHTML();
+            return JsonResponse.error(response, HttpServletResponse.SC_BAD_REQUEST, "Missing schematic filename.");
         }
-        else
-        {
-            OutputStream outputStream;
-            try
-            {
-                outputStream = response.getOutputStream();
-            }
-            catch (IOException e)
-            {
-                return null;
-            }
-            schematicServe(request, request.getPathInfo().replace("/", ""), outputStream);
-            return null;
-        }
-    }
 
-    private void schematicServe(HttpServletRequest request, String requestedSchematic, OutputStream outputStream)
-    {
         File worldeditFolder = HTTPDModule.getWorldeditFolder();
         if (worldeditFolder == null)
         {
-            return;
+            return JsonResponse.error(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE, "WorldEdit is not installed.");
         }
+
+        String requestedSchematic = URLDecoder.decode(request.getPathInfo().replace("/", ""), StandardCharsets.UTF_8);
         File[] schems = worldeditFolder.listFiles();
-        if (schems != null)
+        File schemFile = schems == null ? null : Arrays.stream(schems).filter(file -> file.getName().equals(requestedSchematic)).findFirst().orElse(null);
+        if (schemFile == null)
         {
-            File schemFile = Arrays.stream(schems).filter(file -> file.getName().equals(requestedSchematic)).findFirst().orElse(null);
-            if (schemFile != null)
+            return JsonResponse.error(response, HttpServletResponse.SC_NOT_FOUND, "Schematic not found.");
+        }
+
+        response.setContentType("application/octet-stream");
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + schemFile.getName().replace("\"", "") + "\"");
+        try (OutputStream outputStream = response.getOutputStream())
+        {
+            byte[] schemData = module.getFileCache().getFile(schemFile);
+            if (schemData != null)
             {
-                try
-                {
-                    byte[] schemData = module.getFileCache().getFile(schemFile);
-                    if (schemData != null)
-                    {
-                        outputStream.write(schemData);
-                        logDownload(request, schemFile);
-                    }
-                }
-                catch (IOException ignored)
-                {
-                }
+                outputStream.write(schemData);
+                logDownload(request, schemFile);
             }
         }
+        catch (IOException ignored)
+        {
+        }
+        return null;
     }
 
     private void logDownload(HttpServletRequest request, File schemFile)
@@ -84,53 +104,31 @@ public class SchematicDownloadEndpoint extends AbstractServlet
         Log.log("{0} downloaded schematic {1}", who, schemFile.getName());
     }
 
-    private String schematicHTML()
-    {
-        String file = readFile(this.getClass().getResourceAsStream("/httpd/schematic_download.html"));
-        File worldeditFolder = HTTPDModule.getWorldeditFolder();
-        if (worldeditFolder == null)
-        {
-            return null;
-        }
-        List<File> entries = listFilesForFolder(worldeditFolder);
-        StringBuilder sb = new StringBuilder();
-        if (entries.isEmpty())
-        {
-            sb.append("<tr><td colspan=\"3\" class=\"px-4 py-8 text-center text-sm text-muted-foreground\">No schematics yet.</td></tr>");
-        }
-        for (File worldeditFile : entries)
-        {
-            String fixedPath = worldeditFile.getPath()
-                .replace("plugins/FastAsyncWorldEdit/schematics/", "")
-                .replace("plugins/WorldEdit/schematics/", "");
-            String sanitizedName = fixedPath.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
-            String size = formattedSize(worldeditFile.length());
-            sb.append("<tr data-name=\"").append(sanitizedName).append("\" class=\"transition-colors hover:bg-muted/40\">\n")
-                .append("  <td class=\"px-4 py-2.5\"><a class=\"font-mono text-foreground hover:text-primary\" href=\"")
-                .append(sanitizedName).append("\" download>").append(sanitizedName).append("</a></td>\n")
-                .append("  <td class=\"px-4 py-2.5 text-right font-mono text-xs text-muted-foreground tabular\">").append(size).append("</td>\n")
-                .append("  <td class=\"pr-3\"><a href=\"").append(sanitizedName).append("\" download class=\"inline-flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground\" aria-label=\"Download\"><svg class=\"size-3.5\" aria-hidden=\"true\"><use href=\"#i-download\"/></svg></a></td>\n")
-                .append("</tr>\n");
-        }
-        file = file.replace("${schematics}", sb.toString());
-        files.clear();
-        return file;
-    }
-
     public List<File> listFilesForFolder(final File folder)
     {
-        for (File fileEntry : folder.listFiles())
+        List<File> files = new ArrayList<>();
+        listFilesForFolder(folder, files);
+        return files;
+    }
+
+    private void listFilesForFolder(final File folder, List<File> files)
+    {
+        File[] children = folder.listFiles();
+        if (children == null)
+        {
+            return;
+        }
+        for (File fileEntry : children)
         {
             if (fileEntry.isDirectory())
             {
                 module.api().logging().debug("Found directory");
-                listFilesForFolder(fileEntry);
+                listFilesForFolder(fileEntry, files);
             }
             else
             {
                 files.add(fileEntry);
             }
         }
-        return files;
     }
 }

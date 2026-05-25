@@ -182,34 +182,6 @@ public class AbstractServlet extends HttpServlet
         return "You must <a class=\"text-primary underline\" href=\"" + href + "\">sign in</a> as staff " + action + ".";
     }
 
-    protected String readFile(InputStream filename)
-    {
-        return readFile(module, filename);
-    }
-
-    public static String readFile(HTTPDModule module, InputStream filename)
-    {
-        String base = module.getTemplate();
-        String page = readFileReal(filename);
-        String[] info = page.split("\\r?\\n", 3);
-        String title = info.length > 0 ? info[0] : "";
-        String activeKey = info.length > 1 ? info[1] : "";
-        String content = info.length > 2 ? info[2] : "";
-        base = base.replace("${TITLE}", title);
-        if (!activeKey.isEmpty())
-        {
-            base = base.replace("${ACTIVE_" + activeKey + "}", "active");
-        }
-        base = base.replace("${ACTIVE_HOME}", "");
-        base = base.replace("${ACTIVE_PLAYERS}", "");
-        base = base.replace("${ACTIVE_INDEFBANS}", "");
-        base = base.replace("${ACTIVE_COMMANDS}", "");
-        base = base.replace("${ACTIVE_PUNISHMENTS}", "");
-        base = base.replace("${ACTIVE_SCHEMATICS}", "");
-        base = base.replace("${CONTENT}", content);
-        return base;
-    }
-
     public static String readFileReal(InputStream filename)
     {
         StringBuilder contentBuilder = new StringBuilder();

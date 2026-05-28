@@ -67,7 +67,7 @@ public class PlayerAdminEndpoint extends AbstractServlet
     {
         try
         {
-            return module.api().players().byUuid(UUID.fromString(query)).orElse(null);
+            return module.api().players().player(UUID.fromString(query)).orElse(null);
         }
         catch (IllegalArgumentException ignored)
         {

@@ -7,7 +7,7 @@
     import {Button} from '$lib/components/ui/button';
     import {Card} from '$lib/components/ui/card';
     import {Input} from '$lib/components/ui/input';
-    import type {PunishmentsPayload} from '$lib/types/api';
+    import type {PunishmentSummary, PunishmentsPayload} from '$lib/types/api';
     import {lowerSearch, titleCase} from '$lib/utils';
 
     interface Props {
@@ -22,13 +22,13 @@
     let type = $state('all');
     let status = $state('all');
 
-    const punishments = $derived<Array<Record<string, unknown>>>(data?.punishments ?? []);
-    const types = $derived<string[]>(Array.from(new Set(punishments.map((item) => String(item.type ?? item.kind ?? '')).filter(Boolean))).sort());
+    const punishments = $derived<PunishmentSummary[]>(data?.punishments ?? []);
+    const types = $derived<string[]>(Array.from(new Set(punishments.map((item) => item.type).filter(Boolean))).sort());
     const visible = $derived.by(() => {
         const q = filter.toLowerCase().trim();
         return punishments.filter((item) => {
-            const itemType = String(item.type ?? item.kind ?? '');
-            const active = Boolean(item.active ?? item.isActive ?? item.current);
+            const itemType = item.type;
+            const active = item.active;
             const itemStatus = active ? 'active' : 'expired';
             return (!q || lowerSearch(item).includes(q)) && (type === 'all' || itemType === type) && (status === 'all' || itemStatus === status);
         });
@@ -41,7 +41,7 @@
         return String(value);
     }
 
-    function entries(item: Record<string, unknown>) {
+    function entries(item: PunishmentSummary) {
         return Object.entries(item).filter(([key]) => !['id', 'uuid'].includes(key));
     }
 
@@ -105,14 +105,15 @@
         <p class="mt-4 text-sm text-muted-foreground">No punishments match those filters.</p>
     {:else}
         <section class="rise mt-4 grid gap-3 md:grid-cols-2">
-            {#each visible as punishment, index (String(punishment.id ?? index))}
-                {@const itemType = String(punishment.type ?? punishment.kind ?? 'punishment')}
-                {@const active = Boolean(punishment.active ?? punishment.isActive ?? punishment.current)}
+            {#each visible as punishment, index (`${punishment.type}:${punishment.issueDate}:${index}`)}
+                {@const itemType = punishment.type}
+                {@const active = punishment.active}
                 <Card class="p-4">
                     <div class="flex items-start justify-between gap-3">
                         <div>
                             <h2 class="font-medium">{titleCase(itemType)}</h2>
                             <p class="mt-1 text-sm text-muted-foreground">{displayValue(punishment.reason)}</p>
+                            <p class="mt-1 text-xs text-muted-foreground">{displayValue(punishment.punisherDisplayName)} · {displayValue(punishment.source)}</p>
                         </div>
                         <Badge variant={active ? 'destructive' : 'secondary'}>{active ? 'active' : 'expired'}</Badge>
                     </div>

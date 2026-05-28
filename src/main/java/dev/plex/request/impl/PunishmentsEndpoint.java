@@ -37,7 +37,7 @@ public class PunishmentsEndpoint extends AbstractServlet
         try
         {
             UUID pathUUID = UUID.fromString(request.getPathInfo().replace("/", ""));
-            punishedPlayer = module.api().players().byUuid(pathUUID).orElse(null);
+            punishedPlayer = module.api().players().player(pathUUID).orElse(null);
         }
         catch (IllegalArgumentException ignored)
         {
@@ -53,11 +53,11 @@ public class PunishmentsEndpoint extends AbstractServlet
         List<?> punishments;
         if (viewer == null)
         {
-            punishments = punishedPlayer.punishments().stream().map(PunishmentsEndpoint::hideIp).toList();
+            punishments = punishedPlayer.punishments().stream().map(punishment -> serialize(punishment, true)).toList();
         }
         else
         {
-            punishments = punishedPlayer.punishments().stream().toList();
+            punishments = punishedPlayer.punishments().stream().map(punishment -> serialize(punishment, false)).toList();
         }
 
         Map<String, Object> player = new LinkedHashMap<>();
@@ -71,15 +71,16 @@ public class PunishmentsEndpoint extends AbstractServlet
         return JsonResponse.json(response, body);
     }
 
-    private static Object hideIp(PunishmentView punishment)
+    private static Object serialize(PunishmentView punishment, boolean hideIp)
     {
         return new Object()
         {
             public final UUID punished = punishment.punished();
             public final UUID punisher = punishment.punisher();
-            public final String punisherName = punishment.punisherName();
-            public final String ip = "";
-            public final String punishedUsername = punishment.punishedUsername();
+            public final Object source = punishment.source();
+            public final String punisherReference = punishment.punisherReference();
+            public final String punisherDisplayName = punishment.punisherDisplayName();
+            public final String ip = hideIp ? "" : punishment.ip();
             public final Object type = punishment.type();
             public final String reason = punishment.reason();
             public final boolean customTime = punishment.customTime();

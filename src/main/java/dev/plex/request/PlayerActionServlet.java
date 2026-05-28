@@ -3,6 +3,7 @@ package dev.plex.request;
 import dev.plex.HTTPDModule;
 import dev.plex.api.player.PlexPlayerView;
 import dev.plex.api.punishment.PunishmentRequest;
+import dev.plex.api.punishment.PunishmentSource;
 import dev.plex.api.punishment.PunishmentType;
 import dev.plex.authentication.AuthenticatedUser;
 import dev.plex.logging.Log;
@@ -73,7 +74,7 @@ public class PlayerActionServlet extends HttpServlet
             return;
         }
 
-        PlexPlayerView target = module.api().players().byUuid(uuid).orElse(null);
+        PlexPlayerView target = module.api().players().player(uuid).orElse(null);
         if (target == null)
         {
             response.getWriter().write(JsonResponse.error(response, HttpServletResponse.SC_NOT_FOUND, "Player not found."));
@@ -100,9 +101,9 @@ public class PlayerActionServlet extends HttpServlet
         PunishmentRequest punishment = new PunishmentRequest(
             uuid,
             null,
-            "xf:" + staff.username(),
+            PunishmentSource.WEB,
+            "xf:" + staff.userId() + ":" + staff.username(),
             ip,
-            target.name(),
             type,
             safeReason,
             TEMP_ACTIONS.contains(action),

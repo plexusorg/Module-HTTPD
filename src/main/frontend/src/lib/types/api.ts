@@ -50,8 +50,23 @@ export interface CommandGroup {
 
 export interface PunishmentsPayload {
     player: { uuid: string; name: string };
-    punishments: Array<Record<string, unknown>>;
+    punishments: PunishmentSummary[];
     canViewIps: boolean;
+}
+
+export interface PunishmentSummary {
+    punished: string;
+    punisher?: string | null;
+    source: 'PLAYER' | 'CONSOLE' | 'WEB';
+    punisherReference?: string | null;
+    punisherDisplayName: string;
+    ip: string;
+    type: string;
+    reason: string;
+    customTime: boolean;
+    active: boolean;
+    issueDate: string;
+    endDate?: string | null;
 }
 
 export interface Schematic {

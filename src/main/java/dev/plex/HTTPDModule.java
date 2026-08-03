@@ -63,8 +63,7 @@ public class HTTPDModule extends PlexModule
     @Override
     public void load()
     {
-        // Move it from /httpd/config.yml to /plugins/Plex/modules/Plex-HTTPD/config.yml
-        moduleConfig = new ModuleConfig(this, "httpd/config.yml", "config.yml");
+        moduleConfig = new ModuleConfig(this, "config.yml", "config.yml");
     }
 
     @Override

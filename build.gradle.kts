@@ -39,7 +39,7 @@ sourceSets {
 dependencies {
     implementation("org.projectlombok:lombok:1.18.46")
     annotationProcessor("org.projectlombok:lombok:1.18.46")
-    compileOnly("io.papermc.paper:paper-api:26.1.2.build.+")
+    compileOnly("io.papermc.paper:paper-api:26.2.build.+")
     implementation("dev.plex:api:2.0-SNAPSHOT")
     implementation("org.json:json:20251224")
     implementation("org.reflections:reflections:0.10.2")

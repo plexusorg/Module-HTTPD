@@ -1,5 +1,6 @@
 package dev.plex.request.impl;
 
+import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import dev.plex.HTTPDModule;
 import jakarta.servlet.AsyncContext;
@@ -27,6 +28,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class StatsBroadcaster
 {
+    private static final Gson GSON = new GsonBuilder().serializeNulls().create();
+
     private final HTTPDModule module;
     private final Set<Subscriber> subscribers = ConcurrentHashMap.newKeySet();
     private final AtomicInteger subscriberCount = new AtomicInteger();
@@ -74,7 +77,8 @@ public final class StatsBroadcaster
 
         try
         {
-            bukkitTask = module.api().scheduler().runGlobalTimer(this::sampleBukkit, 1L, 40L);
+            long sampleTicks = Math.max(20L, module.getModuleConfig().getLong("server.sse.stats-sample-interval-ticks", 100L));
+            bukkitTask = module.api().scheduler().runGlobalTimer(this::sampleBukkit, 1L, sampleTicks);
         }
         catch (Throwable t)
         {
@@ -117,13 +121,17 @@ public final class StatsBroadcaster
 
     public boolean addSubscriber(AsyncContext ctx, PrintWriter writer)
     {
-        if (subscriberCount.get() >= maxConnections) return false;
+        if (!reserveConnection()) return false;
         Subscriber sub = new Subscriber(ctx, writer);
         if (subscribers.add(sub))
         {
-            subscriberCount.incrementAndGet();
+            if (subscriberCount.get() == 1)
+            {
+                try { module.api().scheduler().runGlobal(this::sampleBukkit); } catch (Throwable ignored) {}
+            }
             return true;
         }
+        subscriberCount.decrementAndGet();
         return false;
     }
 
@@ -151,6 +159,7 @@ public final class StatsBroadcaster
 
     private void sampleBukkit()
     {
+        if (subscribers.isEmpty()) return;
         try
         {
             int chunks = 0;
@@ -159,8 +168,8 @@ public final class StatsBroadcaster
             {
                 try
                 {
-                    chunks += w.getLoadedChunks().length;
-                    entities += w.getEntities().size();
+                    chunks += w.getChunkCount();
+                    entities += w.getEntityCount();
                 }
                 catch (Throwable ignored) {}
             }
@@ -228,6 +237,16 @@ public final class StatsBroadcaster
         try { sub.ctx.complete(); } catch (Throwable ignored) {}
     }
 
+    private boolean reserveConnection()
+    {
+        while (true)
+        {
+            int current = subscriberCount.get();
+            if (current >= maxConnections) return false;
+            if (subscriberCount.compareAndSet(current, current + 1)) return true;
+        }
+    }
+
     private String buildPayload()
     {
         Map<String, Object> root = new LinkedHashMap<>();
@@ -273,7 +292,7 @@ public final class StatsBroadcaster
         plugins.put("active", cachedPlugins);
         root.put("plugins", plugins);
 
-        return new GsonBuilder().serializeNulls().create().toJson(root);
+        return GSON.toJson(root);
     }
 
     private static double clamp01(double v)

@@ -1,11 +1,14 @@
 server:
   bind-address: 0.0.0.0
   port: 27192
-  # Logging. The HTTPD writes one line per request and rate-limit event.
+  # Logging. High-volume assets are omitted and rate-limit events are aggregated.
   logging:
     file: true              # write to <data-folder>/httpd.log
     file-path: "httpd.log"  # relative to the module's data folder
     console: false          # also mirror to the Bukkit console
+    max-bytes: 10485760     # rotate after 10 MiB
+    retained-files: 5       # keep httpd.log.1 through httpd.log.5
+    flush-interval-ms: 1000 # batch disk flushes rather than flushing every request
 
   # Jetty thread pool. Bounded so a flood of HTTP requests can't starve the
   # Minecraft tick thread or consume unbounded memory.
@@ -18,7 +21,10 @@ server:
   limits:
     idle-timeout-ms: 15000      # drop conns with no progress for this long
     accept-queue: 32            # OS-level backlog of pending TCP connects
+    max-connections: 256        # bound live Jetty connections and their buffers
     request-header-bytes: 8192  # cap header size; oversized requests get 431
+    schematic-download-bytes: 26214400 # reject downloads over 25 MiB
+    schematic-download-concurrency: 4  # preserve Jetty workers during slow downloads
 
   # Server-Sent Events stream for the live dashboard. One connection per
   # open dashboard tab; the broadcaster pushes a stats frame on a fixed cadence
@@ -27,6 +33,7 @@ server:
   sse:
     max-connections: 32           # reject further connects with 503 once reached
     broadcast-interval-ms: 2000   # keep below limits.idle-timeout-ms
+    stats-sample-interval-ticks: 100 # expensive world/entity metrics every 5 seconds
     threads: 2                    # dedicated executor; isolates from Minecraft tick thread
 
 # Token-bucket rate limiting. Defaults are sized for a small sized server.
@@ -39,6 +46,26 @@ rate-limit:
   per-ip:
     capacity: 30
     per-second: 10
+  # Separate high-burst budget for frontend and inventory assets.
+  assets:
+    global:
+      capacity: 2000
+      per-second: 1000
+    per-ip:
+      capacity: 300
+      per-second: 100
+  # Expensive routes spend multiple tokens so a bot cannot run them at the same
+  # rate as a cheap in-memory API request.
+  costs:
+    oauth-login: 10
+    oauth-callback: 10
+    schematic-list: 10
+    schematic-download: 5
+    punishments: 5
+    stream-connect: 10
+    player-list: 5
+    staff-read: 5
+    staff-mutation: 10
 
 authentication:
   enabled: false
@@ -55,3 +82,8 @@ authentication:
       clientSecret: ""
       # How long a successful login stays valid, in minutes.
       sessionMinutes: 1440
+      # Bound anonymous login state and blocking calls to XenForo so an outage
+      # cannot consume the whole Jetty worker pool.
+      maxPendingLogins: 2048
+      maxActiveSessions: 4096
+      maxConcurrentExchanges: 4

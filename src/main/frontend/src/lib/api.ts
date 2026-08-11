@@ -60,7 +60,9 @@ export function postForm<T>(url: string, form: FormData): Promise<T> {
 export const api = {
     commands: () => getJson<{ groups: CommandGroup[] }>('/api/commands/'),
     player: (id: string) => getJson<{ player: PlayerDetails }>(`/api/player/${encodeURIComponent(id)}`),
-    punishments: (id: string) => getJson<PunishmentsPayload>(`/api/punishments/${encodeURIComponent(id)}`),
+    punishments: (id: string, offset = 0, limit = 50) => getJson<PunishmentsPayload>(
+        `/api/punishments/${encodeURIComponent(id)}?offset=${offset}&limit=${limit}`
+    ),
     indefiniteBans: () => getJson<Array<Record<string, unknown>>>('/api/indefbans/'),
     schematics: () => getJson<{ schematics: Schematic[] }>('/api/schematics/list')
 };

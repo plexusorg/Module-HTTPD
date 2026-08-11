@@ -22,12 +22,15 @@ import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 import lombok.Data;
 import org.eclipse.jetty.ee10.servlet.ServletHolder;
 
 public class AbstractServlet extends HttpServlet
 {
     private final List<Mapping> GET_MAPPINGS = Lists.newArrayList();
+    private final AtomicLong suppressedHandlerErrors = new AtomicLong();
+    private final AtomicLong nextHandlerErrorLogMillis = new AtomicLong();
     protected final HTTPDModule module;
 
     public AbstractServlet(HTTPDModule module)
@@ -63,7 +66,10 @@ public class AbstractServlet extends HttpServlet
         }
 
         String requestPath = getRequestPath(req);
-        Log.log(ipAddress + " visited endpoint " + requestPath);
+        if (!isHighVolumeAssetPath(requestPath))
+        {
+            Log.log(ipAddress + " visited endpoint " + requestPath);
+        }
 
         GET_MAPPINGS.stream().filter(mapping -> endpointMatchesRequest(mapping.getMapping().endpoint(), requestPath)).forEach(mapping ->
         {
@@ -83,7 +89,6 @@ public class AbstractServlet extends HttpServlet
             {
                 resp.setContentType("text/html; charset=UTF-8");
             }
-            resp.setStatus(HttpServletResponse.SC_OK);
             try
             {
                 Object object = mapping.method.invoke(this, req, resp);
@@ -94,9 +99,40 @@ public class AbstractServlet extends HttpServlet
             }
             catch (IOException | IllegalAccessException | InvocationTargetException e)
             {
-                e.printStackTrace();
+                handleFailure(resp, requestPath, mapping, e);
             }
         });
+    }
+
+    private void handleFailure(HttpServletResponse response, String requestPath, Mapping mapping, Exception error)
+    {
+        Throwable cause = error instanceof InvocationTargetException invocation && invocation.getCause() != null
+                ? invocation.getCause()
+                : error;
+        long suppressed = suppressedHandlerErrors.incrementAndGet();
+        long now = System.currentTimeMillis();
+        long next = nextHandlerErrorLogMillis.get();
+        if (now >= next && nextHandlerErrorLogMillis.compareAndSet(next, now + 10_000L))
+        {
+            module.api().logging().error("HTTPD handler {0} failed for {1} ({2}); {3} failure(s) since the previous report",
+                    mapping.method.getName(), requestPath, cause.getClass().getSimpleName(), suppressedHandlerErrors.getAndSet(0L));
+        }
+        if (response.isCommitted()) return;
+        try
+        {
+            response.reset();
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            response.setContentType("application/json; charset=UTF-8");
+            response.getWriter().write("{\"ok\":false,\"error\":\"Internal Server Error\"}");
+        }
+        catch (IOException ignored)
+        {
+        }
+    }
+
+    private static boolean isHighVolumeAssetPath(String requestPath)
+    {
+        return requestPath.startsWith("/app/assets/") || requestPath.startsWith("/assets/");
     }
 
     private static boolean endpointMatchesRequest(String endpoint, String requestPath)

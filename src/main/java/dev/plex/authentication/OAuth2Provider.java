@@ -7,7 +7,7 @@ public interface OAuth2Provider
 {
     String SESSION_COOKIE = "plex_session";
 
-    String buildAuthorizeUrl(HttpServletRequest request);
+    String buildAuthorizeUrl(HttpServletRequest request) throws AuthenticationException;
 
     AuthenticatedUser handleCallback(HttpServletRequest request, HttpServletResponse response) throws AuthenticationException;
 

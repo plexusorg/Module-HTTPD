@@ -19,6 +19,9 @@ import java.util.UUID;
 
 public class PunishmentsEndpoint extends AbstractServlet
 {
+    private static final int DEFAULT_PAGE_SIZE = 50;
+    private static final int MAX_PAGE_SIZE = 100;
+
     public PunishmentsEndpoint(HTTPDModule module)
     {
         super(module);
@@ -49,16 +52,31 @@ public class PunishmentsEndpoint extends AbstractServlet
             return JsonResponse.error(response, HttpServletResponse.SC_NOT_FOUND, "This player has never joined the server before.");
         }
 
+        int offset;
+        int limit;
+        try
+        {
+            offset = nonNegativeInt(request.getParameter("offset"), 0);
+            limit = nonNegativeInt(request.getParameter("limit"), DEFAULT_PAGE_SIZE);
+        }
+        catch (IllegalArgumentException ignored)
+        {
+            return JsonResponse.error(response, HttpServletResponse.SC_BAD_REQUEST, "offset and limit must be non-negative integers.");
+        }
+        if (limit < 1 || limit > MAX_PAGE_SIZE)
+        {
+            return JsonResponse.error(response, HttpServletResponse.SC_BAD_REQUEST, "limit must be between 1 and " + MAX_PAGE_SIZE + ".");
+        }
+
         AuthenticatedUser viewer = currentStaff(request);
-        List<?> punishments;
-        if (viewer == null)
-        {
-            punishments = punishedPlayer.punishments().stream().map(punishment -> serialize(punishment, true)).toList();
-        }
-        else
-        {
-            punishments = punishedPlayer.punishments().stream().map(punishment -> serialize(punishment, false)).toList();
-        }
+        List<? extends PunishmentView> source = punishedPlayer.punishments();
+        int total = source.size();
+        int from = Math.min(offset, total);
+        int to = (int)Math.min((long)total, (long)from + limit);
+        boolean hideIp = viewer == null;
+        List<?> punishments = source.subList(from, to).stream()
+            .map(punishment -> serialize(punishment, hideIp))
+            .toList();
 
         Map<String, Object> player = new LinkedHashMap<>();
         player.put("uuid", punishedPlayer.uuid());
@@ -68,7 +86,20 @@ public class PunishmentsEndpoint extends AbstractServlet
         body.put("player", player);
         body.put("punishments", punishments);
         body.put("canViewIps", viewer != null);
+        body.put("pagination", Map.of(
+            "offset", from,
+            "limit", limit,
+            "total", total,
+            "hasMore", to < total));
         return JsonResponse.json(response, body);
+    }
+
+    private static int nonNegativeInt(String value, int fallback)
+    {
+        if (value == null || value.isBlank()) return fallback;
+        int parsed = Integer.parseInt(value);
+        if (parsed < 0) throw new IllegalArgumentException();
+        return parsed;
     }
 
     private static Object serialize(PunishmentView punishment, boolean hideIp)

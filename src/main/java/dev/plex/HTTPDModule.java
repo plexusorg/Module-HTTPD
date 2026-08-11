@@ -2,7 +2,6 @@ package dev.plex;
 
 import dev.plex.assets.MinecraftAssetsManager;
 import dev.plex.authentication.AuthenticationManager;
-import dev.plex.cache.FileCache;
 import dev.plex.config.ModuleConfig;
 import dev.plex.logging.Log;
 import dev.plex.module.PlexModule;
@@ -38,9 +37,6 @@ public class HTTPDModule extends PlexModule
 
     @Getter
     private ModuleConfig moduleConfig;
-
-    @Getter
-    private final FileCache fileCache = new FileCache();
 
     @Getter
     private AuthenticationManager authenticationManager;
@@ -97,7 +93,7 @@ public class HTTPDModule extends PlexModule
             Server server = new Server(pool);
             ServletHandler servletHandler = new ServletHandler();
 
-            context = new ServletContextHandler(ServletContextHandler.SESSIONS);
+            context = new ServletContextHandler(ServletContextHandler.NO_SESSIONS);
             context.setHandler(servletHandler);
             context.setContextPath("/");
             HttpConfiguration configuration = new HttpConfiguration();
@@ -148,6 +144,10 @@ public class HTTPDModule extends PlexModule
             uploadHolder.getRegistration().setMultipartConfig(new MultipartConfigElement(uploadLoc.getAbsolutePath(), 1024 * 1024 * 5, 1024 * 1024 * 25, 1024 * 1024));
 
             server.setConnectors(new Connector[]{connector});
+            int maxConnections = Math.max(32, moduleConfig.getInt("server.limits.max-connections", 256));
+            NetworkConnectionLimit connectionLimit = new NetworkConnectionLimit(maxConnections, server);
+            connectionLimit.setEndPointIdleTimeout(5_000L);
+            server.addBean(connectionLimit);
             server.setHandler(context);
 
             atomicServer.set(server);
@@ -160,6 +160,10 @@ public class HTTPDModule extends PlexModule
             {
                 e.printStackTrace();
             }
+            finally
+            {
+                atomicServer.compareAndSet(server, null);
+            }
         }, "Jetty-Server");
         serverThread.start();
         api().logging().info("Starting Jetty server on port " + moduleConfig.getInt("server.port"));
@@ -169,6 +173,10 @@ public class HTTPDModule extends PlexModule
     public void disable()
     {
         api().logging().debug("Stopping Jetty server");
+        if (minecraftAssetsManager != null)
+        {
+            minecraftAssetsManager.shutdown();
+        }
         try
         {
             if (statsBroadcaster != null)
@@ -204,7 +212,7 @@ public class HTTPDModule extends PlexModule
         }
         try
         {
-            Server server = atomicServer.get();
+            Server server = atomicServer.getAndSet(null);
             if (server != null)
             {
                 server.stop();
@@ -215,6 +223,19 @@ public class HTTPDModule extends PlexModule
         {
             e.printStackTrace();
         }
+        Thread thread = serverThread;
+        if (thread != null && thread != Thread.currentThread())
+        {
+            try
+            {
+                thread.join(5_000L);
+            }
+            catch (InterruptedException ignored)
+            {
+                Thread.currentThread().interrupt();
+            }
+        }
+        serverThread = null;
         Log.shutdown();
     }
 

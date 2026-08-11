@@ -52,6 +52,7 @@ export interface PunishmentsPayload {
     player: { uuid: string; name: string };
     punishments: PunishmentSummary[];
     canViewIps: boolean;
+    pagination: { offset: number; limit: number; total: number; hasMore: boolean };
 }
 
 export interface PunishmentSummary {

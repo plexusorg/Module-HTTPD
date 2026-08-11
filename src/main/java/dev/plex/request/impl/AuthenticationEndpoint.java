@@ -6,6 +6,7 @@ import dev.plex.authentication.AuthenticationException;
 import dev.plex.authentication.OAuth2Provider;
 import dev.plex.request.AbstractServlet;
 import dev.plex.request.GetMapping;
+import dev.plex.request.JsonResponse;
 import dev.plex.request.MappingHeaders;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -49,7 +50,15 @@ public class AuthenticationEndpoint extends AbstractServlet
         }
         response.addCookie(returnCookie);
 
-        response.sendRedirect(provider.buildAuthorizeUrl(request));
+        try
+        {
+            response.sendRedirect(provider.buildAuthorizeUrl(request));
+        }
+        catch (AuthenticationException e)
+        {
+            response.setHeader("Retry-After", "30");
+            return JsonResponse.error(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE, e.getMessage());
+        }
         return null;
     }
 

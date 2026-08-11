@@ -16,7 +16,9 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.Comparator;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -36,6 +38,13 @@ public class MinecraftAssetsManager
     private final AtomicBoolean refreshStarted = new AtomicBoolean(false);
     private final String minecraftVersion;
     private final PlexApi api;
+    private final ExecutorService refreshExecutor = Executors.newSingleThreadExecutor(r ->
+    {
+        Thread thread = new Thread(r, "Plex-HTTPD-Assets");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private volatile Future<?> refreshFuture;
 
     public MinecraftAssetsManager(Path dataFolder, PlexApi api)
     {
@@ -56,19 +65,34 @@ public class MinecraftAssetsManager
             return;
         }
 
-        CompletableFuture.runAsync(() ->
+        refreshFuture = refreshExecutor.submit(() ->
         {
             try
             {
                 refreshIfNeeded();
                 ready.set(true);
             }
+            catch (InterruptedException ignored)
+            {
+                Thread.currentThread().interrupt();
+            }
             catch (Exception e)
             {
                 api.logging().info("Unable to download Minecraft assets for HTTPD inventory view: " + e.getMessage());
                 e.printStackTrace();
             }
+            finally
+            {
+                refreshExecutor.shutdown();
+            }
         });
+    }
+
+    public void shutdown()
+    {
+        Future<?> future = refreshFuture;
+        if (future != null) future.cancel(true);
+        refreshExecutor.shutdownNow();
     }
 
     public Path resolve(String category, String relativePath)

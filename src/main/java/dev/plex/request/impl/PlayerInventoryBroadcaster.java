@@ -1,5 +1,6 @@
 package dev.plex.request.impl;
 
+import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import de.tr7zw.changeme.nbtapi.NBT;
 import dev.plex.HTTPDModule;
@@ -24,7 +25,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.KeybindComponent;
@@ -44,6 +47,7 @@ import org.bukkit.persistence.PersistentDataContainer;
  */
 public final class PlayerInventoryBroadcaster
 {
+    private static final Gson GSON = new GsonBuilder().serializeNulls().create();
     private static final long REFRESH_TICKS = 20L; // 1 second
     private static final int MAX_NAME_CHARS = 256;
     private static final int MAX_LORE_LINES = 20;
@@ -55,6 +59,7 @@ public final class PlayerInventoryBroadcaster
     private final HTTPDModule module;
     private final Map<UUID, Set<Subscriber>> subscribers = new ConcurrentHashMap<>();
     private final Map<UUID, String> cachedPayloads = new ConcurrentHashMap<>();
+    private final Map<UUID, Object> snapshotsInProgress = new ConcurrentHashMap<>();
     private final AtomicInteger subscriberCount = new AtomicInteger();
 
     private ScheduledExecutorService executor;
@@ -120,6 +125,7 @@ public final class PlayerInventoryBroadcaster
         }
         subscribers.clear();
         cachedPayloads.clear();
+        snapshotsInProgress.clear();
         subscriberCount.set(0);
     }
 
@@ -130,14 +136,14 @@ public final class PlayerInventoryBroadcaster
 
     public boolean addSubscriber(UUID uuid, AsyncContext ctx, PrintWriter writer)
     {
-        if (subscriberCount.get() >= maxConnections) return false;
+        if (!reserveConnection()) return false;
         Subscriber sub = new Subscriber(ctx, writer);
         Set<Subscriber> set = subscribers.computeIfAbsent(uuid, k -> ConcurrentHashMap.newKeySet());
         if (set.add(sub))
         {
-            subscriberCount.incrementAndGet();
             return true;
         }
+        subscriberCount.decrementAndGet();
         return false;
     }
 
@@ -152,8 +158,9 @@ public final class PlayerInventoryBroadcaster
         }
         if (match != null && set.remove(match))
         {
+            match.pendingFrame.set(null);
             subscriberCount.decrementAndGet();
-            if (set.isEmpty()) subscribers.remove(uuid, set);
+            removeEmptySet(uuid, set);
         }
     }
 
@@ -171,9 +178,12 @@ public final class PlayerInventoryBroadcaster
             Set<Subscriber> set = entry.getValue();
             if (set.isEmpty()) continue;
             UUID uuid = entry.getKey();
+            Object snapshot = new Object();
+            if (snapshotsInProgress.putIfAbsent(uuid, snapshot) != null) continue;
             Player player = Bukkit.getPlayer(uuid);
             if (player == null)
             {
+                snapshotsInProgress.remove(uuid, snapshot);
                 publish(uuid, set, "{\"online\":false}");
                 continue;
             }
@@ -190,15 +200,24 @@ public final class PlayerInventoryBroadcaster
                     {
                         json = "{\"online\":false}";
                     }
-                    publish(uuid, set, json);
+                    try
+                    {
+                        publish(uuid, set, json);
+                    }
+                    finally
+                    {
+                        snapshotsInProgress.remove(uuid, snapshot);
+                    }
                 });
                 if (task == null)
                 {
+                    snapshotsInProgress.remove(uuid, snapshot);
                     publish(uuid, set, "{\"online\":false}");
                 }
             }
             catch (Throwable t)
             {
+                snapshotsInProgress.remove(uuid, snapshot);
                 publish(uuid, set, "{\"online\":false}");
             }
         }
@@ -206,34 +225,69 @@ public final class PlayerInventoryBroadcaster
 
     private void publish(UUID uuid, Set<Subscriber> set, String json)
     {
+        if (set.isEmpty() || subscribers.get(uuid) != set)
+        {
+            cachedPayloads.remove(uuid);
+            return;
+        }
         cachedPayloads.put(uuid, json);
         final String frame = "data: " + json + "\n\n";
         ScheduledExecutorService exec = executor;
         if (exec == null) return;
         for (Subscriber sub : set)
         {
-            try
-            {
-                exec.execute(() -> writeFrame(uuid, sub, frame));
-            }
-            catch (Throwable t)
-            {
-                drop(uuid, sub);
-            }
+            enqueueFrame(uuid, sub, frame, exec);
         }
     }
 
-    private void writeFrame(UUID uuid, Subscriber sub, String frame)
+    private void enqueueFrame(UUID uuid, Subscriber sub, String frame, ScheduledExecutorService exec)
+    {
+        sub.pendingFrame.set(frame);
+        if (sub.writing.compareAndSet(false, true)) submitDrain(uuid, sub, exec);
+    }
+
+    private void submitDrain(UUID uuid, Subscriber sub, ScheduledExecutorService exec)
     {
         try
         {
-            sub.writer.write(frame);
-            sub.writer.flush();
-            if (sub.writer.checkError()) drop(uuid, sub);
+            exec.execute(() -> drainFrames(uuid, sub, exec));
+        }
+        catch (Throwable t)
+        {
+            sub.writing.set(false);
+            drop(uuid, sub);
+        }
+    }
+
+    private void drainFrames(UUID uuid, Subscriber sub, ScheduledExecutorService exec)
+    {
+        try
+        {
+            String frame;
+            while ((frame = sub.pendingFrame.getAndSet(null)) != null)
+            {
+                Set<Subscriber> set = subscribers.get(uuid);
+                if (set == null || !set.contains(sub)) return;
+                sub.writer.write(frame);
+                sub.writer.flush();
+                if (sub.writer.checkError())
+                {
+                    drop(uuid, sub);
+                    return;
+                }
+            }
         }
         catch (Throwable t)
         {
             drop(uuid, sub);
+        }
+        finally
+        {
+            sub.writing.set(false);
+            if (sub.pendingFrame.get() != null && sub.writing.compareAndSet(false, true))
+            {
+                submitDrain(uuid, sub, exec);
+            }
         }
     }
 
@@ -242,10 +296,32 @@ public final class PlayerInventoryBroadcaster
         Set<Subscriber> set = subscribers.get(uuid);
         if (set != null && set.remove(sub))
         {
+            sub.pendingFrame.set(null);
             subscriberCount.decrementAndGet();
-            if (set.isEmpty()) subscribers.remove(uuid, set);
+            removeEmptySet(uuid, set);
         }
         try { sub.ctx.complete(); } catch (Throwable ignored) {}
+    }
+
+    private boolean reserveConnection()
+    {
+        int current;
+        do
+        {
+            current = subscriberCount.get();
+            if (current >= maxConnections) return false;
+        }
+        while (!subscriberCount.compareAndSet(current, current + 1));
+        return true;
+    }
+
+    private void removeEmptySet(UUID uuid, Set<Subscriber> set)
+    {
+        if (set.isEmpty() && subscribers.remove(uuid, set))
+        {
+            cachedPayloads.remove(uuid);
+            snapshotsInProgress.computeIfPresent(uuid, (key, marker) -> subscribers.containsKey(key) ? marker : null);
+        }
     }
 
     private String buildPayload(Player p)
@@ -271,7 +347,7 @@ public final class PlayerInventoryBroadcaster
         root.put("armor", armor);
         root.put("offhand", serializeItem(inv.getItemInOffHand()));
 
-        return new GsonBuilder().serializeNulls().create().toJson(root);
+        return GSON.toJson(root);
     }
 
     private static String limit(String value, int maxChars)
@@ -461,6 +537,8 @@ public final class PlayerInventoryBroadcaster
     {
         final AsyncContext ctx;
         final PrintWriter writer;
+        final AtomicReference<String> pendingFrame = new AtomicReference<>();
+        final AtomicBoolean writing = new AtomicBoolean();
         Subscriber(AsyncContext ctx, PrintWriter writer)
         {
             this.ctx = ctx;

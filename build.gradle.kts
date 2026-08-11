@@ -49,7 +49,6 @@ dependencies {
     compileOnly("de.tr7zw:item-nbt-api:2.16.0")
     implementation(platform("com.intellectualsites.bom:bom-newest:1.56")) // Ref: https://github.com/IntellectualSites/bom
     compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Core")
-    implementation("commons-io:commons-io:2.22.0")
 }
 
 val frontendDir = layout.projectDirectory.dir("src/main/frontend")

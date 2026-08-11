@@ -1,5 +1,6 @@
 package dev.plex.request.impl;
 
+import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import dev.plex.HTTPDModule;
 import jakarta.servlet.AsyncContext;
@@ -23,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReferenceArray;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -37,11 +39,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class PlayersBroadcaster
 {
     private static final long REFRESH_TICKS = 100L; // 5 seconds at 20 TPS
+    private static final Gson GSON = new GsonBuilder().serializeNulls().create();
 
     private final HTTPDModule module;
     private final Set<Subscriber> subscribers = ConcurrentHashMap.newKeySet();
     private final AtomicInteger subscriberCount = new AtomicInteger();
     private final AtomicBoolean refreshScheduled = new AtomicBoolean(false);
+    private final AtomicBoolean refreshInProgress = new AtomicBoolean(false);
+    private final AtomicBoolean refreshPending = new AtomicBoolean(false);
 
     private volatile String cachedPublicFrame = "{\"players\":[],\"max\":0}";
     private volatile String cachedStaffFrame  = "{\"players\":[],\"max\":0}";
@@ -122,13 +127,14 @@ public final class PlayersBroadcaster
 
     public boolean addSubscriber(AsyncContext ctx, PrintWriter writer, boolean staff)
     {
-        if (subscriberCount.get() >= maxConnections) return false;
+        if (!reserveConnection()) return false;
         Subscriber sub = new Subscriber(ctx, writer, staff);
         if (subscribers.add(sub))
         {
-            subscriberCount.incrementAndGet();
+            scheduleRefresh();
             return true;
         }
+        subscriberCount.decrementAndGet();
         return false;
     }
 
@@ -152,6 +158,12 @@ public final class PlayersBroadcaster
 
     private void refreshAndBroadcast()
     {
+        if (subscribers.isEmpty()) return;
+        if (!refreshInProgress.compareAndSet(false, true))
+        {
+            refreshPending.set(true);
+            return;
+        }
         try
         {
             List<Player> online = new ArrayList<>(Bukkit.getOnlinePlayers());
@@ -159,6 +171,7 @@ public final class PlayersBroadcaster
             if (online.isEmpty())
             {
                 publish(List.of(), List.of(), max);
+                finishRefresh();
                 return;
             }
 
@@ -183,25 +196,47 @@ public final class PlayersBroadcaster
                         {
                             if (remaining.decrementAndGet() == 0)
                             {
-                                publish(compact(publicPlayers), compact(staffPlayers), max);
+                                publishAndFinish(publicPlayers, staffPlayers, max);
                             }
                         }
                     });
                     if (task == null && remaining.decrementAndGet() == 0)
                     {
-                        publish(compact(publicPlayers), compact(staffPlayers), max);
+                        publishAndFinish(publicPlayers, staffPlayers, max);
                     }
                 }
                 catch (Throwable ignored)
                 {
                     if (remaining.decrementAndGet() == 0)
                     {
-                        publish(compact(publicPlayers), compact(staffPlayers), max);
+                        publishAndFinish(publicPlayers, staffPlayers, max);
                     }
                 }
             }
         }
-        catch (Throwable ignored) {}
+        catch (Throwable ignored)
+        {
+            finishRefresh();
+        }
+    }
+
+    private void publishAndFinish(AtomicReferenceArray<Map<String, Object>> publicPlayers,
+                                  AtomicReferenceArray<Map<String, Object>> staffPlayers, int max)
+    {
+        try
+        {
+            publish(compact(publicPlayers), compact(staffPlayers), max);
+        }
+        finally
+        {
+            finishRefresh();
+        }
+    }
+
+    private void finishRefresh()
+    {
+        refreshInProgress.set(false);
+        if (refreshPending.getAndSet(false) && !subscribers.isEmpty()) scheduleRefresh();
     }
 
     private void publish(List<Map<String, Object>> publicPlayers, List<Map<String, Object>> staffPlayers, int max)
@@ -219,14 +254,7 @@ public final class PlayersBroadcaster
         for (Subscriber sub : subscribers)
         {
             final String frame = sub.staff ? staffFrame : publicFrame;
-            try
-            {
-                exec.execute(() -> writeFrame(sub, frame));
-            }
-            catch (Throwable t)
-            {
-                dropSubscriber(sub);
-            }
+            enqueueFrame(exec, sub, frame);
         }
     }
 
@@ -244,24 +272,73 @@ public final class PlayersBroadcaster
         return result;
     }
 
-    private void writeFrame(Subscriber sub, String frame)
+    private void enqueueFrame(ScheduledExecutorService exec, Subscriber sub, String frame)
+    {
+        sub.pendingFrame.set(frame);
+        if (!sub.writing.compareAndSet(false, true)) return;
+        submitDrain(exec, sub);
+    }
+
+    private void submitDrain(ScheduledExecutorService exec, Subscriber sub)
     {
         try
         {
-            sub.writer.write(frame);
-            sub.writer.flush();
-            if (sub.writer.checkError()) dropSubscriber(sub);
+            exec.execute(() -> drainFrames(sub));
+        }
+        catch (Throwable t)
+        {
+            sub.writing.set(false);
+            dropSubscriber(sub);
+        }
+    }
+
+    private void drainFrames(Subscriber sub)
+    {
+        try
+        {
+            while (subscribers.contains(sub))
+            {
+                String frame = sub.pendingFrame.getAndSet(null);
+                if (frame == null) return;
+                sub.writer.write(frame);
+                sub.writer.flush();
+                if (sub.writer.checkError())
+                {
+                    dropSubscriber(sub);
+                    return;
+                }
+            }
         }
         catch (Throwable t)
         {
             dropSubscriber(sub);
         }
+        finally
+        {
+            sub.writing.set(false);
+            ScheduledExecutorService exec = executor;
+            if (exec != null && subscribers.contains(sub) && sub.pendingFrame.get() != null && sub.writing.compareAndSet(false, true))
+            {
+                submitDrain(exec, sub);
+            }
+        }
     }
 
     private void dropSubscriber(Subscriber sub)
     {
+        sub.pendingFrame.set(null);
         if (subscribers.remove(sub)) subscriberCount.decrementAndGet();
         try { sub.ctx.complete(); } catch (Throwable ignored) {}
+    }
+
+    private boolean reserveConnection()
+    {
+        while (true)
+        {
+            int current = subscriberCount.get();
+            if (current >= maxConnections) return false;
+            if (subscriberCount.compareAndSet(current, current + 1)) return true;
+        }
     }
 
     /**
@@ -291,7 +368,7 @@ public final class PlayersBroadcaster
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("players", players);
         root.put("max", max);
-        return new GsonBuilder().serializeNulls().create().toJson(root);
+        return GSON.toJson(root);
     }
 
     private Map<String, Object> buildPublicPlayer(Player p)
@@ -333,6 +410,8 @@ public final class PlayersBroadcaster
         final AsyncContext ctx;
         final PrintWriter writer;
         final boolean staff;
+        final AtomicReference<String> pendingFrame = new AtomicReference<>();
+        final AtomicBoolean writing = new AtomicBoolean(false);
         Subscriber(AsyncContext ctx, PrintWriter writer, boolean staff)
         {
             this.ctx = ctx;

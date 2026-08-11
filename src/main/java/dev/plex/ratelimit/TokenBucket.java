@@ -10,6 +10,14 @@ public class TokenBucket
 
     public TokenBucket(double capacity, double refillPerSecond)
     {
+        if (!Double.isFinite(capacity) || capacity < 1.0)
+        {
+            throw new IllegalArgumentException("capacity must be finite and at least 1");
+        }
+        if (!Double.isFinite(refillPerSecond) || refillPerSecond <= 0.0)
+        {
+            throw new IllegalArgumentException("refillPerSecond must be finite and positive");
+        }
         this.capacity = capacity;
         this.refillPerSecond = refillPerSecond;
         this.tokens = capacity;
@@ -19,11 +27,20 @@ public class TokenBucket
 
     public synchronized boolean tryConsume()
     {
+        return tryConsume(1.0);
+    }
+
+    public synchronized boolean tryConsume(double amount)
+    {
+        if (!Double.isFinite(amount) || amount <= 0.0 || amount > capacity)
+        {
+            return false;
+        }
         refill();
         lastActivityMillis = System.currentTimeMillis();
-        if (tokens >= 1.0)
+        if (tokens >= amount)
         {
-            tokens -= 1.0;
+            tokens -= amount;
             return true;
         }
         return false;
@@ -31,10 +48,22 @@ public class TokenBucket
 
     public synchronized long retryAfterSeconds()
     {
+        return retryAfterSeconds(1.0);
+    }
+
+    public synchronized long retryAfterSeconds(double amount)
+    {
         refill();
-        double deficit = 1.0 - tokens;
+        double deficit = amount - tokens;
         if (deficit <= 0) return 0;
         return Math.max(1L, (long) Math.ceil(deficit / refillPerSecond));
+    }
+
+    public synchronized void refund(double amount)
+    {
+        if (!Double.isFinite(amount) || amount <= 0.0) return;
+        refill();
+        tokens = Math.min(capacity, tokens + amount);
     }
 
     public long lastActivityMillis()

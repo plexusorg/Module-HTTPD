@@ -9,6 +9,9 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.function.BooleanSupplier;
@@ -22,12 +25,22 @@ public class Log
     private static File accessLogFile;
     private static BufferedWriter writer;
     private static File writerTarget;
+    private static long writerBytes;
+    private static long maxBytes = 10L * 1024L * 1024L;
+    private static int retainedFiles = 5;
+    private static long flushIntervalMillis = 1000L;
+    private static long lastFlushMillis;
+    private static long fileUnavailableUntilMillis;
 
     public static synchronized void configure(ModuleConfig moduleConfig, File target)
     {
         consoleLoggingEnabled = () -> moduleConfig.getBoolean("server.logging.console", false);
         fileLoggingEnabled = () -> moduleConfig.getBoolean("server.logging.file", true);
         accessLogFile = target;
+        maxBytes = Math.max(1024L, moduleConfig.getLong("server.logging.max-bytes", 10L * 1024L * 1024L));
+        retainedFiles = Math.max(1, moduleConfig.getInt("server.logging.retained-files", 5));
+        flushIntervalMillis = Math.max(100L, moduleConfig.getLong("server.logging.flush-interval-ms", 1000L));
+        fileUnavailableUntilMillis = 0L;
     }
 
     public static void log(String message, Object... strings)
@@ -52,10 +65,12 @@ public class Log
             catch (IOException ignored) {}
             writer = null;
             writerTarget = null;
+            writerBytes = 0L;
         }
         consoleLoggingEnabled = () -> false;
         fileLoggingEnabled = () -> false;
         accessLogFile = null;
+        fileUnavailableUntilMillis = 0L;
     }
 
     private static String format(String message, Object... strings)
@@ -74,6 +89,7 @@ public class Log
     private static synchronized void writeFile(String formatted)
     {
         if (!fileLoggingEnabled.getAsBoolean()) return;
+        if (System.currentTimeMillis() < fileUnavailableUntilMillis) return;
         File target = accessLogFile;
         if (target == null) return;
         if (writer == null || !target.equals(writerTarget))
@@ -84,26 +100,73 @@ public class Log
                 target.getParentFile().mkdirs();
                 writer = new BufferedWriter(new FileWriter(target, true));
                 writerTarget = target;
+                writerBytes = target.length();
+                lastFlushMillis = System.currentTimeMillis();
             }
             catch (IOException e)
             {
-                Bukkit.getLogger().warning("[Plex HTTPD] Failed to open access log " + target + ": " + e.getMessage());
-                writer = null;
-                writerTarget = null;
+                suspendFileLogging("open access log " + target, e);
                 return;
             }
         }
         try
         {
-            writer.write(STAMP.format(ZonedDateTime.now()));
-            writer.write(' ');
-            writer.write(formatted);
+            String line = STAMP.format(ZonedDateTime.now()) + " " + formatted;
+            long lineBytes = line.getBytes(StandardCharsets.UTF_8).length + System.lineSeparator().getBytes(StandardCharsets.UTF_8).length;
+            if (writerBytes > 0L && writerBytes + lineBytes > maxBytes)
+            {
+                rotate(target);
+            }
+            writer.write(line);
             writer.newLine();
-            writer.flush();
+            writerBytes += lineBytes;
+            long now = System.currentTimeMillis();
+            if (now - lastFlushMillis >= flushIntervalMillis)
+            {
+                writer.flush();
+                lastFlushMillis = now;
+            }
         }
         catch (IOException e)
         {
-            Bukkit.getLogger().warning("[Plex HTTPD] Failed to write access log: " + e.getMessage());
+            suspendFileLogging("write access log", e);
         }
+    }
+
+    private static void suspendFileLogging(String operation, IOException error)
+    {
+        try
+        {
+            if (writer != null) writer.close();
+        }
+        catch (IOException ignored) {}
+        writer = null;
+        writerTarget = null;
+        writerBytes = 0L;
+        fileUnavailableUntilMillis = System.currentTimeMillis() + 30_000L;
+        Bukkit.getLogger().warning("[Plex HTTPD] Failed to " + operation + "; pausing file logging for 30 seconds: " + error.getMessage());
+    }
+
+    private static void rotate(File target) throws IOException
+    {
+        if (writer != null)
+        {
+            writer.flush();
+            writer.close();
+            writer = null;
+        }
+
+        for (int i = retainedFiles; i >= 1; i--)
+        {
+            File source = i == 1 ? target : new File(target.getPath() + "." + (i - 1));
+            if (!source.exists()) continue;
+            File destination = new File(target.getPath() + "." + i);
+            Files.move(source.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        }
+
+        writer = new BufferedWriter(new FileWriter(target, false));
+        writerTarget = target;
+        writerBytes = 0L;
+        lastFlushMillis = System.currentTimeMillis();
     }
 }

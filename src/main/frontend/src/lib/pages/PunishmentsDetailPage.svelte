@@ -17,6 +17,7 @@
     let {id}: Props = $props();
     let data = $state<PunishmentsPayload | null>(null);
     let loading = $state(true);
+    let loadingMore = $state(false);
     let error = $state<string | null>(null);
     let filter = $state('');
     let type = $state('all');
@@ -45,6 +46,19 @@
         return Object.entries(item).filter(([key]) => !['id', 'uuid'].includes(key));
     }
 
+    async function loadMore() {
+        if (!data?.pagination.hasMore || loadingMore) return;
+        loadingMore = true;
+        try {
+            const next = await api.punishments(id, data.punishments.length);
+            data = {...next, punishments: [...data.punishments, ...next.punishments]};
+        } catch (cause) {
+            error = cause instanceof Error ? cause.message : 'Unable to load punishments.';
+        } finally {
+            loadingMore = false;
+        }
+    }
+
     onMount(async () => {
         try {
             data = await api.punishments(id);
@@ -71,7 +85,7 @@
                 <p class="mt-1 break-all font-mono text-xs text-muted-foreground">{data.player.uuid}</p>
             </div>
         </div>
-        <span class="tabular text-sm text-muted-foreground"><span class="text-foreground">{punishments.length}</span> punishments</span>
+        <span class="tabular text-sm text-muted-foreground"><span class="text-foreground">{punishments.length}</span> of {data.pagination.total} punishments</span>
     </section>
 
     <section class="rise mt-4 flex flex-wrap items-center gap-3">
@@ -126,5 +140,12 @@
                 </Card>
             {/each}
         </section>
+        {#if data.pagination.hasMore}
+            <div class="mt-4 flex justify-center">
+                <Button variant="outline" disabled={loadingMore} onclick={loadMore}>
+                    {loadingMore ? 'Loading...' : 'Load more'}
+                </Button>
+            </div>
+        {/if}
     {/if}
 {/if}

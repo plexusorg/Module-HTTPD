@@ -24,6 +24,8 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class XenForoOAuth2Provider implements OAuth2Provider
 {
@@ -33,11 +35,14 @@ public class XenForoOAuth2Provider implements OAuth2Provider
     private static final String ME_PATH = "/api/me";
     private static final String SCOPE = "user:read";
     private static final Duration PENDING_TTL = Duration.ofMinutes(10);
+    private static final long PENDING_PURGE_INTERVAL_MILLIS = 60_000L;
 
     private final SecureRandom random = new SecureRandom();
     private final Base64.Encoder b64 = Base64.getUrlEncoder().withoutPadding();
     private final Map<String, PendingLogin> pending = new ConcurrentHashMap<>();
     private final Map<String, AuthenticatedUser> sessions = new ConcurrentHashMap<>();
+    private final AtomicLong nextPendingPurgeMillis = new AtomicLong();
+    private final AtomicLong nextSessionPurgeMillis = new AtomicLong();
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
     private final String authorizeUrl;
@@ -49,6 +54,9 @@ public class XenForoOAuth2Provider implements OAuth2Provider
     private final String clientSecret;
     private final String redirectUri;
     private final Duration sessionTtl;
+    private final int maxPendingLogins;
+    private final int maxActiveSessions;
+    private final Semaphore oauthExchanges;
     private final HTTPDModule module;
 
     public XenForoOAuth2Provider(HTTPDModule module)
@@ -60,6 +68,10 @@ public class XenForoOAuth2Provider implements OAuth2Provider
         this.redirectUri = module.getModuleConfig().getString("authentication.provider.redirectUri", "");
         long ttlMinutes = module.getModuleConfig().getLong("authentication.provider.xenforo.sessionMinutes", 1440L);
         this.sessionTtl = Duration.ofMinutes(Math.max(ttlMinutes, 1L));
+        this.maxPendingLogins = Math.max(16, module.getModuleConfig().getInt("authentication.provider.xenforo.maxPendingLogins", 2048));
+        this.maxActiveSessions = Math.max(16, module.getModuleConfig().getInt("authentication.provider.xenforo.maxActiveSessions", 4096));
+        int maxConcurrentExchanges = Math.max(1, module.getModuleConfig().getInt("authentication.provider.xenforo.maxConcurrentExchanges", 4));
+        this.oauthExchanges = new Semaphore(maxConcurrentExchanges, true);
 
         if (domain.isEmpty() || clientId.isEmpty() || clientSecret.isEmpty() || redirectUri.isEmpty())
         {
@@ -90,13 +102,24 @@ public class XenForoOAuth2Provider implements OAuth2Provider
     }
 
     @Override
-    public String buildAuthorizeUrl(HttpServletRequest request)
+    public String buildAuthorizeUrl(HttpServletRequest request) throws AuthenticationException
     {
+        purgeExpiredPending(false);
         String state = randomToken(32);
         String verifier = randomToken(48);
         String challenge = pkceChallenge(verifier);
-        pending.put(state, new PendingLogin(verifier, Instant.now().plus(PENDING_TTL)));
-        purgeExpiredPending();
+        synchronized (pending)
+        {
+            if (pending.size() >= maxPendingLogins)
+            {
+                purgeExpiredPending(true);
+            }
+            if (pending.size() >= maxPendingLogins)
+            {
+                throw new AuthenticationException("Too many sign-in attempts are already pending. Try again shortly.");
+            }
+            pending.put(state, new PendingLogin(verifier, Instant.now().plus(PENDING_TTL)));
+        }
 
         return authorizeUrl
                 + "?response_type=code"
@@ -128,45 +151,66 @@ public class XenForoOAuth2Provider implements OAuth2Provider
             throw new AuthenticationException("Invalid or expired state parameter.");
         }
 
-        TokenResponse token = exchangeCode(code, pendingLogin.verifier);
-        JSONObject me = fetchMe(token.accessToken);
-        if (!me.optBoolean("is_staff", false))
+        if (!oauthExchanges.tryAcquire())
         {
-            revokeToken(token.accessToken);
-            throw new AuthenticationException("Account is not a staff member.");
+            throw new AuthenticationException("The sign-in service is busy. Try again shortly.");
         }
-
-        Instant tokenExpiresAt = Instant.now().plusSeconds(Math.max(token.expiresIn, 60));
-        AuthenticatedUser user = new AuthenticatedUser(
-                me.optInt("user_id", 0),
-                me.optString("username", "unknown"),
-                true,
-                UserType.XENFORO,
-                token.accessToken,
-                tokenExpiresAt,
-                Instant.now());
-
-        String sessionId = randomToken(32);
-        sessions.put(sessionId, user);
-
-        Cookie cookie = new Cookie(SESSION_COOKIE, sessionId);
-        cookie.setHttpOnly(true);
-        cookie.setPath("/");
-        cookie.setMaxAge((int) sessionTtl.getSeconds());
-        cookie.setAttribute("SameSite", "Lax");
-        if (request.isSecure() || "https".equalsIgnoreCase(request.getHeader("X-Forwarded-Proto")))
+        try
         {
-            cookie.setSecure(true);
-        }
-        response.addCookie(cookie);
+            TokenResponse token = exchangeCode(code, pendingLogin.verifier);
+            JSONObject me = fetchMe(token.accessToken);
+            if (!me.optBoolean("is_staff", false))
+            {
+                revokeToken(token.accessToken);
+                throw new AuthenticationException("Account is not a staff member.");
+            }
 
-        return user;
+            Instant tokenExpiresAt = Instant.now().plusSeconds(Math.max(token.expiresIn, 60));
+            AuthenticatedUser user = new AuthenticatedUser(
+                    me.optInt("user_id", 0),
+                    me.optString("username", "unknown"),
+                    true,
+                    UserType.XENFORO,
+                    token.accessToken,
+                    tokenExpiresAt,
+                    Instant.now());
+
+            String sessionId = randomToken(32);
+            synchronized (sessions)
+            {
+                purgeExpiredSessions(true);
+                if (sessions.size() >= maxActiveSessions)
+                {
+                    revokeToken(token.accessToken);
+                    throw new AuthenticationException("Too many sessions are active. Try again later.");
+                }
+                sessions.put(sessionId, user);
+            }
+
+            Cookie cookie = new Cookie(SESSION_COOKIE, sessionId);
+            cookie.setHttpOnly(true);
+            cookie.setPath("/");
+            cookie.setMaxAge((int) sessionTtl.getSeconds());
+            cookie.setAttribute("SameSite", "Lax");
+            if (request.isSecure() || "https".equalsIgnoreCase(request.getHeader("X-Forwarded-Proto")))
+            {
+                cookie.setSecure(true);
+            }
+            response.addCookie(cookie);
+
+            return user;
+        }
+        finally
+        {
+            oauthExchanges.release();
+        }
     }
 
     @Override
     public AuthenticatedUser lookup(String sessionId)
     {
         if (sessionId == null) return null;
+        purgeExpiredSessions(false);
         AuthenticatedUser user = sessions.get(sessionId);
         if (user == null) return null;
         if (user.authenticatedAt().plus(sessionTtl).isBefore(Instant.now()))
@@ -291,10 +335,28 @@ public class XenForoOAuth2Provider implements OAuth2Provider
         }
     }
 
-    private void purgeExpiredPending()
+    private void purgeExpiredPending(boolean force)
     {
+        long nowMillis = System.currentTimeMillis();
+        if (!force)
+        {
+            long next = nextPendingPurgeMillis.get();
+            if (nowMillis < next || !nextPendingPurgeMillis.compareAndSet(next, nowMillis + PENDING_PURGE_INTERVAL_MILLIS)) return;
+        }
         Instant now = Instant.now();
         pending.entrySet().removeIf(entry -> entry.getValue().expiresAt.isBefore(now));
+    }
+
+    private void purgeExpiredSessions(boolean force)
+    {
+        long nowMillis = System.currentTimeMillis();
+        if (!force)
+        {
+            long next = nextSessionPurgeMillis.get();
+            if (nowMillis < next || !nextSessionPurgeMillis.compareAndSet(next, nowMillis + PENDING_PURGE_INTERVAL_MILLIS)) return;
+        }
+        Instant now = Instant.now();
+        sessions.entrySet().removeIf(entry -> entry.getValue().authenticatedAt().plus(sessionTtl).isBefore(now));
     }
 
     private String randomToken(int bytes)

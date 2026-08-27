@@ -2,7 +2,7 @@ package dev.plex;
 
 import dev.plex.assets.MinecraftAssetsManager;
 import dev.plex.authentication.AuthenticationManager;
-import dev.plex.config.ModuleConfig;
+import dev.plex.api.config.ModuleConfiguration;
 import dev.plex.logging.Log;
 import dev.plex.module.PlexModule;
 import dev.plex.ratelimit.RateLimitFilter;
@@ -36,7 +36,7 @@ public class HTTPDModule extends PlexModule
     private final AtomicReference<Server> atomicServer = new AtomicReference<>();
 
     @Getter
-    private ModuleConfig moduleConfig;
+    private ModuleConfiguration moduleConfig;
 
     @Getter
     private AuthenticationManager authenticationManager;
@@ -59,7 +59,7 @@ public class HTTPDModule extends PlexModule
     @Override
     public void load()
     {
-        moduleConfig = new ModuleConfig(this, "config.yml", "config.yml");
+        moduleConfig = api().moduleConfigs().create(this, "config.yml");
     }
 
     @Override

@@ -41,14 +41,14 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok:1.18.46")
     compileOnly("io.papermc.paper:paper-api:26.2.build.+")
     implementation("dev.plex:api:2.0-SNAPSHOT")
-    implementation("org.json:json:20251224")
+    implementation("org.json:json:20260814")
     implementation("org.reflections:reflections:0.10.2")
-    plexLibrary("org.eclipse.jetty:jetty-server:12.1.9")
-    plexLibrary("org.eclipse.jetty.ee10:jetty-ee10-servlet:12.1.9")
-    plexLibrary("org.eclipse.jetty:jetty-proxy:12.1.9")
+    plexLibrary("org.eclipse.jetty:jetty-server:12.1.12")
+    plexLibrary("org.eclipse.jetty.ee10:jetty-ee10-servlet:12.1.12")
+    plexLibrary("org.eclipse.jetty:jetty-proxy:12.1.12")
     compileOnly("de.tr7zw:item-nbt-api:2.16.0")
     implementation(platform("com.intellectualsites.bom:bom-newest:1.56")) // Ref: https://github.com/IntellectualSites/bom
-    compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Core")
+    compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Core:2.15.3")
 }
 
 val frontendDir = layout.projectDirectory.dir("src/main/frontend")

@@ -78,7 +78,7 @@ public final class StatsBroadcaster
         try
         {
             long sampleTicks = Math.max(20L, module.getModuleConfig().getLong("server.sse.stats-sample-interval-ticks", 100L));
-            bukkitTask = module.api().scheduler().runGlobalTimer(this::sampleBukkit, 1L, sampleTicks);
+            bukkitTask = module.scheduler().runGlobalTimer(this::sampleBukkit, 1L, sampleTicks);
         }
         catch (Throwable t)
         {
@@ -127,7 +127,7 @@ public final class StatsBroadcaster
         {
             if (subscriberCount.get() == 1)
             {
-                try { module.api().scheduler().runGlobal(this::sampleBukkit); } catch (Throwable ignored) {}
+                try { module.scheduler().runGlobal(this::sampleBukkit); } catch (Throwable ignored) {}
             }
             return true;
         }

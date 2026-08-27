@@ -87,7 +87,7 @@ public final class PlayerInventoryBroadcaster
 
         try
         {
-            refreshTask = module.api().scheduler().runGlobalTimer(this::tick, 1L, REFRESH_TICKS);
+            refreshTask = module.scheduler().runGlobalTimer(this::tick, 1L, REFRESH_TICKS);
         }
         catch (Throwable t)
         {
@@ -189,7 +189,7 @@ public final class PlayerInventoryBroadcaster
             }
             try
             {
-                ScheduledTask task = module.api().scheduler().runEntity(player, () ->
+                ScheduledTask task = module.scheduler().runEntity(player, () ->
                 {
                     String json;
                     try

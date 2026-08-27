@@ -1,6 +1,6 @@
 package dev.plex.logging;
 
-import dev.plex.config.ModuleConfig;
+import dev.plex.api.config.ModuleConfiguration;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -32,7 +32,7 @@ public class Log
     private static long lastFlushMillis;
     private static long fileUnavailableUntilMillis;
 
-    public static synchronized void configure(ModuleConfig moduleConfig, File target)
+    public static synchronized void configure(ModuleConfiguration moduleConfig, File target)
     {
         consoleLoggingEnabled = () -> moduleConfig.getBoolean("server.logging.console", false);
         fileLoggingEnabled = () -> moduleConfig.getBoolean("server.logging.file", true);

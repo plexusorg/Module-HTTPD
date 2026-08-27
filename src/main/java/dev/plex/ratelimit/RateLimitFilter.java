@@ -1,6 +1,6 @@
 package dev.plex.ratelimit;
 
-import dev.plex.config.ModuleConfig;
+import dev.plex.api.config.ModuleConfiguration;
 import dev.plex.logging.Log;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
@@ -47,7 +47,7 @@ public class RateLimitFilter implements Filter
     private final double staffMutationCost;
     private final double staffReadCost;
 
-    public RateLimitFilter(ModuleConfig config)
+    public RateLimitFilter(ModuleConfiguration config)
     {
         this.enabled = config.getBoolean("rate-limit.enabled", true);
         double globalCapacity = config.getDouble("rate-limit.global.capacity", 200.0);

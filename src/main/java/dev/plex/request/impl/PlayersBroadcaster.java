@@ -87,7 +87,7 @@ public final class PlayersBroadcaster
 
         try
         {
-            refreshTask = module.api().scheduler().runGlobalTimer(this::refreshAndBroadcast, 1L, REFRESH_TICKS);
+            refreshTask = module.scheduler().runGlobalTimer(this::refreshAndBroadcast, 1L, REFRESH_TICKS);
         }
         catch (Throwable t)
         {
@@ -184,7 +184,7 @@ public final class PlayersBroadcaster
                 Player player = online.get(i);
                 try
                 {
-                    ScheduledTask task = module.api().scheduler().runEntity(player, () ->
+                    ScheduledTask task = module.scheduler().runEntity(player, () ->
                     {
                         try
                         {
@@ -351,7 +351,7 @@ public final class PlayersBroadcaster
         if (!refreshScheduled.compareAndSet(false, true)) return;
         try
         {
-            module.api().scheduler().runGlobalLater(() ->
+            module.scheduler().runGlobalLater(() ->
             {
                 refreshScheduled.set(false);
                 refreshAndBroadcast();

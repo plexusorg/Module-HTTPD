@@ -24,7 +24,6 @@ import java.util.UUID;
 
 public class PlayerActionServlet extends HttpServlet
 {
-    private static final long FAR_FUTURE_DAYS = 365L * 50L;
     private static final List<String> PERMANENT_ACTIONS = List.of("ban", "mute");
     private static final List<String> TEMP_ACTIONS = List.of("tempban", "tempmute", "freeze");
     private static final List<String> INVENTORY_ACTIONS = List.of("clear-inventory", "clear-selected");
@@ -91,10 +90,10 @@ public class PlayerActionServlet extends HttpServlet
         if (safeReason.length() > 500) safeReason = safeReason.substring(0, 500);
 
         PunishmentType type = mapType(action);
-        ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
-        ZonedDateTime endDate = TEMP_ACTIONS.contains(action)
-            ? now.plusSeconds(parseDurationSeconds(durationStr))
-            : now.plusDays(FAR_FUTURE_DAYS);
+        boolean temporary = TEMP_ACTIONS.contains(action);
+        ZonedDateTime endDate = temporary
+            ? ZonedDateTime.now(ZoneId.systemDefault()).plusSeconds(parseDurationSeconds(durationStr))
+            : null;
 
         List<String> ips = target.ips();
         String ip = ips == null || ips.isEmpty() ? "" : ips.getLast();
@@ -106,7 +105,7 @@ public class PlayerActionServlet extends HttpServlet
             ip,
             type,
             safeReason,
-            TEMP_ACTIONS.contains(action),
+            temporary,
             true,
             endDate
         );
@@ -121,7 +120,7 @@ public class PlayerActionServlet extends HttpServlet
 
         final boolean kick = action.equals("ban") || action.equals("tempban");
         final PunishmentRequest toApply = punishment;
-        module.api().scheduler().runGlobal(() ->
+        module.scheduler().runGlobal(() ->
         {
             try
             {
@@ -137,7 +136,7 @@ public class PlayerActionServlet extends HttpServlet
                 Player online = Bukkit.getPlayer(uuid);
                 if (online != null)
                 {
-                    module.api().scheduler().runEntity(online, () ->
+                    module.scheduler().runEntity(online, () ->
                     {
                         try { online.kick(Component.text("You have been banned: " + toApply.reason())); }
                         catch (Throwable t) { t.printStackTrace(); }
@@ -161,11 +160,11 @@ public class PlayerActionServlet extends HttpServlet
 
         Log.log(ipAddress + " (xf:" + staff.username() + ") issued " + action + " on " + target.name() + " (" + uuid + ")" + (slot == null || slot.isBlank() ? "" : " slot " + slot));
 
-        module.api().scheduler().runGlobal(() ->
+        module.scheduler().runGlobal(() ->
         {
             Player online = Bukkit.getPlayer(uuid);
             if (online == null) return;
-            module.api().scheduler().runEntity(online, () ->
+            module.scheduler().runEntity(online, () ->
             {
                 PlayerInventory inv = online.getInventory();
                 if ("clear-inventory".equals(action))

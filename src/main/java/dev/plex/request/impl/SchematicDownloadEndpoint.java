@@ -128,7 +128,7 @@ public class SchematicDownloadEndpoint extends AbstractServlet
 
     private void logDownload(HttpServletRequest request, File schemFile)
     {
-        AuthenticatedUser user = currentUser(request);
+        AuthenticatedUser user = currentUser(module, request);
         String who = user != null ? user.username() + " (xf:" + user.userId() + ")" : request.getRemoteAddr();
         module.api().logging().info("{0} downloaded schematic {1}", who, schemFile.getName());
         Log.log("{0} downloaded schematic {1}", who, schemFile.getName());

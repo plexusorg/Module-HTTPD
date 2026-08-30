@@ -64,7 +64,6 @@ export interface PunishmentSummary {
     ip: string;
     type: string;
     reason: string;
-    customTime: boolean;
     active: boolean;
     issueDate: string;
     endDate?: string | null;

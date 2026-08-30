@@ -33,7 +33,7 @@ public class PlayerAdminEndpoint extends AbstractServlet
     @MappingHeaders(headers = "content-type;application/json; charset=utf-8")
     public String getPlayer(HttpServletRequest request, HttpServletResponse response)
     {
-        AuthenticatedUser staff = currentStaff(request);
+        AuthenticatedUser staff = currentStaff(module, request);
         if (staff == null)
         {
             return JsonResponse.error(response, HttpServletResponse.SC_FORBIDDEN, "You must sign in as staff to access player admin tools.");
@@ -67,11 +67,11 @@ public class PlayerAdminEndpoint extends AbstractServlet
     {
         try
         {
-            return module.api().players().player(UUID.fromString(query)).orElse(null);
+            return module.api().players().player(UUID.fromString(query)).join().orElse(null);
         }
         catch (IllegalArgumentException ignored)
         {
-            return module.api().players().byName(query).orElse(null);
+            return module.api().players().byName(query).join().orElse(null);
         }
     }
 

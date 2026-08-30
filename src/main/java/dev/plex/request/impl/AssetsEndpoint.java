@@ -62,7 +62,7 @@ public class AssetsEndpoint extends AbstractServlet
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return;
         }
-        if (currentStaff(request) == null)
+        if (currentStaff(module, request) == null)
         {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             return;

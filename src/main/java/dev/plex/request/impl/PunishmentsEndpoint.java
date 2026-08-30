@@ -40,11 +40,11 @@ public class PunishmentsEndpoint extends AbstractServlet
         try
         {
             UUID pathUUID = UUID.fromString(request.getPathInfo().replace("/", ""));
-            punishedPlayer = module.api().players().player(pathUUID).orElse(null);
+            punishedPlayer = module.api().players().player(pathUUID).join().orElse(null);
         }
         catch (IllegalArgumentException ignored)
         {
-            punishedPlayer = module.api().players().byName(request.getPathInfo().replace("/", "")).orElse(null);
+            punishedPlayer = module.api().players().byName(request.getPathInfo().replace("/", "")).join().orElse(null);
         }
 
         if (punishedPlayer == null)
@@ -68,8 +68,8 @@ public class PunishmentsEndpoint extends AbstractServlet
             return JsonResponse.error(response, HttpServletResponse.SC_BAD_REQUEST, "limit must be between 1 and " + MAX_PAGE_SIZE + ".");
         }
 
-        AuthenticatedUser viewer = currentStaff(request);
-        List<? extends PunishmentView> source = punishedPlayer.punishments();
+        AuthenticatedUser viewer = currentStaff(module, request);
+        List<PunishmentView> source = punishedPlayer.punishments();
         int total = source.size();
         int from = Math.min(offset, total);
         int to = (int)Math.min((long)total, (long)from + limit);
@@ -114,7 +114,6 @@ public class PunishmentsEndpoint extends AbstractServlet
             public final String ip = hideIp ? "" : punishment.ip();
             public final Object type = punishment.type();
             public final String reason = punishment.reason();
-            public final boolean customTime = punishment.customTime();
             public final boolean active = punishment.active();
             public final ZonedDateTime issueDate = punishment.issueDate();
             public final ZonedDateTime endDate = punishment.endDate();

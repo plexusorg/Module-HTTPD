@@ -20,7 +20,7 @@ public class IndefBansEndpoint extends AbstractServlet
     @MappingHeaders(headers = "content-type;application/json; charset=utf-8")
     public String getBans(HttpServletRequest request, HttpServletResponse response)
     {
-        AuthenticatedUser user = currentStaff(request);
+        AuthenticatedUser user = currentStaff(module, request);
         if (user == null)
         {
             return JsonResponse.error(response, HttpServletResponse.SC_FORBIDDEN, "You must sign in as staff to view indefinite bans.");

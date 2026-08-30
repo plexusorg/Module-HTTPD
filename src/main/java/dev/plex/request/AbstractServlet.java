@@ -170,11 +170,6 @@ public class AbstractServlet extends HttpServlet
         return requestPath.isEmpty() ? "/" : requestPath;
     }
 
-    protected AuthenticatedUser currentUser(HttpServletRequest request)
-    {
-        return currentUser(module, request);
-    }
-
     public static AuthenticatedUser currentUser(HTTPDModule module, HttpServletRequest request)
     {
         AuthenticationManager manager = module.getAuthenticationManager();
@@ -184,28 +179,13 @@ public class AbstractServlet extends HttpServlet
         return provider.lookup(request);
     }
 
-    protected AuthenticatedUser currentStaff(HttpServletRequest request)
-    {
-        return currentStaff(module, request);
-    }
-
     public static AuthenticatedUser currentStaff(HTTPDModule module, HttpServletRequest request)
     {
         AuthenticatedUser user = currentUser(module, request);
         return (user != null && user.staff()) ? user : null;
     }
 
-    protected String signInPrompt(String action)
-    {
-        return signInPrompt(null, action);
-    }
-
     protected String signInPrompt(HttpServletRequest request, String action)
-    {
-        return signInPrompt(module, request, action);
-    }
-
-    public static String signInPrompt(HTTPDModule module, HttpServletRequest request, String action)
     {
         String href = "/oauth2/login";
         if (request != null)

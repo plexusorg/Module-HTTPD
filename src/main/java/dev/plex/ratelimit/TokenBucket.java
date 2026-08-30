@@ -25,11 +25,6 @@ public class TokenBucket
         this.lastActivityMillis = System.currentTimeMillis();
     }
 
-    public synchronized boolean tryConsume()
-    {
-        return tryConsume(1.0);
-    }
-
     public synchronized boolean tryConsume(double amount)
     {
         if (!Double.isFinite(amount) || amount <= 0.0 || amount > capacity)
@@ -44,11 +39,6 @@ public class TokenBucket
             return true;
         }
         return false;
-    }
-
-    public synchronized long retryAfterSeconds()
-    {
-        return retryAfterSeconds(1.0);
     }
 
     public synchronized long retryAfterSeconds(double amount)

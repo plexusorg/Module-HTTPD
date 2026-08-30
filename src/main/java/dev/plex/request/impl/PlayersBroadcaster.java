@@ -8,7 +8,6 @@ import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -78,7 +77,7 @@ public final class PlayersBroadcaster
         listener = new PlayersListener();
         try
         {
-            module.api().listeners().register(listener);
+            module.registerListener(listener);
         }
         catch (Throwable t)
         {
@@ -99,7 +98,7 @@ public final class PlayersBroadcaster
     {
         if (listener != null)
         {
-            try { HandlerList.unregisterAll(listener); } catch (Throwable ignored) {}
+            try { module.unregisterListener(listener); } catch (Throwable ignored) {}
             listener = null;
         }
         if (refreshTask != null)

@@ -41,7 +41,7 @@ public class FrontendEndpoint extends AbstractServlet
     @GetMapping(endpoint = "/player/")
     public String player(HttpServletRequest request, HttpServletResponse response)
     {
-        if (currentStaff(request) == null)
+        if (currentStaff(module, request) == null)
         {
             return staffOnly(request, response, "to access player admin tools");
         }
@@ -63,7 +63,7 @@ public class FrontendEndpoint extends AbstractServlet
     @GetMapping(endpoint = "/indefbans/")
     public String indefBans(HttpServletRequest request, HttpServletResponse response)
     {
-        if (currentStaff(request) == null)
+        if (currentStaff(module, request) == null)
         {
             return staffOnly(request, response, "to view this page");
         }
@@ -73,7 +73,7 @@ public class FrontendEndpoint extends AbstractServlet
     @GetMapping(endpoint = "/schematics/")
     public String schematics(HttpServletRequest request, HttpServletResponse response)
     {
-        if (requestPath(request).startsWith("/schematics/upload") && currentStaff(request) == null)
+        if (requestPath(request).startsWith("/schematics/upload") && currentStaff(module, request) == null)
         {
             return staffOnly(request, response, "to upload schematics");
         }

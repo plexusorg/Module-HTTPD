@@ -11,8 +11,6 @@ public interface OAuth2Provider
 
     AuthenticatedUser handleCallback(HttpServletRequest request, HttpServletResponse response) throws AuthenticationException;
 
-    AuthenticatedUser lookup(String sessionId);
-
     AuthenticatedUser lookup(HttpServletRequest request);
 
     void logout(String sessionId);

@@ -73,7 +73,7 @@ public class PlayerActionServlet extends HttpServlet
             return;
         }
 
-        PlexPlayerView target = module.api().players().player(uuid).orElse(null);
+        PlexPlayerView target = module.api().players().player(uuid).join().orElse(null);
         if (target == null)
         {
             response.getWriter().write(JsonResponse.error(response, HttpServletResponse.SC_NOT_FOUND, "Player not found."));
@@ -105,8 +105,6 @@ public class PlayerActionServlet extends HttpServlet
             ip,
             type,
             safeReason,
-            temporary,
-            true,
             endDate
         );
 
@@ -119,30 +117,22 @@ public class PlayerActionServlet extends HttpServlet
         Log.log(ipAddress + " (xf:" + staff.username() + ") issued " + action + " on " + target.name() + " (" + uuid + ")");
 
         final boolean kick = action.equals("ban") || action.equals("tempban");
-        final PunishmentRequest toApply = punishment;
-        module.scheduler().runGlobal(() ->
+        module.api().punishments().punish(punishment).whenComplete((ignored, failure) ->
         {
-            try
+            if (failure != null)
             {
-                module.api().punishments().punish(target, toApply);
-            }
-            catch (Throwable t)
-            {
-                t.printStackTrace();
+                module.api().logging().error("Failed to apply " + action + " to " + target.name() + ": " + failure.getMessage());
                 return;
             }
-            if (kick)
+            if (!kick) return;
+            module.scheduler().runGlobal(() ->
             {
                 Player online = Bukkit.getPlayer(uuid);
                 if (online != null)
                 {
-                    module.scheduler().runEntity(online, () ->
-                    {
-                        try { online.kick(Component.text("You have been banned: " + toApply.reason())); }
-                        catch (Throwable t) { t.printStackTrace(); }
-                    });
+                    module.scheduler().runEntity(online, () -> online.kick(Component.text("You have been banned: " + punishment.reason())));
                 }
-            }
+            });
         });
 
         response.getWriter().write(JsonResponse.ok(response, "Action queued."));

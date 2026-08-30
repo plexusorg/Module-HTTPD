@@ -206,8 +206,7 @@ public class XenForoOAuth2Provider implements OAuth2Provider
         }
     }
 
-    @Override
-    public AuthenticatedUser lookup(String sessionId)
+    private AuthenticatedUser lookupSession(String sessionId)
     {
         if (sessionId == null) return null;
         purgeExpiredSessions(false);
@@ -230,7 +229,7 @@ public class XenForoOAuth2Provider implements OAuth2Provider
         {
             if (SESSION_COOKIE.equals(cookie.getName()))
             {
-                return lookup(cookie.getValue());
+                return lookupSession(cookie.getValue());
             }
         }
         return null;

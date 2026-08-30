@@ -128,15 +128,15 @@ public class RateLimitFilter implements Filter
     private boolean consumeAssetBudget(HttpServletRequest request, HttpServletResponse response, String ip) throws IOException
     {
         TokenBucket bucket = bucketFor(assetIpBuckets, ip, assetIpCapacity, assetIpRefillPerSecond);
-        if (!bucket.tryConsume())
+        if (!bucket.tryConsume(1.0))
         {
-            reject(request, response, bucket.retryAfterSeconds(), "assets");
+            reject(request, response, bucket.retryAfterSeconds(1.0), "assets");
             return false;
         }
-        if (!assetGlobalBucket.tryConsume())
+        if (!assetGlobalBucket.tryConsume(1.0))
         {
             bucket.refund(1.0);
-            reject(request, response, assetGlobalBucket.retryAfterSeconds(), "assets");
+            reject(request, response, assetGlobalBucket.retryAfterSeconds(1.0), "assets");
             return false;
         }
         return true;

@@ -66,6 +66,7 @@ public final class PlayerInventoryBroadcaster
     private ScheduledExecutorService executor;
     private ScheduledTask refreshTask;
     private int maxConnections = 32;
+    private final AtomicBoolean nbtAvailable = new AtomicBoolean();
 
     public PlayerInventoryBroadcaster(HTTPDModule module)
     {
@@ -76,6 +77,7 @@ public final class PlayerInventoryBroadcaster
     {
         if (executor != null) return;
 
+        nbtAvailable.set(loadNbtApi());
         maxConnections = module.getModuleConfig().getInt("server.sse.max-connections", 32);
         int threads = Math.max(1, module.getModuleConfig().getInt("server.sse.threads", 2));
 
@@ -87,7 +89,20 @@ public final class PlayerInventoryBroadcaster
         });
 
         refreshTask = module.scheduler().runGlobalTimer(this::tick, 1L, REFRESH_TICKS);
-        NBT.preloadApi();
+    }
+
+    private boolean loadNbtApi()
+    {
+        try
+        {
+            if (NBT.preloadApi()) return true;
+            module.api().logging().warn("NBT-API could not be initialized; inventory NBT viewing will not be available.");
+        }
+        catch (NoClassDefFoundError ignored)
+        {
+            module.api().logging().warn("NBT-API was not found; inventory NBT viewing will not be available.");
+        }
+        return false;
     }
 
     public synchronized void shutdown()
@@ -315,6 +330,7 @@ public final class PlayerInventoryBroadcaster
         root.put("storage", storage);
         root.put("armor", armor);
         root.put("offhand", serializeItem(inv.getItemInOffHand()));
+        root.put("nbtAvailable", nbtAvailable.get());
 
         return GSON.toJson(root);
     }
@@ -380,7 +396,7 @@ public final class PlayerInventoryBroadcaster
         return value.length();
     }
 
-    private static Map<String, Object> serializeItem(ItemStack item)
+    private Map<String, Object> serializeItem(ItemStack item)
     {
         if (item == null || item.getType().isAir()) return null;
         Map<String, Object> m = new LinkedHashMap<>();
@@ -461,19 +477,26 @@ public final class PlayerInventoryBroadcaster
                 if (truncated) m.put("pdcKeysTruncated", true);
             }
 
-            try
+            if (nbtAvailable.get())
             {
-                String snbt = NBT.get(item, nbt ->
+                try
                 {
-                    return nbt.toString();
-                });
-                if (snbt != null && !snbt.isEmpty() && !"{}".equals(snbt))
-                {
-                    putLimited(m, "nbt", snbt, MAX_NBT_CHARS);
+                    String snbt = NBT.get(item, nbt ->
+                    {
+                        return nbt.toString();
+                    });
+                    if (snbt != null && !snbt.isEmpty() && !"{}".equals(snbt))
+                    {
+                        putLimited(m, "nbt", snbt, MAX_NBT_CHARS);
+                    }
                 }
-            }
-            catch (RuntimeException ignored)
-            {
+                catch (RuntimeException e)
+                {
+                    if (nbtAvailable.compareAndSet(true, false))
+                    {
+                        module.getLogger().warn("NBT-API failed while reading an item; inventory NBT viewing has been disabled.", e);
+                    }
+                }
             }
         }
         return m;

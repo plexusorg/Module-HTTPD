@@ -97,6 +97,7 @@ export interface InventoryItem {
 
 export interface InventoryPayload {
     online: boolean;
+    nbtAvailable?: boolean;
     storage?: Array<InventoryItem | null>;
     hotbar?: Array<InventoryItem | null>;
     armor?: Record<string, InventoryItem | null>;

@@ -76,6 +76,11 @@
 {:else if !inventory.online}
     <p class="py-6 text-center text-sm text-muted-foreground">Player is offline.</p>
 {:else}
+    {#if inventory.nbtAvailable === false}
+        <p class="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+            NBT-API is not installed. Inventory NBT data is unavailable.
+        </p>
+    {/if}
     <div class="grid gap-6 lg:grid-cols-[auto_1fr]">
         <div class="-mx-2 overflow-x-auto px-2 pb-2 sm:mx-0 sm:px-0">
             <div class="flex min-w-max flex-wrap gap-4 lg:flex-nowrap">

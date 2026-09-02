@@ -2,7 +2,7 @@
     import {onDestroy, onMount} from 'svelte';
     import {HugeiconsIcon} from '@hugeicons/svelte';
     import {ArrowLeft01Icon, ArrowUpRight03Icon} from '@hugeicons/core-free-icons';
-    import {api, postForm} from '$lib/api';
+    import {api, postUrlEncoded} from '$lib/api';
     import {Badge} from '$lib/components/ui/badge';
     import {Button, type ButtonVariant} from '$lib/components/ui/button';
     import {Card} from '$lib/components/ui/card';
@@ -32,6 +32,7 @@
     let actionDialogOpen = $state(false);
     let reason = $state('');
     let duration = $state('24h');
+    let submitting = $state(false);
     let playersStream: EventSource | null = null;
     let inventoryStream: EventSource | null = null;
 
@@ -41,13 +42,14 @@
         {action: 'mute', label: 'Mute', tone: 'warning', temporary: false, reason: true},
         {action: 'tempmute', label: 'Tempmute', tone: 'warning', temporary: true, reason: true},
         {action: 'freeze', label: 'Freeze', tone: 'default', temporary: true, reason: true},
-        {action: 'clear-inventory', label: 'Clear inventory', tone: 'destructive', temporary: false, reason: false},
+        {action: 'clear-inventory', label: 'Clear inventory', tone: 'destructive', temporary: false, reason: false, live: true},
         {
             action: 'clear-selected',
             label: 'Clear selected',
             tone: 'destructive',
             temporary: false,
             reason: false,
+            live: true,
             selected: true
         }
     ] as const;
@@ -75,20 +77,23 @@
     }
 
     async function submitAction() {
-        if (!player || !activeAction) return;
-        const form = new FormData();
+        if (!player || !activeAction || submitting) return;
+        submitting = true;
+        const form = new URLSearchParams();
         form.set('uuid', player.uuid);
         form.set('action', activeAction.action);
         form.set('reason', activeAction.reason ? reason : '');
         form.set('duration', activeAction.temporary ? duration : '');
         form.set('slot', 'selected' in activeAction && activeAction.selected ? selectedSlot ?? '' : '');
         try {
-            const result = await postForm<{ ok: boolean; message?: string }>('/api/admin/player-action', form);
+            const result = await postUrlEncoded<{ ok: boolean; message?: string }>('/api/admin/player-action', form);
             actionMessage = result.message ?? 'Action completed.';
             dialogAction = null;
             actionDialogOpen = false;
         } catch (cause) {
             actionError = cause instanceof Error ? cause.message : 'Action failed.';
+        } finally {
+            submitting = false;
         }
     }
 
@@ -203,7 +208,9 @@
                     <Button
                             variant={buttonVariant(item.tone)}
                             class={actionButtonClass(item)}
-                            disabled={'selected' in item && item.selected && !selectedItem}
+                            disabled={submitting
+                                || ('live' in item && item.live && !inventory?.online)
+                                || ('selected' in item && item.selected && !selectedItem)}
                             onclick={() => openAction(item.action)}
                     >
                         {item.label}
@@ -260,11 +267,11 @@
                     <p class="mt-3 text-sm text-destructive">{actionError}</p>
                 {/if}
                 <Dialog.Footer>
-                    <Button variant="secondary" onclick={() => { actionDialogOpen = false; dialogAction = null; }}>
+                    <Button variant="secondary" disabled={submitting} onclick={() => { actionDialogOpen = false; dialogAction = null; }}>
                         Cancel
                     </Button>
-                    <Button variant="destructive" disabled={activeAction.reason && !reason.trim()}
-                            onclick={submitAction}>Confirm
+                    <Button variant="destructive" disabled={submitting || (activeAction.reason && !reason.trim())}
+                            onclick={submitAction}>{submitting ? 'Working...' : 'Confirm'}
                     </Button>
                 </Dialog.Footer>
             </Dialog.Content>

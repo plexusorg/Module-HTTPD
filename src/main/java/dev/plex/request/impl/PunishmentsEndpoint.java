@@ -2,6 +2,8 @@ package dev.plex.request.impl;
 
 import dev.plex.HTTPDModule;
 import dev.plex.api.player.PlexPlayerView;
+import dev.plex.api.punishment.PunishmentSource;
+import dev.plex.api.punishment.PunishmentType;
 import dev.plex.api.punishment.PunishmentView;
 import dev.plex.authentication.AuthenticatedUser;
 import dev.plex.request.AbstractServlet;
@@ -102,22 +104,34 @@ public class PunishmentsEndpoint extends AbstractServlet
         return parsed;
     }
 
-    private static Object serialize(PunishmentView punishment, boolean hideIp)
+    private static PunishmentResponse serialize(PunishmentView punishment, boolean hideIp)
     {
-        return new Object()
-        {
-            public final UUID punished = punishment.punished();
-            public final UUID punisher = punishment.punisher();
-            public final Object source = punishment.source();
-            public final String punisherReference = punishment.punisherReference();
-            public final String punisherDisplayName = punishment.punisherDisplayName();
-            public final String ip = hideIp ? "" : punishment.ip();
-            public final Object type = punishment.type();
-            public final String reason = punishment.reason();
-            public final boolean active = punishment.active();
-            public final ZonedDateTime issueDate = punishment.issueDate();
-            public final ZonedDateTime endDate = punishment.endDate();
-        };
+        return new PunishmentResponse(
+            punishment.punished(),
+            punishment.punisher(),
+            punishment.source(),
+            punishment.punisherReference(),
+            punishment.punisherDisplayName(),
+            hideIp ? "" : punishment.ip(),
+            punishment.type(),
+            punishment.reason(),
+            punishment.active(),
+            punishment.issueDate(),
+            punishment.endDate());
     }
 
+    private record PunishmentResponse(
+        UUID punished,
+        UUID punisher,
+        PunishmentSource source,
+        String punisherReference,
+        String punisherDisplayName,
+        String ip,
+        PunishmentType type,
+        String reason,
+        boolean active,
+        ZonedDateTime issueDate,
+        ZonedDateTime endDate)
+    {
+    }
 }

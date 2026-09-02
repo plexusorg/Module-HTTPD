@@ -23,7 +23,11 @@ export function parseRoute(pathname: string): Route {
         if (!match) continue;
         const params: Record<string, string> = {};
         if (route.id === 'player' || route.id === 'punishments-detail') {
-            params.id = decodeURIComponent(match[1]);
+            try {
+                params.id = decodeURIComponent(match[1]);
+            } catch {
+                return {path: 'not-found', params: {}};
+            }
         }
         return {path: route.id, params};
     }

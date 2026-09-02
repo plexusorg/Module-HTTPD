@@ -19,6 +19,7 @@
     let loading = $state(true);
     let loadingMore = $state(false);
     let error = $state<string | null>(null);
+    let loadMoreError = $state<string | null>(null);
     let filter = $state('');
     let type = $state('all');
     let status = $state('all');
@@ -29,17 +30,34 @@
         const q = filter.toLowerCase().trim();
         return punishments.filter((item) => {
             const itemType = item.type;
-            const active = item.active;
-            const itemStatus = active ? 'active' : 'expired';
+            const itemStatus = punishmentStatus(item);
             return (!q || lowerSearch(item).includes(q)) && (type === 'all' || itemType === type) && (status === 'all' || itemStatus === status);
         });
     });
+
+    function punishmentStatus(item: PunishmentSummary) {
+        if (item.active && item.endDate !== null && item.endDate <= Date.now()) return 'overdue';
+        if (item.active) return 'active';
+        if (item.endDate !== null && item.endDate <= Date.now()) return 'expired';
+        return 'revoked';
+    }
 
     function displayValue(value: unknown) {
         if (value == null || value === '') return '-';
         if (typeof value === 'boolean') return value ? 'yes' : 'no';
         if (Array.isArray(value)) return value.join(', ');
         return String(value);
+    }
+
+    function displayEntry(item: PunishmentSummary, key: string, value: unknown) {
+        if ((key === 'issueDate' || key === 'endDate') && value != null && value !== '') {
+            const date = new Date(typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value as string | number);
+            if (!Number.isNaN(date.getTime())) return date.toLocaleString();
+        }
+        if (key === 'endDate' && (value == null || value === '')) {
+            return item.type === 'BAN' || item.type === 'TEMPBAN' ? 'Missing (invalid ban)' : 'Never';
+        }
+        return displayValue(value);
     }
 
     function entries(item: PunishmentSummary) {
@@ -49,11 +67,12 @@
     async function loadMore() {
         if (!data?.pagination.hasMore || loadingMore) return;
         loadingMore = true;
+        loadMoreError = null;
         try {
             const next = await api.punishments(id, data.punishments.length);
             data = {...next, punishments: [...data.punishments, ...next.punishments]};
         } catch (cause) {
-            error = cause instanceof Error ? cause.message : 'Unable to load punishments.';
+            loadMoreError = cause instanceof Error ? cause.message : 'Unable to load punishments.';
         } finally {
             loadingMore = false;
         }
@@ -109,7 +128,7 @@
                     onclick={() => (type = item)}>{titleCase(item)}</Button>
         {/each}
         <span class="mx-1 h-4 w-px bg-border"></span>
-        {#each ['all', 'active', 'expired'] as item (item)}
+        {#each ['all', 'active', 'overdue', 'expired', 'revoked'] as item (item)}
             <Button size="sm" variant={status === item ? 'default' : 'outline'}
                     onclick={() => (status = item)}>{titleCase(item === 'all' ? 'any' : item)}</Button>
         {/each}
@@ -121,7 +140,7 @@
         <section class="rise mt-4 grid gap-3 md:grid-cols-2">
             {#each visible as punishment, index (`${punishment.type}:${punishment.issueDate}:${index}`)}
                 {@const itemType = punishment.type}
-                {@const active = punishment.active}
+                {@const itemStatus = punishmentStatus(punishment)}
                 <Card class="p-4">
                     <div class="flex items-start justify-between gap-3">
                         <div>
@@ -129,12 +148,12 @@
                             <p class="mt-1 text-sm text-muted-foreground">{displayValue(punishment.reason)}</p>
                             <p class="mt-1 text-xs text-muted-foreground">{displayValue(punishment.punisherDisplayName)} · {displayValue(punishment.source)}</p>
                         </div>
-                        <Badge variant={active ? 'destructive' : 'secondary'}>{active ? 'active' : 'expired'}</Badge>
+                        <Badge variant={itemStatus === 'active' || itemStatus === 'overdue' ? 'destructive' : 'secondary'}>{itemStatus}</Badge>
                     </div>
                     <dl class="mt-4 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs">
                         {#each entries(punishment) as [key, value] (key)}
                             <dt class="text-muted-foreground">{titleCase(key)}</dt>
-                            <dd class="break-all font-mono text-foreground/80">{displayValue(value)}</dd>
+                            <dd class="break-all font-mono text-foreground/80">{displayEntry(punishment, key, value)}</dd>
                         {/each}
                     </dl>
                 </Card>
@@ -146,6 +165,9 @@
                     {loadingMore ? 'Loading...' : 'Load more'}
                 </Button>
             </div>
+        {/if}
+        {#if loadMoreError}
+            <p class="mt-2 text-center text-sm text-destructive">{loadMoreError}</p>
         {/if}
     {/if}
 {/if}

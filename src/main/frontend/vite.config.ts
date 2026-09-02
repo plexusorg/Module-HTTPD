@@ -20,8 +20,7 @@ export default defineConfig({
                     groups: [
                         {
                             name: 'three-renderer',
-                            test: /node_modules[\\/]three[\\/]/,
-                            maxSize: 475 * 1024
+                            test: /node_modules[\\/]three[\\/]/
                         }
                     ]
                 }

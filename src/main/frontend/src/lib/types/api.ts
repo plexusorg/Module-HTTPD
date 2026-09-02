@@ -65,8 +65,8 @@ export interface PunishmentSummary {
     type: string;
     reason: string;
     active: boolean;
-    issueDate: string;
-    endDate?: string | null;
+    issueDate: number;
+    endDate: number | null;
 }
 
 export interface Schematic {

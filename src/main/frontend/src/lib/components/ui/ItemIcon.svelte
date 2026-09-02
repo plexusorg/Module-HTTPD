@@ -1,5 +1,4 @@
 <script lang="ts">
-    import {onMount} from 'svelte';
     import {titleCase} from '$lib/utils';
 
     interface Props {
@@ -11,12 +10,17 @@
     let url: string | null = $state(null);
     const normalized = $derived(type.toLowerCase());
 
-    onMount(() => {
+    $effect(() => {
+        const itemType = normalized;
         let alive = true;
+        url = null;
         import('$lib/rendering/itemRenderer')
-            .then(({renderItem}) => renderItem(normalized))
+            .then(({renderItem}) => renderItem(itemType))
             .then((next) => {
                 if (alive) url = next;
+            })
+            .catch(() => {
+                if (alive) url = null;
             });
         return () => {
             alive = false;

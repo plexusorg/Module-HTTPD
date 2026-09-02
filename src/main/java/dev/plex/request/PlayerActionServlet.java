@@ -7,6 +7,7 @@ import dev.plex.api.punishment.PunishmentSource;
 import dev.plex.api.punishment.PunishmentType;
 import dev.plex.authentication.AuthenticatedUser;
 import dev.plex.logging.Log;
+import jakarta.servlet.AsyncContext;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,10 +22,12 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 
 public class PlayerActionServlet extends HttpServlet
 {
-    private static final List<String> PERMANENT_ACTIONS = List.of("ban", "mute");
+    private static final List<String> STANDARD_ACTIONS = List.of("ban", "mute");
     private static final List<String> TEMP_ACTIONS = List.of("tempban", "tempmute", "freeze");
     private static final List<String> INVENTORY_ACTIONS = List.of("clear-inventory", "clear-selected");
     private final HTTPDModule module;
@@ -56,7 +59,7 @@ public class PlayerActionServlet extends HttpServlet
             response.getWriter().write(JsonResponse.error(response, HttpServletResponse.SC_BAD_REQUEST, "Missing parameters."));
             return;
         }
-        if (!PERMANENT_ACTIONS.contains(action) && !TEMP_ACTIONS.contains(action) && !INVENTORY_ACTIONS.contains(action))
+        if (!STANDARD_ACTIONS.contains(action) && !TEMP_ACTIONS.contains(action) && !INVENTORY_ACTIONS.contains(action))
         {
             response.getWriter().write(JsonResponse.error(response, HttpServletResponse.SC_BAD_REQUEST, "Unknown action."));
             return;
@@ -73,7 +76,18 @@ public class PlayerActionServlet extends HttpServlet
             return;
         }
 
-        PlexPlayerView target = module.api().players().player(uuid).join().orElse(null);
+        PlexPlayerView target;
+        try
+        {
+            target = module.api().players().player(uuid).copy().orTimeout(10, TimeUnit.SECONDS).join().orElse(null);
+        }
+        catch (CompletionException failure)
+        {
+            module.api().logging().error("Failed to look up player " + uuid + ": " + failure.getMessage());
+            response.getWriter().write(JsonResponse.error(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE,
+                "Player lookup failed."));
+            return;
+        }
         if (target == null)
         {
             response.getWriter().write(JsonResponse.error(response, HttpServletResponse.SC_NOT_FOUND, "Player not found."));
@@ -89,24 +103,38 @@ public class PlayerActionServlet extends HttpServlet
         String safeReason = (reason == null || reason.isBlank()) ? "No reason provided" : reason.trim();
         if (safeReason.length() > 500) safeReason = safeReason.substring(0, 500);
 
-        PunishmentType type = mapType(action);
-        boolean temporary = TEMP_ACTIONS.contains(action);
-        ZonedDateTime endDate = temporary
-            ? ZonedDateTime.now(ZoneId.systemDefault()).plusSeconds(parseDurationSeconds(durationStr))
-            : null;
+        PunishmentRequest punishment;
+        try
+        {
+            PunishmentType type = mapType(action);
+            boolean temporary = TEMP_ACTIONS.contains(action);
+            ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
+            ZonedDateTime endDate = switch (action)
+            {
+                case "ban" -> now.plusHours(24);
+                case "mute" -> now.plusSeconds(Math.max(1, module.api().configuration().mainConfig()
+                    .getInt("punishments.mute-timer", 300)));
+                default -> temporary ? now.plusSeconds(parseDurationSeconds(durationStr)) : null;
+            };
 
-        List<String> ips = target.ips();
-        String ip = ips == null || ips.isEmpty() ? "" : ips.getLast();
-        PunishmentRequest punishment = new PunishmentRequest(
-            uuid,
-            null,
-            PunishmentSource.WEB,
-            "xf:" + staff.userId() + ":" + staff.username(),
-            ip,
-            type,
-            safeReason,
-            endDate
-        );
+            List<String> ips = target.ips();
+            String ip = ips == null || ips.isEmpty() ? "" : ips.getLast();
+            punishment = new PunishmentRequest(
+                uuid,
+                null,
+                PunishmentSource.WEB,
+                "xf:" + staff.userId() + ":" + staff.username(),
+                ip,
+                type,
+                safeReason,
+                endDate
+            );
+        }
+        catch (IllegalArgumentException failure)
+        {
+            response.getWriter().write(JsonResponse.error(response, HttpServletResponse.SC_BAD_REQUEST, failure.getMessage()));
+            return;
+        }
 
         String ipAddress = request.getRemoteAddr();
         if ("127.0.0.1".equals(ipAddress))
@@ -114,28 +142,58 @@ public class PlayerActionServlet extends HttpServlet
             String forwarded = request.getHeader("X-FORWARDED-FOR");
             if (forwarded != null) ipAddress = forwarded;
         }
-        Log.log(ipAddress + " (xf:" + staff.username() + ") issued " + action + " on " + target.name() + " (" + uuid + ")");
-
         final boolean kick = action.equals("ban") || action.equals("tempban");
-        module.api().punishments().punish(punishment).whenComplete((ignored, failure) ->
+        AsyncContext async = request.startAsync();
+        async.setTimeout(15_000L);
+        String auditIp = ipAddress;
+        try
         {
-            if (failure != null)
-            {
-                module.api().logging().error("Failed to apply " + action + " to " + target.name() + ": " + failure.getMessage());
-                return;
-            }
-            if (!kick) return;
-            module.scheduler().runGlobal(() ->
-            {
-                Player online = Bukkit.getPlayer(uuid);
-                if (online != null)
+            module.api().punishments().punish(punishment).copy().orTimeout(10, TimeUnit.SECONDS)
+                .whenComplete((ignored, failure) ->
                 {
-                    module.scheduler().runEntity(online, () -> online.kick(Component.text("You have been banned: " + punishment.reason())));
-                }
-            });
-        });
+                    try
+                    {
+                        if (failure != null)
+                        {
+                            Throwable cause = failure instanceof CompletionException && failure.getCause() != null
+                                ? failure.getCause() : failure;
+                            module.api().logging().error("Failed to apply " + action + " to " + target.name() + ": " + cause.getMessage());
+                            response.getWriter().write(JsonResponse.error(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                                "Failed to apply punishment."));
+                            return;
+                        }
 
-        response.getWriter().write(JsonResponse.ok(response, "Action queued."));
+                        Log.log(auditIp + " (xf:" + staff.username() + ") issued " + action + " on " + target.name() + " (" + uuid + ")");
+                        if (kick)
+                        {
+                            module.scheduler().runGlobal(() ->
+                            {
+                                Player online = Bukkit.getPlayer(uuid);
+                                if (online != null)
+                                {
+                                    module.scheduler().runEntity(online, () -> online.kick(Component.text("You have been banned: " + punishment.reason())));
+                                }
+                            });
+                        }
+                        response.getWriter().write(JsonResponse.ok(response, "Action completed."));
+                    }
+                    catch (IOException writeFailure)
+                    {
+                        module.api().logging().error("Failed to write player-action response: " + writeFailure.getMessage());
+                    }
+                    finally
+                    {
+                        async.complete();
+                    }
+                });
+        }
+        catch (RuntimeException failure)
+        {
+            module.api().logging().error("Failed to apply " + action + " to " + target.name() + ": " + failure.getMessage());
+            response.getWriter().write(JsonResponse.error(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                "Failed to apply punishment."));
+            async.complete();
+        }
     }
 
     private void handleInventoryAction(HttpServletRequest request, HttpServletResponse response, AuthenticatedUser staff, UUID uuid, PlexPlayerView target, String action, String slot)
@@ -229,18 +287,18 @@ public class PlayerActionServlet extends HttpServlet
 
     private static long parseDurationSeconds(String s)
     {
-        if (s == null || s.length() < 2) return 24L * 3600L;
+        if (s == null || s.length() < 2) throw new IllegalArgumentException("Invalid duration.");
         char unit = s.charAt(s.length() - 1);
         long n;
         try { n = Long.parseLong(s.substring(0, s.length() - 1)); }
-        catch (NumberFormatException e) { return 24L * 3600L; }
-        if (n <= 0) return 24L * 3600L;
+        catch (NumberFormatException e) { throw new IllegalArgumentException("Invalid duration."); }
+        if (n <= 0) throw new IllegalArgumentException("Duration must be positive.");
         return switch (unit)
         {
             case 'm' -> Math.min(n, 60L * 24L * 365L) * 60L;
             case 'h' -> Math.min(n, 24L * 365L) * 3600L;
             case 'd' -> Math.min(n, 365L * 50L) * 86400L;
-            default -> 24L * 3600L;
+            default -> throw new IllegalArgumentException("Invalid duration unit.");
         };
     }
 }

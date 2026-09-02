@@ -79,6 +79,7 @@ public class HTTPDModule extends PlexModule
             api().logging().debug("Authentication is disabled or misconfigured");
         }
 
+        playerInventoryBroadcaster = new PlayerInventoryBroadcaster(this);
 
         serverThread = new Thread(() ->
         {
@@ -110,7 +111,6 @@ public class HTTPDModule extends PlexModule
 
             statsBroadcaster = new StatsBroadcaster(this);
             playersBroadcaster = new PlayersBroadcaster(this);
-            playerInventoryBroadcaster = new PlayerInventoryBroadcaster(this);
             statsBroadcaster.start();
             playersBroadcaster.start();
             playerInventoryBroadcaster.start();

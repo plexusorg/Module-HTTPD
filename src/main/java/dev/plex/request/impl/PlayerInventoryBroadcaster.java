@@ -71,13 +71,13 @@ public final class PlayerInventoryBroadcaster
     public PlayerInventoryBroadcaster(HTTPDModule module)
     {
         this.module = module;
+        nbtAvailable.set(loadNbtApi());
     }
 
     public synchronized void start()
     {
         if (executor != null) return;
 
-        nbtAvailable.set(loadNbtApi());
         maxConnections = module.getModuleConfig().getInt("server.sse.max-connections", 32);
         int threads = Math.max(1, module.getModuleConfig().getInt("server.sse.threads", 2));
 
@@ -93,16 +93,12 @@ public final class PlayerInventoryBroadcaster
 
     private boolean loadNbtApi()
     {
-        try
-        {
-            if (NBT.preloadApi()) return true;
-            module.api().logging().warn("NBT-API could not be initialized; inventory NBT viewing will not be available.");
-        }
-        catch (NoClassDefFoundError ignored)
+        if (!Bukkit.getPluginManager().isPluginEnabled("NBTAPI"))
         {
             module.api().logging().warn("NBT-API was not found; inventory NBT viewing will not be available.");
+            return false;
         }
-        return false;
+        return true;
     }
 
     public synchronized void shutdown()
@@ -481,10 +477,7 @@ public final class PlayerInventoryBroadcaster
             {
                 try
                 {
-                    String snbt = NBT.get(item, nbt ->
-                    {
-                        return nbt.toString();
-                    });
+                    String snbt = NBT.get(item, Object::toString);
                     if (snbt != null && !snbt.isEmpty() && !"{}".equals(snbt))
                     {
                         putLimited(m, "nbt", snbt, MAX_NBT_CHARS);

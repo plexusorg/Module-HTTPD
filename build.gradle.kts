@@ -40,7 +40,7 @@ dependencies {
     implementation("org.projectlombok:lombok:1.18.46")
     annotationProcessor("org.projectlombok:lombok:1.18.46")
     compileOnly("io.papermc.paper:paper-api:26.2.build.+")
-    implementation("dev.plex:api:2.0-SNAPSHOT")
+    compileOnly("dev.plex:api:2.0-SNAPSHOT")
     implementation("org.json:json:20260814")
     implementation("org.reflections:reflections:0.10.2")
     plexLibrary("org.eclipse.jetty:jetty-server:12.1.12")

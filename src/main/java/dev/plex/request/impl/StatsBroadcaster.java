@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -24,7 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Samples Bukkit/JMX/Runtime stats off the request thread and fans the
  * resulting JSON out to every connected SSE subscriber. One sampler tick on
  * the Minecraft main thread; assembly and writes happen on a dedicated
- * executor so slow clients can't stall the tick loop.
+ * executor so slow clients can't stall the global-region sampler.
  */
 public final class StatsBroadcaster
 {
@@ -34,7 +35,6 @@ public final class StatsBroadcaster
     private final Set<Subscriber> subscribers = ConcurrentHashMap.newKeySet();
     private final AtomicInteger subscriberCount = new AtomicInteger();
 
-    // Sampled on the Bukkit main thread.
     private volatile int cachedChunks;
     private volatile int cachedEntities;
     private volatile int cachedWorlds;
@@ -44,7 +44,6 @@ public final class StatsBroadcaster
     private volatile double[] cachedTps = new double[]{20d, 20d, 20d};
     private volatile String cachedVersion = "unknown";
 
-    // Epoch ms when the JVM started — derived once, used by the client to tick uptime locally.
     private final long serverStartTime =
         System.currentTimeMillis() - ManagementFactory.getRuntimeMXBean().getUptime();
 
@@ -75,15 +74,8 @@ public final class StatsBroadcaster
             return t;
         });
 
-        try
-        {
-            long sampleTicks = Math.max(20L, module.getModuleConfig().getLong("server.sse.stats-sample-interval-ticks", 100L));
-            bukkitTask = module.scheduler().runGlobalTimer(this::sampleBukkit, 1L, sampleTicks);
-        }
-        catch (Throwable t)
-        {
-            module.api().logging().debug("StatsBroadcaster: could not register Bukkit sampling task: " + t.getMessage());
-        }
+        long sampleTicks = Math.max(20L, module.getModuleConfig().getLong("server.sse.stats-sample-interval-ticks", 100L));
+        bukkitTask = module.scheduler().runGlobalTimer(this::sampleBukkit, 1L, sampleTicks);
 
         broadcastTask = executor.scheduleAtFixedRate(
             this::tick, broadcastIntervalMs, broadcastIntervalMs, TimeUnit.MILLISECONDS);
@@ -93,7 +85,7 @@ public final class StatsBroadcaster
     {
         if (bukkitTask != null)
         {
-            try { bukkitTask.cancel(); } catch (Throwable ignored) {}
+            bukkitTask.cancel();
             bukkitTask = null;
         }
         if (broadcastTask != null)
@@ -108,7 +100,7 @@ public final class StatsBroadcaster
         }
         for (Subscriber sub : subscribers)
         {
-            try { sub.ctx.complete(); } catch (Throwable ignored) {}
+            complete(sub.ctx);
         }
         subscribers.clear();
         subscriberCount.set(0);
@@ -127,7 +119,7 @@ public final class StatsBroadcaster
         {
             if (subscriberCount.get() == 1)
             {
-                try { module.scheduler().runGlobal(this::sampleBukkit); } catch (Throwable ignored) {}
+                module.scheduler().runGlobal(this::sampleBukkit);
             }
             return true;
         }
@@ -160,36 +152,21 @@ public final class StatsBroadcaster
     private void sampleBukkit()
     {
         if (subscribers.isEmpty()) return;
-        try
+        int chunks = 0;
+        int entities = 0;
+        for (World world : Bukkit.getWorlds())
         {
-            int chunks = 0;
-            int entities = 0;
-            for (World w : Bukkit.getWorlds())
-            {
-                try
-                {
-                    chunks += w.getChunkCount();
-                    entities += w.getEntityCount();
-                }
-                catch (Throwable ignored) {}
-            }
-            cachedChunks = chunks;
-            cachedEntities = entities;
-            cachedWorlds = Bukkit.getWorlds().size();
-            cachedOnlinePlayers = Bukkit.getOnlinePlayers().size();
-            cachedMaxPlayers = Bukkit.getMaxPlayers();
-            cachedPlugins = Bukkit.getPluginManager().getPlugins().length;
-            try { cachedTps = Bukkit.getTPS(); } catch (Throwable ignored) {}
-            try
-            {
-                cachedVersion = Bukkit.getMinecraftVersion();
-            }
-            catch (Throwable ignored)
-            {
-                try { cachedVersion = Bukkit.getBukkitVersion(); } catch (Throwable ignored2) {}
-            }
+            chunks += world.getChunkCount();
+            entities += world.getEntityCount();
         }
-        catch (Throwable ignored) {}
+        cachedChunks = chunks;
+        cachedEntities = entities;
+        cachedWorlds = Bukkit.getWorlds().size();
+        cachedOnlinePlayers = Bukkit.getOnlinePlayers().size();
+        cachedMaxPlayers = Bukkit.getMaxPlayers();
+        cachedPlugins = Bukkit.getPluginManager().getPlugins().length;
+        cachedTps = Bukkit.getTPS();
+        cachedVersion = Bukkit.getMinecraftVersion();
     }
 
     private void tick()
@@ -204,7 +181,7 @@ public final class StatsBroadcaster
             {
                 exec.execute(() -> writeFrame(sub, frame));
             }
-            catch (Throwable t)
+            catch (RejectedExecutionException ignored)
             {
                 dropSubscriber(sub);
             }
@@ -213,16 +190,9 @@ public final class StatsBroadcaster
 
     private void writeFrame(Subscriber sub, String frame)
     {
-        try
-        {
-            sub.writer.write(frame);
-            sub.writer.flush();
-            if (sub.writer.checkError())
-            {
-                dropSubscriber(sub);
-            }
-        }
-        catch (Throwable t)
+        sub.writer.write(frame);
+        sub.writer.flush();
+        if (sub.writer.checkError())
         {
             dropSubscriber(sub);
         }
@@ -234,7 +204,18 @@ public final class StatsBroadcaster
         {
             subscriberCount.decrementAndGet();
         }
-        try { sub.ctx.complete(); } catch (Throwable ignored) {}
+        complete(sub.ctx);
+    }
+
+    private static void complete(AsyncContext context)
+    {
+        try
+        {
+            context.complete();
+        }
+        catch (IllegalStateException ignored)
+        {
+        }
     }
 
     private boolean reserveConnection()

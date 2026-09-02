@@ -19,23 +19,16 @@ import java.util.Comparator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class MinecraftAssetsManager
 {
     private static final URI VERSION_MANIFEST = URI.create("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json");
-    private static final Pattern MINECRAFT_VERSION = Pattern.compile("\\d+\\.\\d+(?:\\.\\d+)?(?:-(?:pre|rc)\\d+)?");
-    private static final Pattern VERSION_STRING_MC = Pattern.compile("\\(MC: ([^)]+)\\)");
-
     private final Path root;
     private final Path versionFile;
     private final HttpClient client;
-    private final AtomicBoolean ready = new AtomicBoolean(false);
-    private final AtomicBoolean refreshStarted = new AtomicBoolean(false);
+    private volatile boolean ready;
     private final String minecraftVersion;
     private final PlexApi api;
     private final ExecutorService refreshExecutor = Executors.newSingleThreadExecutor(r ->
@@ -60,17 +53,12 @@ public class MinecraftAssetsManager
 
     public void refreshAsync()
     {
-        if (!refreshStarted.compareAndSet(false, true))
-        {
-            return;
-        }
-
         refreshFuture = refreshExecutor.submit(() ->
         {
             try
             {
                 refreshIfNeeded();
-                ready.set(true);
+                ready = true;
             }
             catch (InterruptedException ignored)
             {
@@ -78,8 +66,7 @@ public class MinecraftAssetsManager
             }
             catch (Exception e)
             {
-                api.logging().info("Unable to download Minecraft assets for HTTPD inventory view: " + e.getMessage());
-                e.printStackTrace();
+                api.logging().error("Unable to download Minecraft assets for HTTPD inventory view: {0}", e.getMessage());
             }
             finally
             {
@@ -97,7 +84,7 @@ public class MinecraftAssetsManager
 
     public Path resolve(String category, String relativePath)
     {
-        if (!ready.get())
+        if (!ready)
         {
             return null;
         }
@@ -233,39 +220,7 @@ public class MinecraftAssetsManager
 
     private static String detectMinecraftVersion()
     {
-        try
-        {
-            Object version = Bukkit.class.getMethod("getMinecraftVersion").invoke(null);
-            if (version instanceof String stringVersion && isMinecraftVersion(stringVersion))
-            {
-                return stringVersion;
-            }
-        }
-        catch (ReflectiveOperationException ignored)
-        {
-        }
-
-        Matcher versionMatcher = VERSION_STRING_MC.matcher(Bukkit.getVersion());
-        if (versionMatcher.find() && isMinecraftVersion(versionMatcher.group(1)))
-        {
-            return versionMatcher.group(1);
-        }
-
-        String bukkitVersion = Bukkit.getBukkitVersion();
-        int dash = bukkitVersion.indexOf('-');
-        String trimmed = dash == -1 ? bukkitVersion : bukkitVersion.substring(0, dash);
-        if (isMinecraftVersion(trimmed))
-        {
-            return trimmed;
-        }
-
-        throw new IllegalStateException("Could not determine Minecraft version from Bukkit version strings: getMinecraftVersion unavailable, getVersion='"
-                + Bukkit.getVersion() + "', getBukkitVersion='" + bukkitVersion + "'");
-    }
-
-    private static boolean isMinecraftVersion(String version)
-    {
-        return version != null && MINECRAFT_VERSION.matcher(version).matches();
+        return Bukkit.getMinecraftVersion();
     }
 
     private static void deleteDirectory(Path path) throws IOException

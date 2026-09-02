@@ -1,9 +1,7 @@
 package dev.plex.logging;
 
 import dev.plex.api.config.ModuleConfiguration;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.Bukkit;
+import dev.plex.api.logging.LoggingApi;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -31,8 +29,9 @@ public class Log
     private static long flushIntervalMillis = 1000L;
     private static long lastFlushMillis;
     private static long fileUnavailableUntilMillis;
+    private static LoggingApi logging;
 
-    public static synchronized void configure(ModuleConfiguration moduleConfig, File target)
+    public static synchronized void configure(ModuleConfiguration moduleConfig, File target, LoggingApi loggingApi)
     {
         consoleLoggingEnabled = () -> moduleConfig.getBoolean("server.logging.console", false);
         fileLoggingEnabled = () -> moduleConfig.getBoolean("server.logging.file", true);
@@ -41,6 +40,7 @@ public class Log
         retainedFiles = Math.max(1, moduleConfig.getInt("server.logging.retained-files", 5));
         flushIntervalMillis = Math.max(100L, moduleConfig.getLong("server.logging.flush-interval-ms", 1000L));
         fileUnavailableUntilMillis = 0L;
+        logging = loggingApi;
     }
 
     public static void log(String message, Object... strings)
@@ -49,7 +49,11 @@ public class Log
         writeFile(formatted);
         if (consoleLoggingEnabled.getAsBoolean())
         {
-            Bukkit.getConsoleSender().sendMessage(Component.text("[Plex HTTPD] ").color(NamedTextColor.DARK_AQUA).append(Component.text(formatted).color(NamedTextColor.GRAY)));
+            LoggingApi logger = logging;
+            if (logger != null)
+            {
+                logger.info("[HTTPD] {0}", formatted);
+            }
         }
     }
 
@@ -71,6 +75,7 @@ public class Log
         fileLoggingEnabled = () -> false;
         accessLogFile = null;
         fileUnavailableUntilMillis = 0L;
+        logging = null;
     }
 
     private static String format(String message, Object... strings)
@@ -144,7 +149,11 @@ public class Log
         writerTarget = null;
         writerBytes = 0L;
         fileUnavailableUntilMillis = System.currentTimeMillis() + 30_000L;
-        Bukkit.getLogger().warning("[Plex HTTPD] Failed to " + operation + "; pausing file logging for 30 seconds: " + error.getMessage());
+        LoggingApi logger = logging;
+        if (logger != null)
+        {
+            logger.warn("[HTTPD] Failed to {0}; pausing file logging for 30 seconds: {1}", operation, error.getMessage());
+        }
     }
 
     private static void rotate(File target) throws IOException

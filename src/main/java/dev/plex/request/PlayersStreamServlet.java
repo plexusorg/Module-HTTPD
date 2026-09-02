@@ -76,23 +76,15 @@ public class PlayersStreamServlet extends HttpServlet
             return;
         }
 
-        try
-        {
-            writer.write("retry: 5000\n\n");
-            writer.write("data: ");
-            writer.write(broadcaster.currentPayload(false));
-            writer.write("\n\n");
-            writer.flush();
-            if (writer.checkError())
-            {
-                broadcaster.removeSubscriber(ctx);
-                ctx.complete();
-            }
-        }
-        catch (Throwable t)
+        writer.write("retry: 5000\n\n");
+        writer.write("data: ");
+        writer.write(broadcaster.currentPayload(false));
+        writer.write("\n\n");
+        writer.flush();
+        if (writer.checkError())
         {
             broadcaster.removeSubscriber(ctx);
-            try { ctx.complete(); } catch (Throwable ignored) {}
+            ctx.complete();
         }
     }
 }

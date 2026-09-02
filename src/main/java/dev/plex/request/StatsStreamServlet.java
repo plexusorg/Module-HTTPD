@@ -46,7 +46,6 @@ public class StatsStreamServlet extends HttpServlet
         response.setCharacterEncoding("UTF-8");
         response.setHeader("Cache-Control", "no-cache, no-transform");
         response.setHeader("Connection", "keep-alive");
-        // Disable proxy buffering (nginx and friends) so frames reach the client promptly.
         response.setHeader("X-Accel-Buffering", "no");
 
         final AsyncContext ctx = request.startAsync();
@@ -72,30 +71,20 @@ public class StatsStreamServlet extends HttpServlet
 
         if (!broadcaster.addSubscriber(ctx, writer))
         {
-            // Lost the capacity race that the atCapacity check above tried to avoid.
             response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
             ctx.complete();
             return;
         }
 
-        try
-        {
-            // Hint to the browser: if the connection drops, wait this long before reconnecting.
-            writer.write("retry: 5000\n\n");
-            writer.write("data: ");
-            writer.write(broadcaster.currentPayload());
-            writer.write("\n\n");
-            writer.flush();
-            if (writer.checkError())
-            {
-                broadcaster.removeSubscriber(ctx);
-                ctx.complete();
-            }
-        }
-        catch (Throwable t)
+        writer.write("retry: 5000\n\n");
+        writer.write("data: ");
+        writer.write(broadcaster.currentPayload());
+        writer.write("\n\n");
+        writer.flush();
+        if (writer.checkError())
         {
             broadcaster.removeSubscriber(ctx);
-            try { ctx.complete(); } catch (Throwable ignored) {}
+            ctx.complete();
         }
     }
 }

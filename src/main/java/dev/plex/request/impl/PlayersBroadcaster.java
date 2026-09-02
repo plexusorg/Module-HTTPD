@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.atomic.AtomicReference;
@@ -75,35 +76,20 @@ public final class PlayersBroadcaster
         });
 
         listener = new PlayersListener();
-        try
-        {
-            module.registerListener(listener);
-        }
-        catch (Throwable t)
-        {
-            module.api().logging().debug("PlayersBroadcaster: could not register Bukkit listener: " + t.getMessage());
-        }
-
-        try
-        {
-            refreshTask = module.scheduler().runGlobalTimer(this::refreshAndBroadcast, 1L, REFRESH_TICKS);
-        }
-        catch (Throwable t)
-        {
-            module.api().logging().debug("PlayersBroadcaster: could not register refresh task: " + t.getMessage());
-        }
+        module.registerListener(listener);
+        refreshTask = module.scheduler().runGlobalTimer(this::refreshAndBroadcast, 1L, REFRESH_TICKS);
     }
 
     public synchronized void shutdown()
     {
         if (listener != null)
         {
-            try { module.unregisterListener(listener); } catch (Throwable ignored) {}
+            module.unregisterListener(listener);
             listener = null;
         }
         if (refreshTask != null)
         {
-            try { refreshTask.cancel(); } catch (Throwable ignored) {}
+            refreshTask.cancel();
             refreshTask = null;
         }
         if (executor != null)
@@ -113,7 +99,7 @@ public final class PlayersBroadcaster
         }
         for (Subscriber sub : subscribers)
         {
-            try { sub.ctx.complete(); } catch (Throwable ignored) {}
+            complete(sub.ctx);
         }
         subscribers.clear();
         subscriberCount.set(0);
@@ -163,59 +149,48 @@ public final class PlayersBroadcaster
             refreshPending.set(true);
             return;
         }
-        try
+        List<Player> online = new ArrayList<>(Bukkit.getOnlinePlayers());
+        int max = Bukkit.getMaxPlayers();
+        if (online.isEmpty())
         {
-            List<Player> online = new ArrayList<>(Bukkit.getOnlinePlayers());
-            int max = Bukkit.getMaxPlayers();
-            if (online.isEmpty())
-            {
-                publish(List.of(), List.of(), max);
-                finishRefresh();
-                return;
-            }
+            publish(List.of(), List.of(), max);
+            finishRefresh();
+            return;
+        }
 
-            AtomicReferenceArray<Map<String, Object>> publicPlayers = new AtomicReferenceArray<>(online.size());
-            AtomicReferenceArray<Map<String, Object>> staffPlayers = new AtomicReferenceArray<>(online.size());
-            AtomicInteger remaining = new AtomicInteger(online.size());
-            for (int i = 0; i < online.size(); i++)
+        AtomicReferenceArray<Map<String, Object>> publicPlayers = new AtomicReferenceArray<>(online.size());
+        AtomicReferenceArray<Map<String, Object>> staffPlayers = new AtomicReferenceArray<>(online.size());
+        AtomicInteger remaining = new AtomicInteger(online.size());
+        for (int i = 0; i < online.size(); i++)
+        {
+            final int index = i;
+            Player player = online.get(i);
+            boolean scheduled = module.scheduler().executeEntity(player, () ->
             {
-                final int index = i;
-                Player player = online.get(i);
                 try
                 {
-                    ScheduledTask task = module.scheduler().runEntity(player, () ->
-                    {
-                        try
-                        {
-                            publicPlayers.set(index, buildPublicPlayer(player));
-                            staffPlayers.set(index, buildStaffPlayer(player));
-                        }
-                        catch (Throwable ignored) {}
-                        finally
-                        {
-                            if (remaining.decrementAndGet() == 0)
-                            {
-                                publishAndFinish(publicPlayers, staffPlayers, max);
-                            }
-                        }
-                    });
-                    if (task == null && remaining.decrementAndGet() == 0)
-                    {
-                        publishAndFinish(publicPlayers, staffPlayers, max);
-                    }
+                    publicPlayers.set(index, buildPublicPlayer(player));
+                    staffPlayers.set(index, buildStaffPlayer(player));
                 }
-                catch (Throwable ignored)
+                finally
                 {
-                    if (remaining.decrementAndGet() == 0)
-                    {
-                        publishAndFinish(publicPlayers, staffPlayers, max);
-                    }
+                    finishPlayer(publicPlayers, staffPlayers, remaining, max);
                 }
+            }, () -> finishPlayer(publicPlayers, staffPlayers, remaining, max), 1L);
+            if (!scheduled)
+            {
+                finishPlayer(publicPlayers, staffPlayers, remaining, max);
             }
         }
-        catch (Throwable ignored)
+    }
+
+    private void finishPlayer(AtomicReferenceArray<Map<String, Object>> publicPlayers,
+                              AtomicReferenceArray<Map<String, Object>> staffPlayers,
+                              AtomicInteger remaining, int max)
+    {
+        if (remaining.decrementAndGet() == 0)
         {
-            finishRefresh();
+            publishAndFinish(publicPlayers, staffPlayers, max);
         }
     }
 
@@ -284,7 +259,7 @@ public final class PlayersBroadcaster
         {
             exec.execute(() -> drainFrames(sub));
         }
-        catch (Throwable t)
+        catch (RejectedExecutionException ignored)
         {
             sub.writing.set(false);
             dropSubscriber(sub);
@@ -308,10 +283,6 @@ public final class PlayersBroadcaster
                 }
             }
         }
-        catch (Throwable t)
-        {
-            dropSubscriber(sub);
-        }
         finally
         {
             sub.writing.set(false);
@@ -327,7 +298,7 @@ public final class PlayersBroadcaster
     {
         sub.pendingFrame.set(null);
         if (subscribers.remove(sub)) subscriberCount.decrementAndGet();
-        try { sub.ctx.complete(); } catch (Throwable ignored) {}
+        complete(sub.ctx);
     }
 
     private boolean reserveConnection()
@@ -348,18 +319,11 @@ public final class PlayersBroadcaster
     private void scheduleRefresh()
     {
         if (!refreshScheduled.compareAndSet(false, true)) return;
-        try
-        {
-            module.scheduler().runGlobalLater(() ->
-            {
-                refreshScheduled.set(false);
-                refreshAndBroadcast();
-            }, 1L);
-        }
-        catch (Throwable t)
+        module.scheduler().runGlobalLater(() ->
         {
             refreshScheduled.set(false);
-        }
+            refreshAndBroadcast();
+        }, 1L);
     }
 
     private String buildPayload(List<Map<String, Object>> players, int max)
@@ -375,21 +339,28 @@ public final class PlayersBroadcaster
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("uuid", p.getUniqueId().toString());
         m.put("name", p.getName());
-        try { m.put("world", p.getWorld() != null ? p.getWorld().getName() : ""); }
-        catch (Throwable ignored) { m.put("world", ""); }
-        int ping = 0;
-        try { ping = p.getPing(); } catch (Throwable ignored) {}
-        m.put("ping", ping);
+        m.put("world", p.getWorld().getName());
+        m.put("ping", p.getPing());
         return m;
     }
 
     private Map<String, Object> buildStaffPlayer(Player p)
     {
         Map<String, Object> m = buildPublicPlayer(p);
-        try { m.put("op", p.isOp()); } catch (Throwable ignored) { m.put("op", false); }
-        try { m.put("gamemode", p.getGameMode().name()); }
-        catch (Throwable ignored) { m.put("gamemode", ""); }
+        m.put("op", p.isOp());
+        m.put("gamemode", p.getGameMode().name());
         return m;
+    }
+
+    private static void complete(AsyncContext context)
+    {
+        try
+        {
+            context.complete();
+        }
+        catch (IllegalStateException ignored)
+        {
+        }
     }
 
     private final class PlayersListener implements Listener

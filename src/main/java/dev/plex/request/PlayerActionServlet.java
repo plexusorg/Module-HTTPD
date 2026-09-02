@@ -15,7 +15,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.PlayerInventory;
-import net.kyori.adventure.text.Component;
 
 import java.io.IOException;
 import java.time.ZoneId;
@@ -79,7 +78,7 @@ public class PlayerActionServlet extends HttpServlet
         PlexPlayerView target;
         try
         {
-            target = module.api().players().player(uuid).copy().orTimeout(10, TimeUnit.SECONDS).join().orElse(null);
+            target = module.api().players().player(uuid).orTimeout(10, TimeUnit.SECONDS).join().orElse(null);
         }
         catch (CompletionException failure)
         {
@@ -111,14 +110,14 @@ public class PlayerActionServlet extends HttpServlet
             ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
             ZonedDateTime endDate = switch (action)
             {
-                case "ban" -> now.plusHours(24);
+                case "ban" -> now.plus(PunishmentType.STANDARD_BAN_DURATION);
                 case "mute" -> now.plusSeconds(Math.max(1, module.api().configuration().mainConfig()
                     .getInt("punishments.mute-timer", 300)));
                 default -> temporary ? now.plusSeconds(parseDurationSeconds(durationStr)) : null;
             };
 
             List<String> ips = target.ips();
-            String ip = ips == null || ips.isEmpty() ? "" : ips.getLast();
+            String ip = ips.isEmpty() ? "" : ips.getLast();
             punishment = new PunishmentRequest(
                 uuid,
                 null,
@@ -142,13 +141,12 @@ public class PlayerActionServlet extends HttpServlet
             String forwarded = request.getHeader("X-FORWARDED-FOR");
             if (forwarded != null) ipAddress = forwarded;
         }
-        final boolean kick = action.equals("ban") || action.equals("tempban");
         AsyncContext async = request.startAsync();
         async.setTimeout(15_000L);
         String auditIp = ipAddress;
         try
         {
-            module.api().punishments().punish(punishment).copy().orTimeout(10, TimeUnit.SECONDS)
+            module.api().punishments().punish(punishment).orTimeout(10, TimeUnit.SECONDS)
                 .whenComplete((ignored, failure) ->
                 {
                     try
@@ -164,17 +162,6 @@ public class PlayerActionServlet extends HttpServlet
                         }
 
                         Log.log(auditIp + " (xf:" + staff.username() + ") issued " + action + " on " + target.name() + " (" + uuid + ")");
-                        if (kick)
-                        {
-                            module.scheduler().runGlobal(() ->
-                            {
-                                Player online = Bukkit.getPlayer(uuid);
-                                if (online != null)
-                                {
-                                    module.scheduler().runEntity(online, () -> online.kick(Component.text("You have been banned: " + punishment.reason())));
-                                }
-                            });
-                        }
                         response.getWriter().write(JsonResponse.ok(response, "Action completed."));
                     }
                     catch (IOException writeFailure)
@@ -208,10 +195,9 @@ public class PlayerActionServlet extends HttpServlet
 
         Log.log(ipAddress + " (xf:" + staff.username() + ") issued " + action + " on " + target.name() + " (" + uuid + ")" + (slot == null || slot.isBlank() ? "" : " slot " + slot));
 
-        module.scheduler().runGlobal(() ->
+        Player online = Bukkit.getPlayer(uuid);
+        if (online != null)
         {
-            Player online = Bukkit.getPlayer(uuid);
-            if (online == null) return;
             module.scheduler().runEntity(online, () ->
             {
                 PlayerInventory inv = online.getInventory();
@@ -229,7 +215,7 @@ public class PlayerActionServlet extends HttpServlet
                     online.updateInventory();
                 }
             });
-        });
+        }
 
         response.getWriter().write(JsonResponse.ok(response, "Inventory action queued."));
     }

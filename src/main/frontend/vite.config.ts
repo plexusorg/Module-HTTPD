@@ -13,18 +13,6 @@ export default defineConfig({
     },
     build: {
         outDir: '../../../build/generated/frontend-resources/httpd/app',
-        emptyOutDir: true,
-        rolldownOptions: {
-            output: {
-                codeSplitting: {
-                    groups: [
-                        {
-                            name: 'three-renderer',
-                            test: /node_modules[\\/]three[\\/]/
-                        }
-                    ]
-                }
-            }
-        }
+        emptyOutDir: true
     }
 });

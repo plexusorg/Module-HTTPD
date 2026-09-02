@@ -18,11 +18,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 
 public class PunishmentsEndpoint extends AbstractServlet
 {
     private static final int DEFAULT_PAGE_SIZE = 50;
     private static final int MAX_PAGE_SIZE = 100;
+    private static final int LOOKUP_TIMEOUT_SECONDS = 10;
 
     public PunishmentsEndpoint(HTTPDModule module)
     {
@@ -41,12 +44,12 @@ public class PunishmentsEndpoint extends AbstractServlet
         PlexPlayerView punishedPlayer;
         try
         {
-            UUID pathUUID = UUID.fromString(request.getPathInfo().replace("/", ""));
-            punishedPlayer = module.api().players().player(pathUUID).join().orElse(null);
+            punishedPlayer = lookupPlayer(request.getPathInfo().replace("/", ""));
         }
-        catch (IllegalArgumentException ignored)
+        catch (CompletionException failure)
         {
-            punishedPlayer = module.api().players().byName(request.getPathInfo().replace("/", "")).join().orElse(null);
+            module.api().logging().error("Failed to look up punishments target: " + failure.getMessage());
+            return JsonResponse.error(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE, "Player storage is temporarily unavailable.");
         }
 
         if (punishedPlayer == null)
@@ -94,6 +97,19 @@ public class PunishmentsEndpoint extends AbstractServlet
             "total", total,
             "hasMore", to < total));
         return JsonResponse.json(response, body);
+    }
+
+    private PlexPlayerView lookupPlayer(String query)
+    {
+        try
+        {
+            UUID uuid = UUID.fromString(query);
+            return module.api().players().player(uuid).orTimeout(LOOKUP_TIMEOUT_SECONDS, TimeUnit.SECONDS).join().orElse(null);
+        }
+        catch (IllegalArgumentException ignored)
+        {
+            return module.api().players().byName(query).orTimeout(LOOKUP_TIMEOUT_SECONDS, TimeUnit.SECONDS).join().orElse(null);
+        }
     }
 
     private static int nonNegativeInt(String value, int fallback)

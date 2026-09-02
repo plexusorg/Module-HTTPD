@@ -1,17 +1,22 @@
-import {BufferGeometry} from 'three/src/core/BufferGeometry.js';
-import {Float32BufferAttribute} from 'three/src/core/BufferAttribute.js';
-import {ClampToEdgeWrapping, DoubleSide, FrontSide, NearestFilter, SRGBColorSpace} from 'three/src/constants.js';
-import {Color} from 'three/src/math/Color.js';
-import * as MathUtils from 'three/src/math/MathUtils.js';
-import {Group} from 'three/src/objects/Group.js';
-import {Mesh} from 'three/src/objects/Mesh.js';
-import {MeshBasicMaterial} from 'three/src/materials/MeshBasicMaterial.js';
-import {OrthographicCamera} from 'three/src/cameras/OrthographicCamera.js';
-import {Scene} from 'three/src/scenes/Scene.js';
-import {TextureLoader} from 'three/src/loaders/TextureLoader.js';
-import {WebGLRenderer} from 'three/src/renderers/WebGLRenderer.js';
-import type {Material} from 'three/src/materials/Material.js';
-import type {Texture} from 'three/src/textures/Texture.js';
+import {
+    BufferGeometry,
+    ClampToEdgeWrapping,
+    Color,
+    DoubleSide,
+    Float32BufferAttribute,
+    FrontSide,
+    Group,
+    MathUtils,
+    Mesh,
+    MeshBasicMaterial,
+    NearestFilter,
+    OrthographicCamera,
+    Scene,
+    SRGBColorSpace,
+    TextureLoader,
+    WebGLRenderer
+} from 'three';
+import type {Material, Texture} from 'three';
 
 const RENDER_SIZE = 96;
 const FACE_BRIGHTNESS: Record<string, number> = {up: 1.0, down: 0.5, north: 0.8, south: 0.8, east: 0.6, west: 0.6};

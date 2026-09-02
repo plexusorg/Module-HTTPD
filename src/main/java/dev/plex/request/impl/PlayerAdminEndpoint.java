@@ -19,10 +19,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 
 public class PlayerAdminEndpoint extends AbstractServlet
 {
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z");
+    private static final int LOOKUP_TIMEOUT_SECONDS = 10;
 
     public PlayerAdminEndpoint(HTTPDModule module)
     {
@@ -46,7 +49,16 @@ public class PlayerAdminEndpoint extends AbstractServlet
             return JsonResponse.error(response, HttpServletResponse.SC_BAD_REQUEST, "No player specified.");
         }
 
-        PlexPlayerView player = lookupPlayer(query);
+        PlexPlayerView player;
+        try
+        {
+            player = lookupPlayer(query);
+        }
+        catch (CompletionException failure)
+        {
+            module.api().logging().error("Failed to look up player admin target: " + failure.getMessage());
+            return JsonResponse.error(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE, "Player storage is temporarily unavailable.");
+        }
         if (player == null)
         {
             return JsonResponse.error(response, HttpServletResponse.SC_NOT_FOUND, "No player found matching " + query + ".");
@@ -67,33 +79,26 @@ public class PlayerAdminEndpoint extends AbstractServlet
     {
         try
         {
-            return module.api().players().player(UUID.fromString(query)).join().orElse(null);
+            return module.api().players().player(UUID.fromString(query)).orTimeout(LOOKUP_TIMEOUT_SECONDS, TimeUnit.SECONDS).join().orElse(null);
         }
         catch (IllegalArgumentException ignored)
         {
-            return module.api().players().byName(query).join().orElse(null);
+            return module.api().players().byName(query).orTimeout(LOOKUP_TIMEOUT_SECONDS, TimeUnit.SECONDS).join().orElse(null);
         }
     }
 
     private static String lastIp(PlexPlayerView player)
     {
         List<String> ips = player.ips();
-        if (ips == null || ips.isEmpty()) return null;
+        if (ips.isEmpty()) return null;
         return ips.getLast();
     }
 
     private static String firstPlayed(UUID uuid)
     {
-        try
-        {
-            long ms = Bukkit.getOfflinePlayer(uuid).getFirstPlayed();
-            if (ms <= 0) return null;
-            ZonedDateTime when = ZonedDateTime.ofInstant(Instant.ofEpochMilli(ms), ZoneId.systemDefault());
-            return DATE_FMT.format(when);
-        }
-        catch (Throwable t)
-        {
-            return null;
-        }
+        long ms = Bukkit.getOfflinePlayer(uuid).getFirstPlayed();
+        if (ms <= 0) return null;
+        ZonedDateTime when = ZonedDateTime.ofInstant(Instant.ofEpochMilli(ms), ZoneId.systemDefault());
+        return DATE_FMT.format(when);
     }
 }

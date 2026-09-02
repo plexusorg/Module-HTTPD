@@ -26,14 +26,13 @@ import org.eclipse.jetty.util.thread.QueuedThreadPool;
 
 import java.io.File;
 import java.util.EnumSet;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class HTTPDModule extends PlexModule
 {
     @Getter
     private ServletContextHandler context;
     private Thread serverThread;
-    private final AtomicReference<Server> atomicServer = new AtomicReference<>();
+    private volatile Server server;
 
     @Getter
     private ModuleConfiguration moduleConfig;
@@ -69,7 +68,7 @@ public class HTTPDModule extends PlexModule
         api().logging().debug("HTTPD Module Port: {0}", moduleConfig.getInt("server.port"));
 
         accessLogFile = new File(getDataFolder(), moduleConfig.getString("server.logging.file-path", "httpd.log"));
-        Log.configure(moduleConfig, accessLogFile);
+        Log.configure(moduleConfig, accessLogFile, api().logging());
 
         minecraftAssetsManager = new MinecraftAssetsManager(getDataFolder().toPath(), api());
         minecraftAssetsManager.refreshAsync();
@@ -150,7 +149,7 @@ public class HTTPDModule extends PlexModule
             server.addBean(connectionLimit);
             server.setHandler(context);
 
-            atomicServer.set(server);
+            this.server = server;
             try
             {
                 server.start();
@@ -158,11 +157,11 @@ public class HTTPDModule extends PlexModule
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                getLogger().error("HTTP server stopped unexpectedly", e);
             }
             finally
             {
-                atomicServer.compareAndSet(server, null);
+                this.server = null;
             }
         }, "Jetty-Server");
         serverThread.start();
@@ -177,42 +176,22 @@ public class HTTPDModule extends PlexModule
         {
             minecraftAssetsManager.shutdown();
         }
-        try
+        if (statsBroadcaster != null)
         {
-            if (statsBroadcaster != null)
-            {
-                statsBroadcaster.shutdown();
-            }
+            statsBroadcaster.shutdown();
         }
-        catch (Throwable t)
+        if (playersBroadcaster != null)
         {
-            t.printStackTrace();
+            playersBroadcaster.shutdown();
         }
-        try
+        if (playerInventoryBroadcaster != null)
         {
-            if (playersBroadcaster != null)
-            {
-                playersBroadcaster.shutdown();
-            }
-        }
-        catch (Throwable t)
-        {
-            t.printStackTrace();
+            playerInventoryBroadcaster.shutdown();
         }
         try
         {
-            if (playerInventoryBroadcaster != null)
-            {
-                playerInventoryBroadcaster.shutdown();
-            }
-        }
-        catch (Throwable t)
-        {
-            t.printStackTrace();
-        }
-        try
-        {
-            Server server = atomicServer.getAndSet(null);
+            Server server = this.server;
+            this.server = null;
             if (server != null)
             {
                 server.stop();
@@ -221,7 +200,7 @@ public class HTTPDModule extends PlexModule
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            getLogger().error("Failed to stop HTTP server", e);
         }
         Thread thread = serverThread;
         if (thread != null && thread != Thread.currentThread())

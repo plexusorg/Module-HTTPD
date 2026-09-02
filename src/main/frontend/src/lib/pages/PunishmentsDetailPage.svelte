@@ -36,7 +36,7 @@
     });
 
     function punishmentStatus(item: PunishmentSummary) {
-        if (item.active && item.endDate !== null && item.endDate <= Date.now()) return 'overdue';
+        if (item.type === 'KICK' || item.type === 'SMITE') return 'completed';
         if (item.active) return 'active';
         if (item.endDate !== null && item.endDate <= Date.now()) return 'expired';
         return 'revoked';
@@ -128,7 +128,7 @@
                     onclick={() => (type = item)}>{titleCase(item)}</Button>
         {/each}
         <span class="mx-1 h-4 w-px bg-border"></span>
-        {#each ['all', 'active', 'overdue', 'expired', 'revoked'] as item (item)}
+        {#each ['all', 'active', 'expired', 'revoked', 'completed'] as item (item)}
             <Button size="sm" variant={status === item ? 'default' : 'outline'}
                     onclick={() => (status = item)}>{titleCase(item === 'all' ? 'any' : item)}</Button>
         {/each}
@@ -148,7 +148,7 @@
                             <p class="mt-1 text-sm text-muted-foreground">{displayValue(punishment.reason)}</p>
                             <p class="mt-1 text-xs text-muted-foreground">{displayValue(punishment.punisherDisplayName)} · {displayValue(punishment.source)}</p>
                         </div>
-                        <Badge variant={itemStatus === 'active' || itemStatus === 'overdue' ? 'destructive' : 'secondary'}>{itemStatus}</Badge>
+                        <Badge variant={itemStatus === 'active' ? 'destructive' : 'secondary'}>{itemStatus}</Badge>
                     </div>
                     <dl class="mt-4 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs">
                         {#each entries(punishment) as [key, value] (key)}

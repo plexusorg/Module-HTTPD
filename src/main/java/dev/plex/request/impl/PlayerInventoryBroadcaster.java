@@ -24,6 +24,7 @@ import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -41,7 +42,7 @@ import org.bukkit.persistence.PersistentDataContainer;
 
 /**
  * Streams a single player's live inventory + armor + offhand to staff SSE
- * subscribers. Samples on the Bukkit main thread once per second; only
+     * subscribers. Samples on each player's entity scheduler once per second; only
  * touches UUIDs that have at least one subscriber so it stays free when
  * nobody is watching anyone.
  */
@@ -85,30 +86,15 @@ public final class PlayerInventoryBroadcaster
             return t;
         });
 
-        try
-        {
-            refreshTask = module.scheduler().runGlobalTimer(this::tick, 1L, REFRESH_TICKS);
-        }
-        catch (Throwable t)
-        {
-            module.api().logging().debug("PlayerInventoryBroadcaster: could not register refresh task: " + t.getMessage());
-        }
-
-        try
-        {
-            NBT.preloadApi();
-        }
-        catch (Throwable t)
-        {
-            module.api().logging().debug("PlayerInventoryBroadcaster: NBT-API preload failed: " + t.getMessage());
-        }
+        refreshTask = module.scheduler().runGlobalTimer(this::tick, 1L, REFRESH_TICKS);
+        NBT.preloadApi();
     }
 
     public synchronized void shutdown()
     {
         if (refreshTask != null)
         {
-            try { refreshTask.cancel(); } catch (Throwable ignored) {}
+            refreshTask.cancel();
             refreshTask = null;
         }
         if (executor != null)
@@ -120,7 +106,7 @@ public final class PlayerInventoryBroadcaster
         {
             for (Subscriber sub : set)
             {
-                try { sub.ctx.complete(); } catch (Throwable ignored) {}
+                complete(sub.ctx);
             }
         }
         subscribers.clear();
@@ -187,35 +173,22 @@ public final class PlayerInventoryBroadcaster
                 publish(uuid, set, "{\"online\":false}");
                 continue;
             }
-            try
+            boolean scheduled = module.scheduler().executeEntity(player, () ->
             {
-                ScheduledTask task = module.scheduler().runEntity(player, () ->
+                try
                 {
-                    String json;
-                    try
-                    {
-                        json = buildPayload(player);
-                    }
-                    catch (Throwable t)
-                    {
-                        json = "{\"online\":false}";
-                    }
-                    try
-                    {
-                        publish(uuid, set, json);
-                    }
-                    finally
-                    {
-                        snapshotsInProgress.remove(uuid, snapshot);
-                    }
-                });
-                if (task == null)
+                    publish(uuid, set, buildPayload(player));
+                }
+                finally
                 {
                     snapshotsInProgress.remove(uuid, snapshot);
-                    publish(uuid, set, "{\"online\":false}");
                 }
-            }
-            catch (Throwable t)
+            }, () ->
+            {
+                snapshotsInProgress.remove(uuid, snapshot);
+                publish(uuid, set, "{\"online\":false}");
+            }, 1L);
+            if (!scheduled)
             {
                 snapshotsInProgress.remove(uuid, snapshot);
                 publish(uuid, set, "{\"online\":false}");
@@ -252,7 +225,7 @@ public final class PlayerInventoryBroadcaster
         {
             exec.execute(() -> drainFrames(uuid, sub, exec));
         }
-        catch (Throwable t)
+        catch (RejectedExecutionException ignored)
         {
             sub.writing.set(false);
             drop(uuid, sub);
@@ -277,10 +250,6 @@ public final class PlayerInventoryBroadcaster
                 }
             }
         }
-        catch (Throwable t)
-        {
-            drop(uuid, sub);
-        }
         finally
         {
             sub.writing.set(false);
@@ -300,7 +269,7 @@ public final class PlayerInventoryBroadcaster
             subscriberCount.decrementAndGet();
             removeEmptySet(uuid, set);
         }
-        try { sub.ctx.complete(); } catch (Throwable ignored) {}
+        complete(sub.ctx);
     }
 
     private boolean reserveConnection()
@@ -419,101 +388,78 @@ public final class PlayerInventoryBroadcaster
         m.put("type", type);
         m.put("amount", item.getAmount());
 
-        try
+        short maxDur = item.getType().getMaxDurability();
+        if (maxDur > 0)
         {
-            short maxDur = item.getType().getMaxDurability();
-            if (maxDur > 0)
+            m.put("maxDamage", (int) maxDur);
+            if (item.hasItemMeta() && item.getItemMeta() instanceof Damageable d)
             {
-                m.put("maxDamage", (int) maxDur);
-                if (item.hasItemMeta() && item.getItemMeta() instanceof Damageable d)
-                {
-                    m.put("damage", d.getDamage());
-                }
+                m.put("damage", d.getDamage());
             }
         }
-        catch (Throwable ignored) {}
 
         if (item.hasItemMeta())
         {
             ItemMeta meta = item.getItemMeta();
-            try
+            Component name = meta.displayName();
+            if (name != null) putLimited(m, "name", name, MAX_NAME_CHARS);
+
+            List<Component> lore = meta.lore();
+            if (lore != null && !lore.isEmpty())
             {
-                Component name = meta.displayName();
-                if (name != null) putLimited(m, "name", name, MAX_NAME_CHARS);
-            }
-            catch (Throwable ignored) {}
-            try
-            {
-                List<Component> lore = meta.lore();
-                if (lore != null && !lore.isEmpty())
+                int count = Math.min(lore.size(), MAX_LORE_LINES);
+                List<String> out = new ArrayList<>(count);
+                boolean truncated = lore.size() > MAX_LORE_LINES;
+                for (int i = 0; i < count; i++)
                 {
-                    int count = Math.min(lore.size(), MAX_LORE_LINES);
-                    List<String> out = new ArrayList<>(count);
-                    boolean truncated = lore.size() > MAX_LORE_LINES;
-                    for (int i = 0; i < count; i++)
-                    {
-                        LimitedText line = limitedPlainText(lore.get(i), MAX_LORE_LINE_CHARS);
-                        if (line.truncated()) truncated = true;
-                        out.add(line.truncated()
-                            ? line.text() + "… [Truncated " + (line.totalChars() - MAX_LORE_LINE_CHARS) + " characters]"
-                            : line.text());
-                    }
-                    m.put("lore", out);
-                    if (truncated) m.put("loreTruncated", true);
+                    LimitedText line = limitedPlainText(lore.get(i), MAX_LORE_LINE_CHARS);
+                    if (line.truncated()) truncated = true;
+                    out.add(line.truncated()
+                        ? line.text() + "… [Truncated " + (line.totalChars() - MAX_LORE_LINE_CHARS) + " characters]"
+                        : line.text());
                 }
+                m.put("lore", out);
+                if (truncated) m.put("loreTruncated", true);
             }
-            catch (Throwable ignored) {}
-            try
+
+            Map<Enchantment, Integer> enchants = meta.getEnchants();
+            if (!enchants.isEmpty())
             {
-                Map<Enchantment, Integer> enchants = meta.getEnchants();
-                if (enchants != null && !enchants.isEmpty())
+                Map<String, Integer> out = new LinkedHashMap<>();
+                for (Map.Entry<Enchantment, Integer> e : enchants.entrySet())
                 {
-                    Map<String, Integer> out = new LinkedHashMap<>();
-                    for (Map.Entry<Enchantment, Integer> e : enchants.entrySet())
-                    {
-                        out.put(e.getKey().getKey().getKey(), e.getValue());
-                    }
-                    m.put("enchants", out);
+                    out.put(e.getKey().getKey().getKey(), e.getValue());
                 }
+                m.put("enchants", out);
             }
-            catch (Throwable ignored) {}
-            try
+
+            if (meta.isUnbreakable()) m.put("unbreakable", true);
+
+            Set<ItemFlag> flags = meta.getItemFlags();
+            if (!flags.isEmpty())
             {
-                if (meta.isUnbreakable()) m.put("unbreakable", true);
+                List<String> out = new ArrayList<>(flags.size());
+                for (ItemFlag f : flags) out.add(f.name());
+                m.put("flags", out);
             }
-            catch (Throwable ignored) {}
-            try
+
+            PersistentDataContainer pdc = meta.getPersistentDataContainer();
+            Set<NamespacedKey> keys = pdc.getKeys();
+            if (!keys.isEmpty())
             {
-                Set<ItemFlag> flags = meta.getItemFlags();
-                if (flags != null && !flags.isEmpty())
+                Set<String> out = new TreeSet<>();
+                boolean truncated = keys.size() > MAX_PDC_KEYS;
+                int count = 0;
+                for (NamespacedKey k : keys)
                 {
-                    List<String> out = new ArrayList<>(flags.size());
-                    for (ItemFlag f : flags) out.add(f.name());
-                    m.put("flags", out);
+                    if (count++ >= MAX_PDC_KEYS) break;
+                    String key = k.toString();
+                    if (key.length() > MAX_PDC_KEY_CHARS) truncated = true;
+                    out.add(limit(key, MAX_PDC_KEY_CHARS));
                 }
+                m.put("pdcKeys", out);
+                if (truncated) m.put("pdcKeysTruncated", true);
             }
-            catch (Throwable ignored) {}
-            try
-            {
-                PersistentDataContainer pdc = meta.getPersistentDataContainer();
-                Set<NamespacedKey> keys = pdc.getKeys();
-                if (!keys.isEmpty())
-                {
-                    Set<String> out = new TreeSet<>();
-                    boolean truncated = keys.size() > MAX_PDC_KEYS;
-                    int count = 0;
-                    for (NamespacedKey k : keys)
-                    {
-                        if (count++ >= MAX_PDC_KEYS) break;
-                        String key = k.toString();
-                        if (key.length() > MAX_PDC_KEY_CHARS) truncated = true;
-                        out.add(limit(key, MAX_PDC_KEY_CHARS));
-                    }
-                    m.put("pdcKeys", out);
-                    if (truncated) m.put("pdcKeysTruncated", true);
-                }
-            }
-            catch (Throwable ignored) {}
 
             try
             {
@@ -526,9 +472,22 @@ public final class PlayerInventoryBroadcaster
                     putLimited(m, "nbt", snbt, MAX_NBT_CHARS);
                 }
             }
-            catch (Throwable ignored) {}
+            catch (RuntimeException ignored)
+            {
+            }
         }
         return m;
+    }
+
+    private static void complete(AsyncContext context)
+    {
+        try
+        {
+            context.complete();
+        }
+        catch (IllegalStateException ignored)
+        {
+        }
     }
 
     private record LimitedText(String text, int totalChars, boolean truncated) {}

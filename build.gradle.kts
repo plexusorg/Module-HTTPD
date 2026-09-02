@@ -46,7 +46,7 @@ dependencies {
     plexLibrary("org.eclipse.jetty:jetty-server:12.1.12")
     plexLibrary("org.eclipse.jetty.ee10:jetty-ee10-servlet:12.1.12")
     plexLibrary("org.eclipse.jetty:jetty-proxy:12.1.12")
-    compileOnly("de.tr7zw:item-nbt-api:2.16.0")
+    compileOnly("de.tr7zw:item-nbt-api-plugin:2.16.0")
     implementation(platform("com.intellectualsites.bom:bom-newest:1.56")) // Ref: https://github.com/IntellectualSites/bom
     compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Core:2.15.3")
 }

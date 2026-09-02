@@ -2,7 +2,7 @@ package dev.plex.request.impl;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import de.tr7zw.changeme.nbtapi.NBT;
+import de.tr7zw.nbtapi.NBT;
 import dev.plex.HTTPDModule;
 import jakarta.servlet.AsyncContext;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;

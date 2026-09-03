@@ -2,7 +2,6 @@ package dev.plex.request.impl;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import de.tr7zw.nbtapi.NBT;
 import dev.plex.HTTPDModule;
 import jakarta.servlet.AsyncContext;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
@@ -14,6 +13,8 @@ import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -23,8 +24,10 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 
+import net.kyori.adventure.nbt.BinaryTagIO;
+import net.kyori.adventure.nbt.CompoundBinaryTag;
+import net.kyori.adventure.nbt.TagStringIO;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.KeybindComponent;
 import net.kyori.adventure.text.ScoreComponent;
@@ -55,15 +58,12 @@ public final class PlayerInventoryBroadcaster
     private final HTTPDModule module;
     private final Map<UUID, String> cachedPayloads = new ConcurrentHashMap<>();
     private final Map<UUID, Object> snapshotsInProgress = new ConcurrentHashMap<>();
-    private final AtomicBoolean nbtAvailable = new AtomicBoolean();
-
     private SseTransport<UUID, Void> transport;
     private ScheduledTask refreshTask;
 
     public PlayerInventoryBroadcaster(HTTPDModule module)
     {
         this.module = module;
-        nbtAvailable.set(loadNbtApi());
     }
 
     public synchronized void start()
@@ -73,16 +73,6 @@ public final class PlayerInventoryBroadcaster
         int threads = module.getModuleConfig().getInt("server.sse.threads", 2);
         transport = new SseTransport<>(maxConnections, threads, "Plex-HTTPD-Inv-SSE", () -> {}, this::removeKey);
         refreshTask = module.scheduler().runGlobalTimer(this::tick, 1L, REFRESH_TICKS);
-    }
-
-    private boolean loadNbtApi()
-    {
-        if (!Bukkit.getPluginManager().isPluginEnabled("NBTAPI"))
-        {
-            module.api().logging().warn("NBT-API was not found; inventory NBT viewing will not be available.");
-            return false;
-        }
-        return true;
     }
 
     public synchronized void shutdown()
@@ -198,8 +188,6 @@ public final class PlayerInventoryBroadcaster
         root.put("storage", storage);
         root.put("armor", armor);
         root.put("offhand", serializeItem(inv.getItemInOffHand()));
-        root.put("nbtAvailable", nbtAvailable.get());
-
         return GSON.toJson(root);
     }
 
@@ -360,21 +348,19 @@ public final class PlayerInventoryBroadcaster
 
     private void putNbt(Map<String, Object> itemData, ItemStack item)
     {
-        if (!nbtAvailable.get()) return;
         try
         {
-            String snbt = NBT.get(item, Object::toString);
+            CompoundBinaryTag tag = BinaryTagIO.reader().read(
+                new ByteArrayInputStream(item.serializeAsBytes()), BinaryTagIO.Compression.GZIP);
+            String snbt = TagStringIO.tagStringIO().asString(tag);
             if (snbt != null && !snbt.isEmpty() && !"{}".equals(snbt))
             {
                 putLimited(itemData, "nbt", snbt, MAX_NBT_CHARS);
             }
         }
-        catch (RuntimeException e)
+        catch (IOException e)
         {
-            if (nbtAvailable.compareAndSet(true, false))
-            {
-                module.getLogger().warn("NBT-API failed while reading an item; inventory NBT viewing has been disabled.", e);
-            }
+            throw new IllegalStateException("Paper returned invalid NBT for an item", e);
         }
     }
 

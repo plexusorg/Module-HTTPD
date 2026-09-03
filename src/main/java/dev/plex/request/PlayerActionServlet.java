@@ -78,7 +78,7 @@ public class PlayerActionServlet extends HttpServlet
         PlexPlayerView target;
         try
         {
-            target = module.api().players().player(uuid).orTimeout(10, TimeUnit.SECONDS).join().orElse(null);
+            target = AbstractServlet.lookupPlayer(module, uuid.toString());
         }
         catch (CompletionException failure)
         {
@@ -99,35 +99,10 @@ public class PlayerActionServlet extends HttpServlet
             return;
         }
 
-        String safeReason = (reason == null || reason.isBlank()) ? "No reason provided" : reason.trim();
-        if (safeReason.length() > 500) safeReason = safeReason.substring(0, 500);
-
         PunishmentRequest punishment;
         try
         {
-            PunishmentType type = mapType(action);
-            boolean temporary = TEMP_ACTIONS.contains(action);
-            ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
-            ZonedDateTime endDate = switch (action)
-            {
-                case "ban" -> now.plus(PunishmentType.STANDARD_BAN_DURATION);
-                case "mute" -> now.plusSeconds(Math.max(1, module.api().configuration().mainConfig()
-                    .getInt("punishments.mute-timer", 300)));
-                default -> temporary ? now.plusSeconds(parseDurationSeconds(durationStr)) : null;
-            };
-
-            List<String> ips = target.ips();
-            String ip = ips.isEmpty() ? "" : ips.getLast();
-            punishment = new PunishmentRequest(
-                uuid,
-                null,
-                PunishmentSource.WEB,
-                "xf:" + staff.userId() + ":" + staff.username(),
-                ip,
-                type,
-                safeReason,
-                endDate
-            );
+            punishment = createPunishment(staff, uuid, target, action, reason, durationStr);
         }
         catch (IllegalArgumentException failure)
         {
@@ -135,15 +110,44 @@ public class PlayerActionServlet extends HttpServlet
             return;
         }
 
-        String ipAddress = request.getRemoteAddr();
-        if ("127.0.0.1".equals(ipAddress))
+        applyPunishment(request, response, staff, uuid, target, action, punishment);
+    }
+
+    private PunishmentRequest createPunishment(AuthenticatedUser staff, UUID uuid, PlexPlayerView target, String action,
+                                                String reason, String duration)
+    {
+        String safeReason = (reason == null || reason.isBlank()) ? "No reason provided" : reason.trim();
+        if (safeReason.length() > 500) safeReason = safeReason.substring(0, 500);
+
+        ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
+        ZonedDateTime endDate = switch (action)
         {
-            String forwarded = request.getHeader("X-FORWARDED-FOR");
-            if (forwarded != null) ipAddress = forwarded;
-        }
+            case "ban" -> now.plus(PunishmentType.STANDARD_BAN_DURATION);
+            case "mute" -> now.plusSeconds(Math.max(1, module.api().configuration().mainConfig()
+                .getInt("punishments.mute-timer", 300)));
+            default -> now.plusSeconds(parseDurationSeconds(duration));
+        };
+        List<String> ips = target.ips();
+        String ip = ips.isEmpty() ? "" : ips.getLast();
+        return new PunishmentRequest(
+            uuid,
+            null,
+            PunishmentSource.WEB,
+            "xf:" + staff.userId() + ":" + staff.username(),
+            ip,
+            mapType(action),
+            safeReason,
+            endDate
+        );
+    }
+
+    private void applyPunishment(HttpServletRequest request, HttpServletResponse response, AuthenticatedUser staff,
+                                 UUID uuid, PlexPlayerView target, String action, PunishmentRequest punishment)
+        throws IOException
+    {
         AsyncContext async = request.startAsync();
         async.setTimeout(15_000L);
-        String auditIp = ipAddress;
+        String auditIp = requestIp(request);
         try
         {
             module.api().punishments().punish(punishment).orTimeout(10, TimeUnit.SECONDS)
@@ -155,18 +159,18 @@ public class PlayerActionServlet extends HttpServlet
                         {
                             Throwable cause = failure instanceof CompletionException && failure.getCause() != null
                                 ? failure.getCause() : failure;
-                            module.api().logging().error("Failed to apply " + action + " to " + target.name() + ": " + cause.getMessage());
+                            module.api().logging().error("Failed to apply " + action + " to " + target.name(), cause);
                             response.getWriter().write(JsonResponse.error(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                                 "Failed to apply punishment."));
                             return;
                         }
 
-                        Log.log(auditIp + " (xf:" + staff.username() + ") issued " + action + " on " + target.name() + " (" + uuid + ")");
+                        module.getAccessLog().log(auditIp + " (xf:" + staff.username() + ") issued " + action + " on " + target.name() + " (" + uuid + ")");
                         response.getWriter().write(JsonResponse.ok(response, "Action completed."));
                     }
                     catch (IOException writeFailure)
                     {
-                        module.api().logging().error("Failed to write player-action response: " + writeFailure.getMessage());
+                        module.api().logging().error("Failed to write player-action response", writeFailure);
                     }
                     finally
                     {
@@ -176,7 +180,7 @@ public class PlayerActionServlet extends HttpServlet
         }
         catch (RuntimeException failure)
         {
-            module.api().logging().error("Failed to apply " + action + " to " + target.name() + ": " + failure.getMessage());
+            module.api().logging().error("Failed to apply " + action + " to " + target.name(), failure);
             response.getWriter().write(JsonResponse.error(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                 "Failed to apply punishment."));
             async.complete();
@@ -186,38 +190,43 @@ public class PlayerActionServlet extends HttpServlet
     private void handleInventoryAction(HttpServletRequest request, HttpServletResponse response, AuthenticatedUser staff, UUID uuid, PlexPlayerView target, String action, String slot)
         throws IOException
     {
-        String ipAddress = request.getRemoteAddr();
-        if ("127.0.0.1".equals(ipAddress))
-        {
-            String forwarded = request.getHeader("X-FORWARDED-FOR");
-            if (forwarded != null) ipAddress = forwarded;
-        }
+        module.getAccessLog().log(requestIp(request) + " (xf:" + staff.username() + ") issued " + action + " on " + target.name() + " (" + uuid + ")" + (slot == null || slot.isBlank() ? "" : " slot " + slot));
 
-        Log.log(ipAddress + " (xf:" + staff.username() + ") issued " + action + " on " + target.name() + " (" + uuid + ")" + (slot == null || slot.isBlank() ? "" : " slot " + slot));
-
-        Player online = Bukkit.getPlayer(uuid);
-        if (online != null)
+        module.scheduler().executeGlobal(() ->
         {
+            Player online = Bukkit.getPlayer(uuid);
+            if (online == null)
+            {
+                return;
+            }
             module.scheduler().runEntity(online, () ->
             {
-                PlayerInventory inv = online.getInventory();
+                PlayerInventory inventory = online.getInventory();
                 if ("clear-inventory".equals(action))
                 {
-                    inv.clear();
-                    inv.setArmorContents(null);
-                    inv.setItemInOffHand(null);
+                    inventory.clear();
+                    inventory.setArmorContents(null);
+                    inventory.setItemInOffHand(null);
                     online.updateInventory();
                     return;
                 }
                 if ("clear-selected".equals(action))
                 {
-                    clearSlot(inv, slot);
+                    clearSlot(inventory, slot);
                     online.updateInventory();
                 }
             });
-        }
+        });
 
         response.getWriter().write(JsonResponse.ok(response, "Inventory action queued."));
+    }
+
+    private static String requestIp(HttpServletRequest request)
+    {
+        String ipAddress = request.getRemoteAddr();
+        if (!"127.0.0.1".equals(ipAddress)) return ipAddress;
+        String forwarded = request.getHeader("X-FORWARDED-FOR");
+        return forwarded == null ? ipAddress : forwarded;
     }
 
     private static void clearSlot(PlayerInventory inv, String slot)

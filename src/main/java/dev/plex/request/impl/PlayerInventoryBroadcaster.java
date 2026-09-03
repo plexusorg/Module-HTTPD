@@ -23,12 +23,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.KeybindComponent;
@@ -58,15 +53,12 @@ public final class PlayerInventoryBroadcaster
     private static final int MAX_PDC_KEY_CHARS = 128;
 
     private final HTTPDModule module;
-    private final Map<UUID, Set<Subscriber>> subscribers = new ConcurrentHashMap<>();
     private final Map<UUID, String> cachedPayloads = new ConcurrentHashMap<>();
     private final Map<UUID, Object> snapshotsInProgress = new ConcurrentHashMap<>();
-    private final AtomicInteger subscriberCount = new AtomicInteger();
-
-    private ScheduledExecutorService executor;
-    private ScheduledTask refreshTask;
-    private int maxConnections = 32;
     private final AtomicBoolean nbtAvailable = new AtomicBoolean();
+
+    private SseTransport<UUID, Void> transport;
+    private ScheduledTask refreshTask;
 
     public PlayerInventoryBroadcaster(HTTPDModule module)
     {
@@ -76,18 +68,10 @@ public final class PlayerInventoryBroadcaster
 
     public synchronized void start()
     {
-        if (executor != null) return;
-
-        maxConnections = module.getModuleConfig().getInt("server.sse.max-connections", 32);
-        int threads = Math.max(1, module.getModuleConfig().getInt("server.sse.threads", 2));
-
-        executor = Executors.newScheduledThreadPool(threads, r ->
-        {
-            Thread t = new Thread(r, "Plex-HTTPD-Inv-SSE");
-            t.setDaemon(true);
-            return t;
-        });
-
+        if (transport != null) return;
+        int maxConnections = module.getModuleConfig().getInt("server.sse.max-connections", 32);
+        int threads = module.getModuleConfig().getInt("server.sse.threads", 2);
+        transport = new SseTransport<>(maxConnections, threads, "Plex-HTTPD-Inv-SSE", () -> {}, this::removeKey);
         refreshTask = module.scheduler().runGlobalTimer(this::tick, 1L, REFRESH_TICKS);
     }
 
@@ -108,57 +92,27 @@ public final class PlayerInventoryBroadcaster
             refreshTask.cancel();
             refreshTask = null;
         }
-        if (executor != null)
+        if (transport != null)
         {
-            executor.shutdownNow();
-            executor = null;
+            transport.shutdown();
         }
-        for (Set<Subscriber> set : subscribers.values())
-        {
-            for (Subscriber sub : set)
-            {
-                complete(sub.ctx);
-            }
-        }
-        subscribers.clear();
         cachedPayloads.clear();
         snapshotsInProgress.clear();
-        subscriberCount.set(0);
     }
 
     public boolean atCapacity()
     {
-        return subscriberCount.get() >= maxConnections;
+        return transport.atCapacity();
     }
 
-    public boolean addSubscriber(UUID uuid, AsyncContext ctx, PrintWriter writer)
+    public boolean addSubscriber(UUID uuid, AsyncContext context, PrintWriter writer)
     {
-        if (!reserveConnection()) return false;
-        Subscriber sub = new Subscriber(ctx, writer);
-        Set<Subscriber> set = subscribers.computeIfAbsent(uuid, k -> ConcurrentHashMap.newKeySet());
-        if (set.add(sub))
-        {
-            return true;
-        }
-        subscriberCount.decrementAndGet();
-        return false;
+        return transport.add(uuid, context, writer, null);
     }
 
-    public void removeSubscriber(UUID uuid, AsyncContext ctx)
+    public void removeSubscriber(UUID uuid, AsyncContext context)
     {
-        Set<Subscriber> set = subscribers.get(uuid);
-        if (set == null) return;
-        Subscriber match = null;
-        for (Subscriber sub : set)
-        {
-            if (sub.ctx == ctx) { match = sub; break; }
-        }
-        if (match != null && set.remove(match))
-        {
-            match.pendingFrame.set(null);
-            subscriberCount.decrementAndGet();
-            removeEmptySet(uuid, set);
-        }
+        transport.remove(uuid, context);
     }
 
     public String currentPayload(UUID uuid)
@@ -166,29 +120,26 @@ public final class PlayerInventoryBroadcaster
         return cachedPayloads.getOrDefault(uuid, "{\"online\":false}");
     }
 
-    // Runs on the global region and schedules per-player snapshots on entity schedulers.
     private void tick()
     {
-        if (subscribers.isEmpty()) return;
-        for (Map.Entry<UUID, Set<Subscriber>> entry : subscribers.entrySet())
+        SseTransport<UUID, Void> activeTransport = transport;
+        if (activeTransport == null) return;
+        for (UUID uuid : activeTransport.keys())
         {
-            Set<Subscriber> set = entry.getValue();
-            if (set.isEmpty()) continue;
-            UUID uuid = entry.getKey();
             Object snapshot = new Object();
             if (snapshotsInProgress.putIfAbsent(uuid, snapshot) != null) continue;
             Player player = Bukkit.getPlayer(uuid);
             if (player == null)
             {
                 snapshotsInProgress.remove(uuid, snapshot);
-                publish(uuid, set, "{\"online\":false}");
+                publish(uuid, "{\"online\":false}");
                 continue;
             }
             boolean scheduled = module.scheduler().executeEntity(player, () ->
             {
                 try
                 {
-                    publish(uuid, set, buildPayload(player));
+                    publish(uuid, buildPayload(player));
                 }
                 finally
                 {
@@ -197,113 +148,34 @@ public final class PlayerInventoryBroadcaster
             }, () ->
             {
                 snapshotsInProgress.remove(uuid, snapshot);
-                publish(uuid, set, "{\"online\":false}");
+                publish(uuid, "{\"online\":false}");
             }, 1L);
             if (!scheduled)
             {
                 snapshotsInProgress.remove(uuid, snapshot);
-                publish(uuid, set, "{\"online\":false}");
+                publish(uuid, "{\"online\":false}");
             }
         }
     }
 
-    private void publish(UUID uuid, Set<Subscriber> set, String json)
+    private void publish(UUID uuid, String json)
     {
-        if (set.isEmpty() || subscribers.get(uuid) != set)
+        SseTransport<UUID, Void> activeTransport = transport;
+        if (activeTransport == null || !activeTransport.hasSubscribers(uuid))
         {
             cachedPayloads.remove(uuid);
             return;
         }
         cachedPayloads.put(uuid, json);
-        final String frame = "data: " + json + "\n\n";
-        ScheduledExecutorService exec = executor;
-        if (exec == null) return;
-        for (Subscriber sub : set)
-        {
-            enqueueFrame(uuid, sub, frame, exec);
-        }
+        String frame = "data: " + json + "\n\n";
+        activeTransport.publish(uuid, ignored -> frame);
     }
 
-    private void enqueueFrame(UUID uuid, Subscriber sub, String frame, ScheduledExecutorService exec)
+    private void removeKey(UUID uuid)
     {
-        sub.pendingFrame.set(frame);
-        if (sub.writing.compareAndSet(false, true)) submitDrain(uuid, sub, exec);
+        cachedPayloads.remove(uuid);
+        snapshotsInProgress.remove(uuid);
     }
-
-    private void submitDrain(UUID uuid, Subscriber sub, ScheduledExecutorService exec)
-    {
-        try
-        {
-            exec.execute(() -> drainFrames(uuid, sub, exec));
-        }
-        catch (RejectedExecutionException ignored)
-        {
-            sub.writing.set(false);
-            drop(uuid, sub);
-        }
-    }
-
-    private void drainFrames(UUID uuid, Subscriber sub, ScheduledExecutorService exec)
-    {
-        try
-        {
-            String frame;
-            while ((frame = sub.pendingFrame.getAndSet(null)) != null)
-            {
-                Set<Subscriber> set = subscribers.get(uuid);
-                if (set == null || !set.contains(sub)) return;
-                sub.writer.write(frame);
-                sub.writer.flush();
-                if (sub.writer.checkError())
-                {
-                    drop(uuid, sub);
-                    return;
-                }
-            }
-        }
-        finally
-        {
-            sub.writing.set(false);
-            if (sub.pendingFrame.get() != null && sub.writing.compareAndSet(false, true))
-            {
-                submitDrain(uuid, sub, exec);
-            }
-        }
-    }
-
-    private void drop(UUID uuid, Subscriber sub)
-    {
-        Set<Subscriber> set = subscribers.get(uuid);
-        if (set != null && set.remove(sub))
-        {
-            sub.pendingFrame.set(null);
-            subscriberCount.decrementAndGet();
-            removeEmptySet(uuid, set);
-        }
-        complete(sub.ctx);
-    }
-
-    private boolean reserveConnection()
-    {
-        int current;
-        do
-        {
-            current = subscriberCount.get();
-            if (current >= maxConnections) return false;
-        }
-        while (!subscriberCount.compareAndSet(current, current + 1));
-        return true;
-    }
-
-    private void removeEmptySet(UUID uuid, Set<Subscriber> set)
-    {
-        if (set.isEmpty() && subscribers.remove(uuid, set))
-        {
-            cachedPayloads.remove(uuid);
-            snapshotsInProgress.computeIfPresent(uuid, (key, marker) -> subscribers.containsKey(key) ? marker : null);
-        }
-    }
-
     private String buildPayload(Player p)
     {
         Map<String, Object> root = new LinkedHashMap<>();
@@ -396,128 +268,115 @@ public final class PlayerInventoryBroadcaster
     {
         if (item == null || item.getType().isAir()) return null;
         Map<String, Object> m = new LinkedHashMap<>();
-        String type = item.getType().name();
-        m.put("type", type);
+        m.put("type", item.getType().name());
         m.put("amount", item.getAmount());
 
+        ItemMeta meta = item.hasItemMeta() ? item.getItemMeta() : null;
         short maxDur = item.getType().getMaxDurability();
         if (maxDur > 0)
         {
             m.put("maxDamage", (int) maxDur);
-            if (item.hasItemMeta() && item.getItemMeta() instanceof Damageable d)
+            if (meta instanceof Damageable d)
             {
                 m.put("damage", d.getDamage());
             }
         }
 
-        if (item.hasItemMeta())
+        if (meta != null)
         {
-            ItemMeta meta = item.getItemMeta();
-            Component name = meta.displayName();
-            if (name != null) putLimited(m, "name", name, MAX_NAME_CHARS);
-
-            List<Component> lore = meta.lore();
-            if (lore != null && !lore.isEmpty())
-            {
-                int count = Math.min(lore.size(), MAX_LORE_LINES);
-                List<String> out = new ArrayList<>(count);
-                boolean truncated = lore.size() > MAX_LORE_LINES;
-                for (int i = 0; i < count; i++)
-                {
-                    LimitedText line = limitedPlainText(lore.get(i), MAX_LORE_LINE_CHARS);
-                    if (line.truncated()) truncated = true;
-                    out.add(line.truncated()
-                        ? line.text() + "… [Truncated " + (line.totalChars() - MAX_LORE_LINE_CHARS) + " characters]"
-                        : line.text());
-                }
-                m.put("lore", out);
-                if (truncated) m.put("loreTruncated", true);
-            }
-
-            Map<Enchantment, Integer> enchants = meta.getEnchants();
-            if (!enchants.isEmpty())
-            {
-                Map<String, Integer> out = new LinkedHashMap<>();
-                for (Map.Entry<Enchantment, Integer> e : enchants.entrySet())
-                {
-                    out.put(e.getKey().getKey().getKey(), e.getValue());
-                }
-                m.put("enchants", out);
-            }
-
-            if (meta.isUnbreakable()) m.put("unbreakable", true);
-
-            Set<ItemFlag> flags = meta.getItemFlags();
-            if (!flags.isEmpty())
-            {
-                List<String> out = new ArrayList<>(flags.size());
-                for (ItemFlag f : flags) out.add(f.name());
-                m.put("flags", out);
-            }
-
-            PersistentDataContainer pdc = meta.getPersistentDataContainer();
-            Set<NamespacedKey> keys = pdc.getKeys();
-            if (!keys.isEmpty())
-            {
-                Set<String> out = new TreeSet<>();
-                boolean truncated = keys.size() > MAX_PDC_KEYS;
-                int count = 0;
-                for (NamespacedKey k : keys)
-                {
-                    if (count++ >= MAX_PDC_KEYS) break;
-                    String key = k.toString();
-                    if (key.length() > MAX_PDC_KEY_CHARS) truncated = true;
-                    out.add(limit(key, MAX_PDC_KEY_CHARS));
-                }
-                m.put("pdcKeys", out);
-                if (truncated) m.put("pdcKeysTruncated", true);
-            }
-
-            if (nbtAvailable.get())
-            {
-                try
-                {
-                    String snbt = NBT.get(item, Object::toString);
-                    if (snbt != null && !snbt.isEmpty() && !"{}".equals(snbt))
-                    {
-                        putLimited(m, "nbt", snbt, MAX_NBT_CHARS);
-                    }
-                }
-                catch (RuntimeException e)
-                {
-                    if (nbtAvailable.compareAndSet(true, false))
-                    {
-                        module.getLogger().warn("NBT-API failed while reading an item; inventory NBT viewing has been disabled.", e);
-                    }
-                }
-            }
+            putItemMeta(m, meta);
+            putNbt(m, item);
         }
         return m;
     }
 
-    private static void complete(AsyncContext context)
+    private static void putItemMeta(Map<String, Object> item, ItemMeta meta)
     {
+        Component name = meta.displayName();
+        if (name != null) putLimited(item, "name", name, MAX_NAME_CHARS);
+        putLore(item, meta.lore());
+
+        Map<Enchantment, Integer> enchants = meta.getEnchants();
+        if (!enchants.isEmpty())
+        {
+            Map<String, Integer> out = new LinkedHashMap<>();
+            for (Map.Entry<Enchantment, Integer> enchant : enchants.entrySet())
+            {
+                out.put(enchant.getKey().getKey().getKey(), enchant.getValue());
+            }
+            item.put("enchants", out);
+        }
+
+        if (meta.isUnbreakable()) item.put("unbreakable", true);
+
+        Set<ItemFlag> flags = meta.getItemFlags();
+        if (!flags.isEmpty())
+        {
+            List<String> out = new ArrayList<>(flags.size());
+            for (ItemFlag flag : flags) out.add(flag.name());
+            item.put("flags", out);
+        }
+
+        putPersistentDataKeys(item, meta.getPersistentDataContainer());
+    }
+
+    private static void putLore(Map<String, Object> item, List<Component> lore)
+    {
+        if (lore == null || lore.isEmpty()) return;
+
+        int count = Math.min(lore.size(), MAX_LORE_LINES);
+        List<String> out = new ArrayList<>(count);
+        boolean truncated = lore.size() > MAX_LORE_LINES;
+        for (int i = 0; i < count; i++)
+        {
+            LimitedText line = limitedPlainText(lore.get(i), MAX_LORE_LINE_CHARS);
+            if (line.truncated()) truncated = true;
+            out.add(line.truncated()
+                ? line.text() + "… [Truncated " + (line.totalChars() - MAX_LORE_LINE_CHARS) + " characters]"
+                : line.text());
+        }
+        item.put("lore", out);
+        if (truncated) item.put("loreTruncated", true);
+    }
+
+    private static void putPersistentDataKeys(Map<String, Object> item, PersistentDataContainer pdc)
+    {
+        Set<NamespacedKey> keys = pdc.getKeys();
+        if (keys.isEmpty()) return;
+
+        Set<String> out = new TreeSet<>();
+        boolean truncated = keys.size() > MAX_PDC_KEYS;
+        int count = 0;
+        for (NamespacedKey namespacedKey : keys)
+        {
+            if (count++ >= MAX_PDC_KEYS) break;
+            String key = namespacedKey.toString();
+            if (key.length() > MAX_PDC_KEY_CHARS) truncated = true;
+            out.add(limit(key, MAX_PDC_KEY_CHARS));
+        }
+        item.put("pdcKeys", out);
+        if (truncated) item.put("pdcKeysTruncated", true);
+    }
+
+    private void putNbt(Map<String, Object> itemData, ItemStack item)
+    {
+        if (!nbtAvailable.get()) return;
         try
         {
-            context.complete();
+            String snbt = NBT.get(item, Object::toString);
+            if (snbt != null && !snbt.isEmpty() && !"{}".equals(snbt))
+            {
+                putLimited(itemData, "nbt", snbt, MAX_NBT_CHARS);
+            }
         }
-        catch (IllegalStateException ignored)
+        catch (RuntimeException e)
         {
+            if (nbtAvailable.compareAndSet(true, false))
+            {
+                module.getLogger().warn("NBT-API failed while reading an item; inventory NBT viewing has been disabled.", e);
+            }
         }
     }
 
     private record LimitedText(String text, int totalChars, boolean truncated) {}
-
-    private static final class Subscriber
-    {
-        final AsyncContext ctx;
-        final PrintWriter writer;
-        final AtomicReference<String> pendingFrame = new AtomicReference<>();
-        final AtomicBoolean writing = new AtomicBoolean();
-        Subscriber(AsyncContext ctx, PrintWriter writer)
-        {
-            this.ctx = ctx;
-            this.writer = writer;
-        }
-    }
 }

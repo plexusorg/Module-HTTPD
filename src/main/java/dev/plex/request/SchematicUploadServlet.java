@@ -123,7 +123,7 @@ public class SchematicUploadServlet extends HttpServlet
 
         response.getWriter().println(JsonResponse.ok(response, "Successfully uploaded " + filename + "."));
         module.api().logging().info(user.username() + " uploaded schematic with filename: " + filename);
-        Log.log("{0} (xf:{1}) uploaded schematic {2}", user.username(), user.userId(), filename);
+        module.getAccessLog().log("{0} (xf:{1}) uploaded schematic {2}", user.username(), user.userId(), filename);
     }
 
     private static boolean schematicExists(File folder, String filename)
@@ -140,7 +140,7 @@ public class SchematicUploadServlet extends HttpServlet
     private void rejectInvalid(HttpServletResponse response, AuthenticatedUser user, String filename) throws IOException
     {
         module.api().logging().info(user.username() + " FAILED to upload schematic with filename: " + filename);
-        Log.log("{0} (xf:{1}) FAILED to upload schematic {2}", user.username(), user.userId(), filename);
+        module.getAccessLog().log("{0} (xf:{1}) FAILED to upload schematic {2}", user.username(), user.userId(), filename);
         response.getWriter().println(JsonResponse.error(response, HttpServletResponse.SC_BAD_REQUEST, "Schematic is not a valid format."));
     }
 }

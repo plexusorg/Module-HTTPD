@@ -19,13 +19,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.TimeUnit;
 
 public class PunishmentsEndpoint extends AbstractServlet
 {
     private static final int DEFAULT_PAGE_SIZE = 50;
     private static final int MAX_PAGE_SIZE = 100;
-    private static final int LOOKUP_TIMEOUT_SECONDS = 10;
 
     public PunishmentsEndpoint(HTTPDModule module)
     {
@@ -44,7 +42,7 @@ public class PunishmentsEndpoint extends AbstractServlet
         PlexPlayerView punishedPlayer;
         try
         {
-            punishedPlayer = lookupPlayer(request.getPathInfo().replace("/", ""));
+            punishedPlayer = lookupPlayer(module, request.getPathInfo().replace("/", ""));
         }
         catch (CompletionException failure)
         {
@@ -97,19 +95,6 @@ public class PunishmentsEndpoint extends AbstractServlet
             "total", total,
             "hasMore", to < total));
         return JsonResponse.json(response, body);
-    }
-
-    private PlexPlayerView lookupPlayer(String query)
-    {
-        try
-        {
-            UUID uuid = UUID.fromString(query);
-            return module.api().players().player(uuid).orTimeout(LOOKUP_TIMEOUT_SECONDS, TimeUnit.SECONDS).join().orElse(null);
-        }
-        catch (IllegalArgumentException ignored)
-        {
-            return module.api().players().byName(query).orTimeout(LOOKUP_TIMEOUT_SECONDS, TimeUnit.SECONDS).join().orElse(null);
-        }
     }
 
     private static int nonNegativeInt(String value, int fallback)

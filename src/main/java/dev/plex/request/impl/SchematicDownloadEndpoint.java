@@ -131,7 +131,7 @@ public class SchematicDownloadEndpoint extends AbstractServlet
         AuthenticatedUser user = currentUser(module, request);
         String who = user != null ? user.username() + " (xf:" + user.userId() + ")" : request.getRemoteAddr();
         module.api().logging().info("{0} downloaded schematic {1}", who, schemFile.getName());
-        Log.log("{0} downloaded schematic {1}", who, schemFile.getName());
+        module.getAccessLog().log("{0} downloaded schematic {1}", who, schemFile.getName());
     }
 
     private List<SchematicInfo> cachedSchematics(File folder)

@@ -1,7 +1,6 @@
 package dev.plex.logging;
 
 import dev.plex.api.config.ModuleConfiguration;
-import dev.plex.api.logging.LoggingApi;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -13,25 +12,27 @@ import java.nio.file.StandardCopyOption;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.function.BooleanSupplier;
+import org.apache.logging.log4j.Logger;
 
 public class Log
 {
     private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS z");
 
-    private static BooleanSupplier consoleLoggingEnabled = () -> false;
-    private static BooleanSupplier fileLoggingEnabled = () -> false;
-    private static File accessLogFile;
-    private static BufferedWriter writer;
-    private static File writerTarget;
-    private static long writerBytes;
-    private static long maxBytes = 10L * 1024L * 1024L;
-    private static int retainedFiles = 5;
-    private static long flushIntervalMillis = 1000L;
-    private static long lastFlushMillis;
-    private static long fileUnavailableUntilMillis;
-    private static LoggingApi logging;
+    private final BooleanSupplier consoleLoggingEnabled;
+    private final BooleanSupplier fileLoggingEnabled;
+    private final File accessLogFile;
+    private final Logger logging;
+    private BufferedWriter writer;
+    private File writerTarget;
+    private long writerBytes;
+    private final long maxBytes;
+    private final int retainedFiles;
+    private final long flushIntervalMillis;
+    private long lastFlushMillis;
+    private long fileUnavailableUntilMillis;
+    private volatile boolean active = true;
 
-    public static synchronized void configure(ModuleConfiguration moduleConfig, File target, LoggingApi loggingApi)
+    public Log(ModuleConfiguration moduleConfig, File target, Logger loggingApi)
     {
         consoleLoggingEnabled = () -> moduleConfig.getBoolean("server.logging.console", false);
         fileLoggingEnabled = () -> moduleConfig.getBoolean("server.logging.file", true);
@@ -39,26 +40,26 @@ public class Log
         maxBytes = Math.max(1024L, moduleConfig.getLong("server.logging.max-bytes", 10L * 1024L * 1024L));
         retainedFiles = Math.max(1, moduleConfig.getInt("server.logging.retained-files", 5));
         flushIntervalMillis = Math.max(100L, moduleConfig.getLong("server.logging.flush-interval-ms", 1000L));
-        fileUnavailableUntilMillis = 0L;
         logging = loggingApi;
     }
 
-    public static void log(String message, Object... strings)
+    public void log(String message, Object... strings)
     {
+        if (!active)
+        {
+            return;
+        }
         String formatted = format(message, strings);
         writeFile(formatted);
         if (consoleLoggingEnabled.getAsBoolean())
         {
-            LoggingApi logger = logging;
-            if (logger != null)
-            {
-                logger.info("[HTTPD] {0}", formatted);
-            }
+            logging.info("[HTTPD] {}", formatted);
         }
     }
 
-    public static synchronized void shutdown()
+    public synchronized void shutdown()
     {
+        active = false;
         if (writer != null)
         {
             try
@@ -66,19 +67,18 @@ public class Log
                 writer.flush();
                 writer.close();
             }
-            catch (IOException ignored) {}
+            catch (IOException exception)
+            {
+                logging.warn("[HTTPD] Failed to close access log", exception);
+            }
             writer = null;
             writerTarget = null;
             writerBytes = 0L;
         }
-        consoleLoggingEnabled = () -> false;
-        fileLoggingEnabled = () -> false;
-        accessLogFile = null;
         fileUnavailableUntilMillis = 0L;
-        logging = null;
     }
 
-    private static String format(String message, Object... strings)
+    private String format(String message, Object... strings)
     {
         for (int i = 0; i < strings.length; i++)
         {
@@ -91,8 +91,9 @@ public class Log
         return message;
     }
 
-    private static synchronized void writeFile(String formatted)
+    private synchronized void writeFile(String formatted)
     {
+        if (!active) return;
         if (!fileLoggingEnabled.getAsBoolean()) return;
         if (System.currentTimeMillis() < fileUnavailableUntilMillis) return;
         File target = accessLogFile;
@@ -138,25 +139,24 @@ public class Log
         }
     }
 
-    private static void suspendFileLogging(String operation, IOException error)
+    private void suspendFileLogging(String operation, IOException error)
     {
         try
         {
             if (writer != null) writer.close();
         }
-        catch (IOException ignored) {}
+        catch (IOException closeFailure)
+        {
+            error.addSuppressed(closeFailure);
+        }
         writer = null;
         writerTarget = null;
         writerBytes = 0L;
         fileUnavailableUntilMillis = System.currentTimeMillis() + 30_000L;
-        LoggingApi logger = logging;
-        if (logger != null)
-        {
-            logger.warn("[HTTPD] Failed to {0}; pausing file logging for 30 seconds: {1}", operation, error.getMessage());
-        }
+        logging.warn("[HTTPD] Failed to {}; pausing file logging for 30 seconds", operation, error);
     }
 
-    private static void rotate(File target) throws IOException
+    private void rotate(File target) throws IOException
     {
         if (writer != null)
         {

@@ -23,6 +23,7 @@ public class RateLimitFilter implements Filter
     private static final long REJECTION_LOG_INTERVAL_MILLIS = 10_000L;
 
     private final boolean enabled;
+    private final Log accessLog;
     private final TokenBucket globalBucket;
     private final TokenBucket assetGlobalBucket;
     private final double ipCapacity;
@@ -47,8 +48,9 @@ public class RateLimitFilter implements Filter
     private final double staffMutationCost;
     private final double staffReadCost;
 
-    public RateLimitFilter(ModuleConfiguration config)
+    public RateLimitFilter(ModuleConfiguration config, Log accessLog)
     {
+        this.accessLog = accessLog;
         this.enabled = config.getBoolean("rate-limit.enabled", true);
         double globalCapacity = config.getDouble("rate-limit.global.capacity", 200.0);
         double globalRate = config.getDouble("rate-limit.global.per-second", 100.0);
@@ -190,7 +192,7 @@ public class RateLimitFilter implements Filter
         long global = rejectedGlobal.getAndSet(0L);
         long perIp = rejectedPerIp.getAndSet(0L);
         long assets = rejectedAssets.getAndSet(0L);
-        Log.log("Rate limit summary: global={0}, per-ip={1}, assets={2}; sample={3} {4} from {5}",
+        accessLog.log("Rate limit summary: global={0}, per-ip={1}, assets={2}; sample={3} {4} from {5}",
                 global, perIp, assets, sample.getMethod(), sample.getRequestURI(), clientIp(sample));
     }
 

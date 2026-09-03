@@ -12,14 +12,10 @@ import java.io.PrintWriter;
 import java.lang.management.ManagementFactory;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Samples Bukkit/JMX/Runtime stats off the request thread and fans the
@@ -32,8 +28,8 @@ public final class StatsBroadcaster
     private static final Gson GSON = new GsonBuilder().serializeNulls().create();
 
     private final HTTPDModule module;
-    private final Set<Subscriber> subscribers = ConcurrentHashMap.newKeySet();
-    private final AtomicInteger subscriberCount = new AtomicInteger();
+    private static final String CHANNEL = "stats";
+    private SseTransport<String, Void> transport;
 
     private volatile int cachedChunks;
     private volatile int cachedEntities;
@@ -47,7 +43,7 @@ public final class StatsBroadcaster
     private final long serverStartTime =
         System.currentTimeMillis() - ManagementFactory.getRuntimeMXBean().getUptime();
 
-    private ScheduledExecutorService executor;
+    private ScheduledExecutorService broadcastExecutor;
     private ScheduledTask bukkitTask;
     private ScheduledFuture<?> broadcastTask;
 
@@ -61,13 +57,15 @@ public final class StatsBroadcaster
 
     public synchronized void start()
     {
-        if (executor != null) return;
+        if (transport != null) return;
 
         maxConnections = module.getModuleConfig().getInt("server.sse.max-connections", 32);
         broadcastIntervalMs = module.getModuleConfig().getLong("server.sse.broadcast-interval-ms", 2000L);
         int threads = Math.max(1, module.getModuleConfig().getInt("server.sse.threads", 2));
 
-        executor = Executors.newScheduledThreadPool(threads, r ->
+        transport = new SseTransport<>(maxConnections, threads, "Plex-HTTPD-SSE",
+                () -> module.scheduler().runGlobal(this::sampleBukkit), ignored -> {});
+        broadcastExecutor = Executors.newSingleThreadScheduledExecutor(r ->
         {
             Thread t = new Thread(r, "Plex-HTTPD-SSE");
             t.setDaemon(true);
@@ -77,7 +75,7 @@ public final class StatsBroadcaster
         long sampleTicks = Math.max(20L, module.getModuleConfig().getLong("server.sse.stats-sample-interval-ticks", 100L));
         bukkitTask = module.scheduler().runGlobalTimer(this::sampleBukkit, 1L, sampleTicks);
 
-        broadcastTask = executor.scheduleAtFixedRate(
+        broadcastTask = broadcastExecutor.scheduleAtFixedRate(
             this::tick, broadcastIntervalMs, broadcastIntervalMs, TimeUnit.MILLISECONDS);
     }
 
@@ -93,55 +91,30 @@ public final class StatsBroadcaster
             broadcastTask.cancel(false);
             broadcastTask = null;
         }
-        if (executor != null)
+        if (broadcastExecutor != null)
         {
-            executor.shutdownNow();
-            executor = null;
+            broadcastExecutor.shutdownNow();
+            broadcastExecutor = null;
         }
-        for (Subscriber sub : subscribers)
+        if (transport != null)
         {
-            complete(sub.ctx);
+            transport.shutdown();
         }
-        subscribers.clear();
-        subscriberCount.set(0);
     }
 
     public boolean atCapacity()
     {
-        return subscriberCount.get() >= maxConnections;
+        return transport.atCapacity();
     }
 
     public boolean addSubscriber(AsyncContext ctx, PrintWriter writer)
     {
-        if (!reserveConnection()) return false;
-        Subscriber sub = new Subscriber(ctx, writer);
-        if (subscribers.add(sub))
-        {
-            if (subscriberCount.get() == 1)
-            {
-                module.scheduler().runGlobal(this::sampleBukkit);
-            }
-            return true;
-        }
-        subscriberCount.decrementAndGet();
-        return false;
+        return transport.add(CHANNEL, ctx, writer, null);
     }
 
     public void removeSubscriber(AsyncContext ctx)
     {
-        Subscriber match = null;
-        for (Subscriber sub : subscribers)
-        {
-            if (sub.ctx == ctx)
-            {
-                match = sub;
-                break;
-            }
-        }
-        if (match != null && subscribers.remove(match))
-        {
-            subscriberCount.decrementAndGet();
-        }
+        transport.remove(CHANNEL, ctx);
     }
 
     public String currentPayload()
@@ -151,7 +124,8 @@ public final class StatsBroadcaster
 
     private void sampleBukkit()
     {
-        if (subscribers.isEmpty()) return;
+        SseTransport<String, Void> activeTransport = transport;
+        if (activeTransport == null || !activeTransport.hasSubscribers()) return;
         int chunks = 0;
         int entities = 0;
         for (World world : Bukkit.getWorlds())
@@ -171,61 +145,10 @@ public final class StatsBroadcaster
 
     private void tick()
     {
-        if (subscribers.isEmpty()) return;
+        SseTransport<String, Void> activeTransport = transport;
+        if (activeTransport == null || !activeTransport.hasSubscribers()) return;
         final String frame = "data: " + buildPayload() + "\n\n";
-        ScheduledExecutorService exec = executor;
-        if (exec == null) return;
-        for (Subscriber sub : subscribers)
-        {
-            try
-            {
-                exec.execute(() -> writeFrame(sub, frame));
-            }
-            catch (RejectedExecutionException ignored)
-            {
-                dropSubscriber(sub);
-            }
-        }
-    }
-
-    private void writeFrame(Subscriber sub, String frame)
-    {
-        sub.writer.write(frame);
-        sub.writer.flush();
-        if (sub.writer.checkError())
-        {
-            dropSubscriber(sub);
-        }
-    }
-
-    private void dropSubscriber(Subscriber sub)
-    {
-        if (subscribers.remove(sub))
-        {
-            subscriberCount.decrementAndGet();
-        }
-        complete(sub.ctx);
-    }
-
-    private static void complete(AsyncContext context)
-    {
-        try
-        {
-            context.complete();
-        }
-        catch (IllegalStateException ignored)
-        {
-        }
-    }
-
-    private boolean reserveConnection()
-    {
-        while (true)
-        {
-            int current = subscriberCount.get();
-            if (current >= maxConnections) return false;
-            if (subscriberCount.compareAndSet(current, current + 1)) return true;
-        }
+        activeTransport.publish(CHANNEL, ignored -> frame);
     }
 
     private String buildPayload()
@@ -283,15 +206,4 @@ public final class StatsBroadcaster
         return v;
     }
 
-    private static final class Subscriber
-    {
-        final AsyncContext ctx;
-        final PrintWriter writer;
-
-        Subscriber(AsyncContext ctx, PrintWriter writer)
-        {
-            this.ctx = ctx;
-            this.writer = writer;
-        }
-    }
 }

@@ -3,9 +3,9 @@ package dev.plex.request;
 import com.google.common.collect.Lists;
 import dev.plex.HTTPDModule;
 import dev.plex.authentication.AuthenticatedUser;
-import dev.plex.authentication.AuthenticationManager;
 import dev.plex.authentication.OAuth2Provider;
 import dev.plex.logging.Log;
+import dev.plex.api.player.PlexPlayerView;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,12 +22,17 @@ import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.Data;
 import org.eclipse.jetty.ee10.servlet.ServletHolder;
 
 public class AbstractServlet extends HttpServlet
 {
+    private static final int PLAYER_LOOKUP_TIMEOUT_SECONDS = 10;
     private final List<Mapping> GET_MAPPINGS = Lists.newArrayList();
     private final AtomicLong suppressedHandlerErrors = new AtomicLong();
     private final AtomicLong nextHandlerErrorLogMillis = new AtomicLong();
@@ -68,7 +73,7 @@ public class AbstractServlet extends HttpServlet
         String requestPath = getRequestPath(req);
         if (!isHighVolumeAssetPath(requestPath))
         {
-            Log.log(ipAddress + " visited endpoint " + requestPath);
+            module.getAccessLog().log(ipAddress + " visited endpoint " + requestPath);
         }
 
         GET_MAPPINGS.stream().filter(mapping -> endpointMatchesRequest(mapping.getMapping().endpoint(), requestPath)).forEach(mapping ->
@@ -172,9 +177,7 @@ public class AbstractServlet extends HttpServlet
 
     public static AuthenticatedUser currentUser(HTTPDModule module, HttpServletRequest request)
     {
-        AuthenticationManager manager = module.getAuthenticationManager();
-        if (manager == null) return null;
-        OAuth2Provider provider = manager.provider();
+        OAuth2Provider provider = module.getAuthenticationProvider();
         if (provider == null) return null;
         return provider.lookup(request);
     }
@@ -183,6 +186,20 @@ public class AbstractServlet extends HttpServlet
     {
         AuthenticatedUser user = currentUser(module, request);
         return (user != null && user.staff()) ? user : null;
+    }
+
+    public static PlexPlayerView lookupPlayer(HTTPDModule module, String query)
+    {
+        CompletableFuture<Optional<PlexPlayerView>> lookup;
+        try
+        {
+            lookup = module.api().players().player(UUID.fromString(query));
+        }
+        catch (IllegalArgumentException ignored)
+        {
+            lookup = module.api().players().byName(query);
+        }
+        return lookup.orTimeout(PLAYER_LOOKUP_TIMEOUT_SECONDS, TimeUnit.SECONDS).join().orElse(null);
     }
 
     protected String signInPrompt(HttpServletRequest request, String action)

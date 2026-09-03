@@ -1,5 +1,6 @@
 plugins {
     java
+    checkstyle
     `maven-publish`
     idea
     id("dev.plex.module") version "1.2"
@@ -8,6 +9,11 @@ plugins {
 group = "dev.plex"
 version = "2.0-SNAPSHOT"
 description = "Module-HTTPD"
+
+checkstyle {
+    toolVersion = "14.1.0"
+    configFile = rootProject.file("config/checkstyle/checkstyle.xml")
+}
 
 repositories {
     mavenCentral()

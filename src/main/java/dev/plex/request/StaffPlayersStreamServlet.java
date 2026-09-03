@@ -41,7 +41,7 @@ public class StaffPlayersStreamServlet extends HttpServlet
             String forwarded = request.getHeader("X-FORWARDED-FOR");
             if (forwarded != null) ipAddress = forwarded;
         }
-        Log.log(ipAddress + " opened SSE stream /api/players/stream/staff");
+        module.getAccessLog().log(ipAddress + " opened SSE stream /api/players/stream/staff");
 
         if (broadcaster.atCapacity())
         {

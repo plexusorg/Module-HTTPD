@@ -30,7 +30,7 @@ public class AuthenticationEndpoint extends AbstractServlet
     @GetMapping(endpoint = "/oauth2/login")
     public String login(HttpServletRequest request, HttpServletResponse response) throws IOException
     {
-        OAuth2Provider provider = module.getAuthenticationManager().provider();
+        OAuth2Provider provider = module.getAuthenticationProvider();
         if (provider == null)
         {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Authentication is not enabled.");
@@ -65,7 +65,7 @@ public class AuthenticationEndpoint extends AbstractServlet
     @GetMapping(endpoint = "/oauth2/callback")
     public String callback(HttpServletRequest request, HttpServletResponse response) throws IOException
     {
-        OAuth2Provider provider = module.getAuthenticationManager().provider();
+        OAuth2Provider provider = module.getAuthenticationProvider();
         if (provider == null)
         {
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Authentication is not enabled.");
@@ -108,7 +108,7 @@ public class AuthenticationEndpoint extends AbstractServlet
     @GetMapping(endpoint = "/oauth2/logout")
     public String logout(HttpServletRequest request, HttpServletResponse response) throws IOException
     {
-        OAuth2Provider provider = module.getAuthenticationManager().provider();
+        OAuth2Provider provider = module.getAuthenticationProvider();
         if (provider == null)
         {
             response.sendRedirect("/");
@@ -130,7 +130,7 @@ public class AuthenticationEndpoint extends AbstractServlet
     @MappingHeaders(headers = "content-type;application/json")
     public String me(HttpServletRequest request, HttpServletResponse response)
     {
-        OAuth2Provider provider = module.getAuthenticationManager().provider();
+        OAuth2Provider provider = module.getAuthenticationProvider();
         if (provider == null)
         {
             return "{\"authenticated\":false,\"reason\":\"disabled\"}";

@@ -1,7 +1,8 @@
 package dev.plex;
 
 import dev.plex.assets.MinecraftAssetsManager;
-import dev.plex.authentication.AuthenticationManager;
+import dev.plex.authentication.OAuth2Provider;
+import dev.plex.authentication.impl.XenForoOAuth2Provider;
 import dev.plex.api.config.ModuleConfiguration;
 import dev.plex.logging.Log;
 import dev.plex.module.PlexModule;
@@ -38,7 +39,10 @@ public class HTTPDModule extends PlexModule
     private ModuleConfiguration moduleConfig;
 
     @Getter
-    private AuthenticationManager authenticationManager;
+    private OAuth2Provider authenticationProvider;
+
+    @Getter
+    private Log accessLog;
 
     @Getter
     private File accessLogFile;
@@ -68,13 +72,18 @@ public class HTTPDModule extends PlexModule
         api().logging().debug("HTTPD Module Port: {0}", moduleConfig.getInt("server.port"));
 
         accessLogFile = new File(getDataFolder(), moduleConfig.getString("server.logging.file-path", "httpd.log"));
-        Log.configure(moduleConfig, accessLogFile, api().logging());
+        accessLog = new Log(moduleConfig, accessLogFile, getLogger());
 
         minecraftAssetsManager = new MinecraftAssetsManager(getDataFolder().toPath(), api());
         minecraftAssetsManager.refreshAsync();
 
-        authenticationManager = new AuthenticationManager(this);
-        if (authenticationManager.provider() == null)
+        authenticationProvider = null;
+        if (moduleConfig.getBoolean("authentication.enabled", false))
+        {
+            api().logging().info("[HTTPD] XenForo OAuth2 authentication is enabled");
+            authenticationProvider = new XenForoOAuth2Provider(this);
+        }
+        else
         {
             api().logging().debug("Authentication is disabled or misconfigured");
         }
@@ -107,7 +116,7 @@ public class HTTPDModule extends PlexModule
             connector.setIdleTimeout(moduleConfig.getLong("server.limits.idle-timeout-ms", 15_000L));
             connector.setAcceptQueueSize(moduleConfig.getInt("server.limits.accept-queue", 32));
 
-            context.addFilter(new FilterHolder(new RateLimitFilter(moduleConfig)), "/*", EnumSet.of(DispatcherType.REQUEST));
+            context.addFilter(new FilterHolder(new RateLimitFilter(moduleConfig, accessLog)), "/*", EnumSet.of(DispatcherType.REQUEST));
 
             statsBroadcaster = new StatsBroadcaster(this);
             playersBroadcaster = new PlayersBroadcaster(this);
@@ -126,8 +135,8 @@ public class HTTPDModule extends PlexModule
             new AuthenticationEndpoint(this);
             new FrontendEndpoint(this);
 
-            context.addServlet(new ServletHolder(new StatsStreamServlet(statsBroadcaster)), "/api/stats/stream");
-            context.addServlet(new ServletHolder(new PlayersStreamServlet(playersBroadcaster)), "/api/players/stream");
+            context.addServlet(new ServletHolder(new StatsStreamServlet(accessLog, statsBroadcaster)), "/api/stats/stream");
+            context.addServlet(new ServletHolder(new PlayersStreamServlet(accessLog, playersBroadcaster)), "/api/players/stream");
             context.addServlet(new ServletHolder(new StaffPlayersStreamServlet(this, playersBroadcaster)), "/api/players/stream/staff");
             context.addServlet(new ServletHolder(new PlayerActionServlet(this)), "/api/admin/player-action");
             context.addServlet(new ServletHolder(new PlayerInventoryStreamServlet(this, playerInventoryBroadcaster)), "/api/player/inventory/stream");
@@ -215,7 +224,10 @@ public class HTTPDModule extends PlexModule
             }
         }
         serverThread = null;
-        Log.shutdown();
+        if (accessLog != null)
+        {
+            accessLog.shutdown();
+        }
     }
 
     public static File getWorldeditFolder()

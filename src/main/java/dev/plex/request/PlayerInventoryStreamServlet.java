@@ -59,7 +59,7 @@ public class PlayerInventoryStreamServlet extends HttpServlet
             String forwarded = request.getHeader("X-FORWARDED-FOR");
             if (forwarded != null) ipAddress = forwarded;
         }
-        Log.log(ipAddress + " opened inventory stream for " + uuid);
+        module.getAccessLog().log(ipAddress + " opened inventory stream for " + uuid);
 
         if (broadcaster.atCapacity())
         {

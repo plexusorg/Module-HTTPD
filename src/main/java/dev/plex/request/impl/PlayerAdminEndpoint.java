@@ -20,12 +20,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.TimeUnit;
 
 public class PlayerAdminEndpoint extends AbstractServlet
 {
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z");
-    private static final int LOOKUP_TIMEOUT_SECONDS = 10;
 
     public PlayerAdminEndpoint(HTTPDModule module)
     {
@@ -52,7 +50,7 @@ public class PlayerAdminEndpoint extends AbstractServlet
         PlexPlayerView player;
         try
         {
-            player = lookupPlayer(query);
+            player = lookupPlayer(module, query);
         }
         catch (CompletionException failure)
         {
@@ -73,18 +71,6 @@ public class PlayerAdminEndpoint extends AbstractServlet
         data.put("nameMcUrl", "https://namemc.com/profile/" + player.uuid());
         body.put("player", data);
         return JsonResponse.json(response, body);
-    }
-
-    private PlexPlayerView lookupPlayer(String query)
-    {
-        try
-        {
-            return module.api().players().player(UUID.fromString(query)).orTimeout(LOOKUP_TIMEOUT_SECONDS, TimeUnit.SECONDS).join().orElse(null);
-        }
-        catch (IllegalArgumentException ignored)
-        {
-            return module.api().players().byName(query).orTimeout(LOOKUP_TIMEOUT_SECONDS, TimeUnit.SECONDS).join().orElse(null);
-        }
     }
 
     private static String lastIp(PlexPlayerView player)

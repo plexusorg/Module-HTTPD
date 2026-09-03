@@ -16,9 +16,11 @@ import java.io.PrintWriter;
 public class StatsStreamServlet extends HttpServlet
 {
     private final StatsBroadcaster broadcaster;
+    private final Log accessLog;
 
-    public StatsStreamServlet(StatsBroadcaster broadcaster)
+    public StatsStreamServlet(Log accessLog, StatsBroadcaster broadcaster)
     {
+        this.accessLog = accessLog;
         this.broadcaster = broadcaster;
     }
 
@@ -32,7 +34,7 @@ public class StatsStreamServlet extends HttpServlet
             String forwarded = request.getHeader("X-FORWARDED-FOR");
             if (forwarded != null) ipAddress = forwarded;
         }
-        Log.log(ipAddress + " opened SSE stream /api/stats/stream");
+        accessLog.log(ipAddress + " opened SSE stream /api/stats/stream");
 
         if (broadcaster.atCapacity())
         {

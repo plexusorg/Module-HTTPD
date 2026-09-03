@@ -18,13 +18,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReferenceArray;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -42,8 +36,8 @@ public final class PlayersBroadcaster
     private static final Gson GSON = new GsonBuilder().serializeNulls().create();
 
     private final HTTPDModule module;
-    private final Set<Subscriber> subscribers = ConcurrentHashMap.newKeySet();
-    private final AtomicInteger subscriberCount = new AtomicInteger();
+    private static final String CHANNEL = "players";
+    private SseTransport<String, Boolean> transport;
     private final AtomicBoolean refreshScheduled = new AtomicBoolean(false);
     private final AtomicBoolean refreshInProgress = new AtomicBoolean(false);
     private final AtomicBoolean refreshPending = new AtomicBoolean(false);
@@ -51,10 +45,8 @@ public final class PlayersBroadcaster
     private volatile String cachedPublicFrame = "{\"players\":[],\"max\":0}";
     private volatile String cachedStaffFrame  = "{\"players\":[],\"max\":0}";
 
-    private ScheduledExecutorService executor;
     private ScheduledTask refreshTask;
     private Listener listener;
-    private int maxConnections = 32;
 
     public PlayersBroadcaster(HTTPDModule module)
     {
@@ -63,18 +55,11 @@ public final class PlayersBroadcaster
 
     public synchronized void start()
     {
-        if (executor != null) return;
-
-        maxConnections = module.getModuleConfig().getInt("server.sse.max-connections", 32);
-        int threads = Math.max(1, module.getModuleConfig().getInt("server.sse.threads", 2));
-
-        executor = Executors.newScheduledThreadPool(threads, r ->
-        {
-            Thread t = new Thread(r, "Plex-HTTPD-Players-SSE");
-            t.setDaemon(true);
-            return t;
-        });
-
+        if (transport != null) return;
+        int maxConnections = module.getModuleConfig().getInt("server.sse.max-connections", 32);
+        int threads = module.getModuleConfig().getInt("server.sse.threads", 2);
+        transport = new SseTransport<>(maxConnections, threads, "Plex-HTTPD-Players-SSE",
+                this::scheduleRefresh, ignored -> {});
         listener = new PlayersListener();
         module.registerListener(listener);
         refreshTask = module.scheduler().runGlobalTimer(this::refreshAndBroadcast, 1L, REFRESH_TICKS);
@@ -92,50 +77,26 @@ public final class PlayersBroadcaster
             refreshTask.cancel();
             refreshTask = null;
         }
-        if (executor != null)
+        if (transport != null)
         {
-            executor.shutdownNow();
-            executor = null;
+            transport.shutdown();
         }
-        for (Subscriber sub : subscribers)
-        {
-            complete(sub.ctx);
-        }
-        subscribers.clear();
-        subscriberCount.set(0);
     }
 
     public boolean atCapacity()
     {
-        return subscriberCount.get() >= maxConnections;
+        return transport.atCapacity();
     }
 
-    public boolean addSubscriber(AsyncContext ctx, PrintWriter writer, boolean staff)
+    public boolean addSubscriber(AsyncContext context, PrintWriter writer, boolean staff)
     {
-        if (!reserveConnection()) return false;
-        Subscriber sub = new Subscriber(ctx, writer, staff);
-        if (subscribers.add(sub))
-        {
-            scheduleRefresh();
-            return true;
-        }
-        subscriberCount.decrementAndGet();
-        return false;
+        return transport.add(CHANNEL, context, writer, staff);
     }
 
-    public void removeSubscriber(AsyncContext ctx)
+    public void removeSubscriber(AsyncContext context)
     {
-        Subscriber match = null;
-        for (Subscriber sub : subscribers)
-        {
-            if (sub.ctx == ctx) { match = sub; break; }
-        }
-        if (match != null && subscribers.remove(match))
-        {
-            subscriberCount.decrementAndGet();
-        }
+        transport.remove(CHANNEL, context);
     }
-
     public String currentPayload(boolean staff)
     {
         return staff ? cachedStaffFrame : cachedPublicFrame;
@@ -143,7 +104,7 @@ public final class PlayersBroadcaster
 
     private void refreshAndBroadcast()
     {
-        if (subscribers.isEmpty()) return;
+        if (!hasSubscribers()) return;
         if (!refreshInProgress.compareAndSet(false, true))
         {
             refreshPending.set(true);
@@ -210,7 +171,7 @@ public final class PlayersBroadcaster
     private void finishRefresh()
     {
         refreshInProgress.set(false);
-        if (refreshPending.getAndSet(false) && !subscribers.isEmpty()) scheduleRefresh();
+        if (refreshPending.getAndSet(false) && hasSubscribers()) scheduleRefresh();
     }
 
     private void publish(List<Map<String, Object>> publicPlayers, List<Map<String, Object>> staffPlayers, int max)
@@ -219,19 +180,12 @@ public final class PlayersBroadcaster
         String staffJson = buildPayload(staffPlayers, max);
         cachedPublicFrame = publicJson;
         cachedStaffFrame = staffJson;
-
-        ScheduledExecutorService exec = executor;
-        if (exec == null || subscribers.isEmpty()) return;
-
-        final String publicFrame = "data: " + publicJson + "\n\n";
-        final String staffFrame  = "data: " + staffJson  + "\n\n";
-        for (Subscriber sub : subscribers)
-        {
-            final String frame = sub.staff ? staffFrame : publicFrame;
-            enqueueFrame(exec, sub, frame);
-        }
+        SseTransport<String, Boolean> activeTransport = transport;
+        if (activeTransport == null) return;
+        String publicFrame = "data: " + publicJson + "\n\n";
+        String staffFrame = "data: " + staffJson + "\n\n";
+        activeTransport.publish(CHANNEL, staff -> staff ? staffFrame : publicFrame);
     }
-
     private static List<Map<String, Object>> compact(AtomicReferenceArray<Map<String, Object>> players)
     {
         List<Map<String, Object>> result = new ArrayList<>(players.length());
@@ -244,71 +198,6 @@ public final class PlayersBroadcaster
             }
         }
         return result;
-    }
-
-    private void enqueueFrame(ScheduledExecutorService exec, Subscriber sub, String frame)
-    {
-        sub.pendingFrame.set(frame);
-        if (!sub.writing.compareAndSet(false, true)) return;
-        submitDrain(exec, sub);
-    }
-
-    private void submitDrain(ScheduledExecutorService exec, Subscriber sub)
-    {
-        try
-        {
-            exec.execute(() -> drainFrames(sub));
-        }
-        catch (RejectedExecutionException ignored)
-        {
-            sub.writing.set(false);
-            dropSubscriber(sub);
-        }
-    }
-
-    private void drainFrames(Subscriber sub)
-    {
-        try
-        {
-            while (subscribers.contains(sub))
-            {
-                String frame = sub.pendingFrame.getAndSet(null);
-                if (frame == null) return;
-                sub.writer.write(frame);
-                sub.writer.flush();
-                if (sub.writer.checkError())
-                {
-                    dropSubscriber(sub);
-                    return;
-                }
-            }
-        }
-        finally
-        {
-            sub.writing.set(false);
-            ScheduledExecutorService exec = executor;
-            if (exec != null && subscribers.contains(sub) && sub.pendingFrame.get() != null && sub.writing.compareAndSet(false, true))
-            {
-                submitDrain(exec, sub);
-            }
-        }
-    }
-
-    private void dropSubscriber(Subscriber sub)
-    {
-        sub.pendingFrame.set(null);
-        if (subscribers.remove(sub)) subscriberCount.decrementAndGet();
-        complete(sub.ctx);
-    }
-
-    private boolean reserveConnection()
-    {
-        while (true)
-        {
-            int current = subscriberCount.get();
-            if (current >= maxConnections) return false;
-            if (subscriberCount.compareAndSet(current, current + 1)) return true;
-        }
     }
 
     /**
@@ -334,6 +223,12 @@ public final class PlayersBroadcaster
         return GSON.toJson(root);
     }
 
+    private boolean hasSubscribers()
+    {
+        SseTransport<String, Boolean> activeTransport = transport;
+        return activeTransport != null && activeTransport.hasSubscribers();
+    }
+
     private Map<String, Object> buildPublicPlayer(Player p)
     {
         Map<String, Object> m = new LinkedHashMap<>();
@@ -352,17 +247,6 @@ public final class PlayersBroadcaster
         return m;
     }
 
-    private static void complete(AsyncContext context)
-    {
-        try
-        {
-            context.complete();
-        }
-        catch (IllegalStateException ignored)
-        {
-        }
-    }
-
     private final class PlayersListener implements Listener
     {
         @EventHandler
@@ -375,18 +259,4 @@ public final class PlayersBroadcaster
         public void onWorldChange(PlayerChangedWorldEvent e) { scheduleRefresh(); }
     }
 
-    private static final class Subscriber
-    {
-        final AsyncContext ctx;
-        final PrintWriter writer;
-        final boolean staff;
-        final AtomicReference<String> pendingFrame = new AtomicReference<>();
-        final AtomicBoolean writing = new AtomicBoolean(false);
-        Subscriber(AsyncContext ctx, PrintWriter writer, boolean staff)
-        {
-            this.ctx = ctx;
-            this.writer = writer;
-            this.staff = staff;
-        }
-    }
 }

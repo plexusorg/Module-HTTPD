@@ -64,7 +64,8 @@ public final class StatsBroadcaster
         int threads = Math.max(1, module.getModuleConfig().getInt("server.sse.threads", 2));
 
         transport = new SseTransport<>(maxConnections, threads, "Plex-HTTPD-SSE",
-                () -> module.scheduler().runGlobal(this::sampleBukkit), ignored -> {});
+                () -> module.ownTask(org.bukkit.Bukkit.getGlobalRegionScheduler().run(module.plugin(),
+                        task -> sampleBukkit())), ignored -> {});
         broadcastExecutor = Executors.newSingleThreadScheduledExecutor(r ->
         {
             Thread t = new Thread(r, "Plex-HTTPD-SSE");
@@ -73,7 +74,8 @@ public final class StatsBroadcaster
         });
 
         long sampleTicks = Math.max(20L, module.getModuleConfig().getLong("server.sse.stats-sample-interval-ticks", 100L));
-        bukkitTask = module.scheduler().runGlobalTimer(this::sampleBukkit, 1L, sampleTicks);
+        bukkitTask = module.ownTask(org.bukkit.Bukkit.getGlobalRegionScheduler().runAtFixedRate(module.plugin(),
+                task -> sampleBukkit(), 1L, sampleTicks));
 
         broadcastTask = broadcastExecutor.scheduleAtFixedRate(
             this::tick, broadcastIntervalMs, broadcastIntervalMs, TimeUnit.MILLISECONDS);

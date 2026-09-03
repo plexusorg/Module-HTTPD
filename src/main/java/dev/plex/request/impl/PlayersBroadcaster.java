@@ -62,7 +62,8 @@ public final class PlayersBroadcaster
                 this::scheduleRefresh, ignored -> {});
         listener = new PlayersListener();
         module.registerListener(listener);
-        refreshTask = module.scheduler().runGlobalTimer(this::refreshAndBroadcast, 1L, REFRESH_TICKS);
+        refreshTask = module.ownTask(Bukkit.getGlobalRegionScheduler().runAtFixedRate(module.plugin(),
+                task -> refreshAndBroadcast(), 1L, REFRESH_TICKS));
     }
 
     public synchronized void shutdown()
@@ -126,7 +127,7 @@ public final class PlayersBroadcaster
         {
             final int index = i;
             Player player = online.get(i);
-            boolean scheduled = module.scheduler().executeEntity(player, () ->
+            boolean scheduled = player.getScheduler().execute(module.plugin(), () ->
             {
                 try
                 {
@@ -208,11 +209,11 @@ public final class PlayersBroadcaster
     private void scheduleRefresh()
     {
         if (!refreshScheduled.compareAndSet(false, true)) return;
-        module.scheduler().runGlobalLater(() ->
+        module.ownTask(Bukkit.getGlobalRegionScheduler().runDelayed(module.plugin(), task ->
         {
             refreshScheduled.set(false);
             refreshAndBroadcast();
-        }, 1L);
+        }, 1L));
     }
 
     private String buildPayload(List<Map<String, Object>> players, int max)

@@ -72,7 +72,8 @@ public final class PlayerInventoryBroadcaster
         int maxConnections = module.getModuleConfig().getInt("server.sse.max-connections", 32);
         int threads = module.getModuleConfig().getInt("server.sse.threads", 2);
         transport = new SseTransport<>(maxConnections, threads, "Plex-HTTPD-Inv-SSE", () -> {}, this::removeKey);
-        refreshTask = module.scheduler().runGlobalTimer(this::tick, 1L, REFRESH_TICKS);
+        refreshTask = module.ownTask(Bukkit.getGlobalRegionScheduler().runAtFixedRate(module.plugin(),
+                task -> tick(), 1L, REFRESH_TICKS));
     }
 
     public synchronized void shutdown()
@@ -125,7 +126,7 @@ public final class PlayerInventoryBroadcaster
                 publish(uuid, "{\"online\":false}");
                 continue;
             }
-            boolean scheduled = module.scheduler().executeEntity(player, () ->
+            boolean scheduled = player.getScheduler().execute(module.plugin(), () ->
             {
                 try
                 {

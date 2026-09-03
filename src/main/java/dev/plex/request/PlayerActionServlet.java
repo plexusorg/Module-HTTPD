@@ -192,14 +192,14 @@ public class PlayerActionServlet extends HttpServlet
     {
         module.getAccessLog().log(requestIp(request) + " (xf:" + staff.username() + ") issued " + action + " on " + target.name() + " (" + uuid + ")" + (slot == null || slot.isBlank() ? "" : " slot " + slot));
 
-        module.scheduler().executeGlobal(() ->
+        Bukkit.getGlobalRegionScheduler().execute(module.plugin(), () ->
         {
             Player online = Bukkit.getPlayer(uuid);
             if (online == null)
             {
                 return;
             }
-            module.scheduler().runEntity(online, () ->
+            module.ownTask(online.getScheduler().run(module.plugin(), task ->
             {
                 PlayerInventory inventory = online.getInventory();
                 if ("clear-inventory".equals(action))
@@ -215,7 +215,7 @@ public class PlayerActionServlet extends HttpServlet
                     clearSlot(inventory, slot);
                     online.updateInventory();
                 }
-            });
+            }, null));
         });
 
         response.getWriter().write(JsonResponse.ok(response, "Inventory action queued."));

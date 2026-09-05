@@ -3,6 +3,7 @@
     import {HugeiconsIcon} from '@hugeicons/svelte';
     import {Search01Icon, Shield01Icon, UserGroupIcon} from '@hugeicons/core-free-icons';
     import {Badge} from '$lib/components/ui/badge';
+    import PlayerHead from '$lib/components/ui/PlayerHead.svelte';
     import {Card} from '$lib/components/ui/card';
     import {Input} from '$lib/components/ui/input';
     import type {PlayerSummary, PlayersPayload} from '$lib/types/api';
@@ -65,9 +66,7 @@
                     href={staff ? `/player/${encodeURIComponent(player.uuid)}` : undefined}
                     class="ring-card flex items-center gap-3 rounded-xl bg-card p-3 transition-colors hover:bg-secondary/50"
             >
-                <img class="size-10 rounded-lg bg-muted inventory-pixelated"
-                     src={`https://vzge.me/face/512/${encodeURIComponent(player.uuid)}.png`} alt="" loading="lazy"
-                     width="40" height="40"/>
+                <PlayerHead uuid={player.uuid} size={40}/>
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2">
                         <span class="truncate text-sm font-medium">{player.name}</span>

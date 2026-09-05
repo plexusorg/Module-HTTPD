@@ -105,7 +105,7 @@ public final class PlayersBroadcaster
 
     private void refreshAndBroadcast()
     {
-        if (!hasSubscribers()) return;
+        if (!transport.hasSubscribers()) return;
         if (!refreshInProgress.compareAndSet(false, true))
         {
             refreshPending.set(true);
@@ -172,7 +172,7 @@ public final class PlayersBroadcaster
     private void finishRefresh()
     {
         refreshInProgress.set(false);
-        if (refreshPending.getAndSet(false) && hasSubscribers()) scheduleRefresh();
+        if (refreshPending.getAndSet(false) && transport.hasSubscribers()) scheduleRefresh();
     }
 
     private void publish(List<Map<String, Object>> publicPlayers, List<Map<String, Object>> staffPlayers, int max)
@@ -181,11 +181,9 @@ public final class PlayersBroadcaster
         String staffJson = buildPayload(staffPlayers, max);
         cachedPublicFrame = publicJson;
         cachedStaffFrame = staffJson;
-        SseTransport<String, Boolean> activeTransport = transport;
-        if (activeTransport == null) return;
         String publicFrame = "data: " + publicJson + "\n\n";
         String staffFrame = "data: " + staffJson + "\n\n";
-        activeTransport.publish(CHANNEL, staff -> staff ? staffFrame : publicFrame);
+        transport.publish(CHANNEL, staff -> staff ? staffFrame : publicFrame);
     }
     private static List<Map<String, Object>> compact(AtomicReferenceArray<Map<String, Object>> players)
     {
@@ -222,12 +220,6 @@ public final class PlayersBroadcaster
         root.put("players", players);
         root.put("max", max);
         return GSON.toJson(root);
-    }
-
-    private boolean hasSubscribers()
-    {
-        SseTransport<String, Boolean> activeTransport = transport;
-        return activeTransport != null && activeTransport.hasSubscribers();
     }
 
     private Map<String, Object> buildPublicPlayer(Player p)

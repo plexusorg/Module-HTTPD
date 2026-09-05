@@ -45,16 +45,11 @@ final class SseTransport<K, M>
 
     boolean add(K key, AsyncContext context, PrintWriter writer, M metadata)
     {
-        if (!active.get()) return false;
         int reservedCount = reserveConnection();
         if (reservedCount < 0) return false;
         Subscriber<M> subscriber = new Subscriber<>(context, writer, metadata);
         Set<Subscriber<M>> keyed = subscribers.computeIfAbsent(key, ignored -> ConcurrentHashMap.newKeySet());
-        if (!keyed.add(subscriber))
-        {
-            subscriberCount.decrementAndGet();
-            return false;
-        }
+        keyed.add(subscriber);
         if (!active.get())
         {
             drop(key, keyed, subscriber, false);

@@ -113,9 +113,7 @@ public final class PlayerInventoryBroadcaster
 
     private void tick()
     {
-        SseTransport<UUID, Void> activeTransport = transport;
-        if (activeTransport == null) return;
-        for (UUID uuid : activeTransport.keys())
+        for (UUID uuid : transport.keys())
         {
             Object snapshot = new Object();
             if (snapshotsInProgress.putIfAbsent(uuid, snapshot) != null) continue;
@@ -151,15 +149,14 @@ public final class PlayerInventoryBroadcaster
 
     private void publish(UUID uuid, String json)
     {
-        SseTransport<UUID, Void> activeTransport = transport;
-        if (activeTransport == null || !activeTransport.hasSubscribers(uuid))
+        if (!transport.hasSubscribers(uuid))
         {
             cachedPayloads.remove(uuid);
             return;
         }
         cachedPayloads.put(uuid, json);
         String frame = "data: " + json + "\n\n";
-        activeTransport.publish(uuid, ignored -> frame);
+        transport.publish(uuid, ignored -> frame);
     }
 
     private void removeKey(UUID uuid)

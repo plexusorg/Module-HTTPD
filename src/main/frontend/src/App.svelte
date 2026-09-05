@@ -75,7 +75,9 @@
         {/await}
     {:else if route.path === 'punishments-detail'}
         {#await import('$lib/pages/PunishmentsDetailPage.svelte') then {default: PunishmentsDetailPage}}
-            <PunishmentsDetailPage id={route.params.id}/>
+            {#key route.params.id}
+                <PunishmentsDetailPage id={route.params.id}/>
+            {/key}
         {/await}
     {:else if route.path === 'indefbans'}
         {#if staff}

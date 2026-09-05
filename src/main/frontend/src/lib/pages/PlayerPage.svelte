@@ -5,6 +5,7 @@
     import {api, postUrlEncoded} from '$lib/api';
     import {Badge} from '$lib/components/ui/badge';
     import {Button, type ButtonVariant} from '$lib/components/ui/button';
+    import PlayerHead from '$lib/components/ui/PlayerHead.svelte';
     import {Card} from '$lib/components/ui/card';
     import * as Dialog from '$lib/components/ui/dialog';
     import {Label} from '$lib/components/ui/label';
@@ -151,9 +152,7 @@
 {:else if player}
     <section class="rise flex flex-wrap items-end justify-between gap-3">
         <div class="flex min-w-0 items-center gap-3">
-            <img class="size-14 rounded-xl bg-muted inventory-pixelated"
-                 src={`https://vzge.me/face/512/${encodeURIComponent(player.uuid)}.png`} alt="" loading="lazy"
-                 width="56" height="56"/>
+            <PlayerHead uuid={player.uuid} size={56}/>
             <div class="min-w-0">
                 <h1 class="truncate text-3xl font-medium tracking-tight md:text-4xl">{player.name}</h1>
                 <p class="mt-1 break-all font-mono text-xs text-muted-foreground">{player.uuid}</p>

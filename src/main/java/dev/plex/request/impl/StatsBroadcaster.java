@@ -47,9 +47,6 @@ public final class StatsBroadcaster
     private ScheduledTask bukkitTask;
     private ScheduledFuture<?> broadcastTask;
 
-    private int maxConnections = 32;
-    private long broadcastIntervalMs = 2000L;
-
     public StatsBroadcaster(HTTPDModule module)
     {
         this.module = module;
@@ -59,9 +56,9 @@ public final class StatsBroadcaster
     {
         if (transport != null) return;
 
-        maxConnections = module.getModuleConfig().getInt("server.sse.max-connections", 32);
-        broadcastIntervalMs = module.getModuleConfig().getLong("server.sse.broadcast-interval-ms", 2000L);
-        int threads = Math.max(1, module.getModuleConfig().getInt("server.sse.threads", 2));
+        int maxConnections = module.getModuleConfig().getInt("server.sse.max-connections", 32);
+        long broadcastIntervalMs = module.getModuleConfig().getLong("server.sse.broadcast-interval-ms", 2000L);
+        int threads = module.getModuleConfig().getInt("server.sse.threads", 2);
 
         transport = new SseTransport<>(maxConnections, threads, "Plex-HTTPD-SSE",
                 () -> module.ownTask(org.bukkit.Bukkit.getGlobalRegionScheduler().run(module.plugin(),
@@ -126,8 +123,7 @@ public final class StatsBroadcaster
 
     private void sampleBukkit()
     {
-        SseTransport<String, Void> activeTransport = transport;
-        if (activeTransport == null || !activeTransport.hasSubscribers()) return;
+        if (!transport.hasSubscribers()) return;
         int chunks = 0;
         int entities = 0;
         for (World world : Bukkit.getWorlds())
@@ -147,10 +143,9 @@ public final class StatsBroadcaster
 
     private void tick()
     {
-        SseTransport<String, Void> activeTransport = transport;
-        if (activeTransport == null || !activeTransport.hasSubscribers()) return;
+        if (!transport.hasSubscribers()) return;
         final String frame = "data: " + buildPayload() + "\n\n";
-        activeTransport.publish(CHANNEL, ignored -> frame);
+        transport.publish(CHANNEL, ignored -> frame);
     }
 
     private String buildPayload()

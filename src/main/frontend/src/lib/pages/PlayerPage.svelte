@@ -1,18 +1,17 @@
 <script lang="ts">
     import {onDestroy, onMount} from 'svelte';
     import {HugeiconsIcon} from '@hugeicons/svelte';
-    import {ArrowLeft01Icon, ArrowUpRight03Icon} from '@hugeicons/core-free-icons';
+    import {ArrowUpRight03Icon} from '@hugeicons/core-free-icons';
     import {api, postUrlEncoded} from '$lib/api';
-    import {Badge} from '$lib/components/ui/badge';
-    import {Button, type ButtonVariant} from '$lib/components/ui/button';
-    import PlayerHead from '$lib/components/ui/PlayerHead.svelte';
-    import {Card} from '$lib/components/ui/card';
-    import * as Dialog from '$lib/components/ui/dialog';
-    import {Label} from '$lib/components/ui/label';
-    import {Textarea} from '$lib/components/ui/textarea';
+    import PageHeader from '$lib/components/layout/PageHeader.svelte';
+    import Button, {type ButtonVariant} from '$lib/components/ui/Button.svelte';
     import InventoryGrid from '$lib/components/ui/InventoryGrid.svelte';
+    import Modal from '$lib/components/ui/Modal.svelte';
+    import Notice from '$lib/components/ui/Notice.svelte';
+    import PlayerHead from '$lib/components/ui/PlayerHead.svelte';
+    import Select from '$lib/components/ui/Select.svelte';
+    import Tag from '$lib/components/ui/Tag.svelte';
     import type {InventoryPayload, PlayerDetails, PlayerSummary, PlayersPayload} from '$lib/types/api';
-    import {navigate} from '$lib/router';
     import {cn, pingClass, titleCase} from '$lib/utils';
 
     interface Props {
@@ -36,6 +35,8 @@
     let submitting = $state(false);
     let playersStream: EventSource | null = null;
     let inventoryStream: EventSource | null = null;
+
+    const trail = [{href: '/', label: 'Overview'}, {href: '/players/', label: 'Players'}];
 
     const actions = [
         {action: 'ban', label: 'Ban', tone: 'destructive', temporary: false, reason: true},
@@ -67,14 +68,13 @@
     }
 
     function buttonVariant(tone: string): ButtonVariant {
-        return tone === 'destructive' ? 'destructive' : tone === 'warning' ? 'outline' : 'default';
+        return tone === 'destructive' ? 'danger' : tone === 'warning' ? 'warn' : 'secondary';
     }
 
-    function actionButtonClass(item: (typeof actions)[number]) {
-        return cn(
-            item.tone === 'warning' && 'border-warning/30 bg-warning/10 text-warning hover:bg-warning/15 hover:text-warning',
-            item.action === 'freeze' && 'col-span-2'
-        );
+    function actionHint(item: (typeof actions)[number]) {
+        if ('selected' in item && item.selected && !selectedItem) return 'Select a slot first';
+        if ('live' in item && item.live && !inventory?.online) return 'Player must be online';
+        return null;
     }
 
     async function submitAction() {
@@ -89,7 +89,6 @@
         try {
             const result = await postUrlEncoded<{ ok: boolean; message?: string }>('/api/admin/player-action', form);
             actionMessage = result.message ?? 'Action completed.';
-            dialogAction = null;
             actionDialogOpen = false;
         } catch (cause) {
             actionError = cause instanceof Error ? cause.message : 'Action failed.';
@@ -143,137 +142,128 @@
 </script>
 
 {#if loading}
-    <p class="rise text-sm text-muted-foreground">Loading player...</p>
+    <PageHeader title={player?.name ?? 'Player'} {trail}/>
+    <Notice kind="loading" title="Loading player"/>
 {:else if error}
-    <Card class="rise p-5">
-        <h1 class="text-xl font-medium">Player lookup failed</h1>
-        <p class="mt-2 text-sm text-destructive">{error}</p>
-    </Card>
+    <PageHeader title="Player" {trail}/>
+    <Notice kind="error" title="Player lookup failed" message={error}>
+        <Button variant="primary" onclick={load}>Try again</Button>
+        <Button href="/players/">Back to players</Button>
+        <Button href={`/punishments/${encodeURIComponent(id)}`}>Punishment history</Button>
+    </Notice>
 {:else if player}
-    <section class="rise flex flex-wrap items-end justify-between gap-3">
-        <div class="flex min-w-0 items-center gap-3">
-            <PlayerHead uuid={player.uuid} size={56}/>
-            <div class="min-w-0">
-                <h1 class="truncate text-3xl font-medium tracking-tight md:text-4xl">{player.name}</h1>
-                <p class="mt-1 break-all font-mono text-xs text-muted-foreground">{player.uuid}</p>
-            </div>
-        </div>
-        <Button variant="secondary" onclick={() => navigate('/players/')}>
-            <HugeiconsIcon icon={ArrowLeft01Icon} class="size-3.5"/>
-            Players
-        </Button>
-    </section>
+    <PageHeader title={player.name} {trail}>
+        {#snippet lead()}
+            <PlayerHead uuid={player!.uuid} size={48}/>
+        {/snippet}
+        {#snippet meta()}
+            <span class="w-full break-all font-mono text-[0.8125rem]">{player!.uuid}</span>
+            {#if online}
+                <Tag tone="ok" dot>Online</Tag>
+            {:else}
+                <Tag dot>Offline</Tag>
+            {/if}
+        {/snippet}
+        {#snippet actions()}
+            <Button href={`/punishments/${encodeURIComponent(player!.uuid)}`}>Punishment history</Button>
+            {#if player!.nameMcUrl}
+                <Button href={player!.nameMcUrl} target="_blank" rel="noopener" variant="ghost">
+                    NameMC
+                    <HugeiconsIcon icon={ArrowUpRight03Icon}/>
+                </Button>
+            {/if}
+        {/snippet}
+    </PageHeader>
 
-    <section class="rise mt-6 grid gap-4 md:grid-cols-2">
-        <Card class="p-5">
-            <h2 class="text-sm font-medium tracking-tight">Info</h2>
-            <dl class="mt-4 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm">
-                <dt class="text-muted-foreground">Status</dt>
-                <dd>
-                    {#if online}
-                        <Badge variant="secondary" class="bg-success/10 text-success">online</Badge>
-                    {:else}
-                        <Badge variant="secondary">offline</Badge>
-                    {/if}
-                </dd>
-                <dt class="text-muted-foreground">Ping</dt>
-                <dd class="tabular {pingClass(online?.ping)}">{online ? `${online.ping | 0}ms` : '-'}</dd>
-                <dt class="text-muted-foreground">World</dt>
-                <dd class="text-foreground/80">{online?.world ?? '-'}</dd>
-                <dt class="text-muted-foreground">Gamemode</dt>
-                <dd class="text-foreground/80">{online?.gamemode ? titleCase(online.gamemode) : '-'}</dd>
-                <dt class="text-muted-foreground">IP</dt>
-                <dd class="break-all font-mono text-foreground/80">{player.ip ?? '-'}</dd>
-                <dt class="text-muted-foreground">First played</dt>
-                <dd class="text-foreground/80">{player.firstPlayed ?? '-'}</dd>
-                <dt class="text-muted-foreground">Punishments</dt>
-                <dd><a href={`/punishments/${encodeURIComponent(player.uuid)}`}
-                       class="inline-flex items-center gap-1 text-primary hover:underline">View history</a></dd>
-                {#if player.nameMcUrl}
-                    <dt class="text-muted-foreground">NameMC</dt>
-                    <dd><a href={player.nameMcUrl} target="_blank" rel="noopener"
-                           class="inline-flex items-center gap-1 text-primary hover:underline">View profile
-                        <HugeiconsIcon icon={ArrowUpRight03Icon} class="size-3"/>
-                    </a></dd>
-                {/if}
+    <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+        <section aria-labelledby="record-heading" class="panel p-5">
+            <h2 id="record-heading" class="text-base font-semibold">Details</h2>
+            <dl class="mt-3 divide-y divide-line">
+                {#snippet row(label: string, value: string, mono = false, tone = '')}
+                    <div class="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-4 py-2.5">
+                        <dt class="text-muted">{label}</dt>
+                        <dd class={cn('break-words', mono && 'break-all font-mono text-[0.8125rem]', tone)}>{value}</dd>
+                    </div>
+                {/snippet}
+                {@render row('Ping', online ? `${online.ping | 0} ms` : '-', false, cn('tabular-nums', pingClass(online?.ping)))}
+                {@render row('World', online?.world ?? '-')}
+                {@render row('Gamemode', online?.gamemode ? titleCase(online.gamemode) : '-')}
+                {@render row('IP', player.ip ?? '-', true)}
+                {@render row('First played', player.firstPlayed ?? '-')}
             </dl>
-        </Card>
+        </section>
 
-        <Card class="p-5">
-            <h2 class="text-sm font-medium tracking-tight">Actions</h2>
-            <p class="mt-1 text-xs text-muted-foreground">Issued punishments use the authenticated staff account.</p>
+        <section aria-labelledby="actions-heading" class="panel p-5">
+            <h2 id="actions-heading" class="text-base font-semibold">Actions</h2>
+            <p class="mt-0.5 text-muted">Actions are issued under your staff account.</p>
             <div class="mt-4 grid grid-cols-2 gap-2">
                 {#each actions as item (item.action)}
+                    {@const hint = actionHint(item)}
                     <Button
                             variant={buttonVariant(item.tone)}
-                            class={actionButtonClass(item)}
+                            class={cn('py-1.5', item.action === 'freeze' && 'col-span-2')}
                             disabled={submitting
                                 || ('live' in item && item.live && !inventory?.online)
                                 || ('selected' in item && item.selected && !selectedItem)}
                             onclick={() => openAction(item.action)}
                     >
-                        {item.label}
+                        <span class="flex flex-col items-center leading-tight">
+                            {item.label}
+                            {#if hint}
+                                <span class="mt-0.5 text-xs font-normal">{hint}</span>
+                            {/if}
+                        </span>
                     </Button>
                 {/each}
             </div>
             {#if actionMessage}
-                <p class="mt-3 text-sm text-success">{actionMessage}</p>
+                <p class="mt-4 rounded-md bg-ok-soft px-3 py-2 text-ok" role="status">{actionMessage}</p>
             {/if}
-        </Card>
-    </section>
+        </section>
+    </div>
 
     {#if staff}
-        <section class="rise mt-4">
-            <Card class="p-5">
-                <h2 class="text-sm font-medium tracking-tight">Live inventory</h2>
-                <div class="mt-4">
-                    <InventoryGrid {inventory} selectedKey={selectedSlot} onSelect={(slot) => (selectedSlot = slot)}/>
-                </div>
-            </Card>
+        <section aria-labelledby="inventory-heading" class="panel mt-4 p-5">
+            <h2 id="inventory-heading" class="text-base font-semibold">Inventory</h2>
+            <p class="mt-0.5 text-muted">Updates live. Select a slot to inspect or clear it.</p>
+            <div class="mt-4">
+                <InventoryGrid {inventory} selectedKey={selectedSlot} onSelect={(slot) => (selectedSlot = slot)}/>
+            </div>
         </section>
     {/if}
 
-    {#if activeAction}
-        <Dialog.Root bind:open={actionDialogOpen}>
-            <Dialog.Content>
-                <Dialog.Header>
-                    <Dialog.Title>Confirm {activeAction.label.toLowerCase()}</Dialog.Title>
-                    <Dialog.Description>
-                        Target: <span
-                            class="text-foreground">{player.name}</span>{'selected' in activeAction && activeAction.selected ? ` | Slot: ${selectedSlot}` : ''}
-                    </Dialog.Description>
-                </Dialog.Header>
-                {#if activeAction.reason}
-                    <div class="grid gap-2">
-                        <Label for="actionReason">Reason</Label>
-                        <Textarea id="actionReason" bind:value={reason} required maxlength={500}/>
-                    </div>
-                {/if}
-                {#if activeAction.temporary}
-                    <div class="grid gap-2">
-                        <Label for="actionDuration">Duration</Label>
-                        <select id="actionDuration" bind:value={duration}
-                                class="border-input bg-input/30 focus-visible:border-ring focus-visible:ring-ring/50 h-9 rounded-4xl border px-3 py-1 text-sm outline-none focus-visible:ring-[3px]">
-                            <option value="5m">5 minutes</option>
-                            <option value="1h">1 hour</option>
-                            <option value="24h">1 day</option>
-                            <option value="7d">7 days</option>
-                            <option value="30d">30 days</option>
-                        </select>
-                    </div>
-                {/if}
-                {#if actionError}
-                    <p class="mt-3 text-sm text-destructive">{actionError}</p>
-                {/if}
-                <Dialog.Footer>
-                    <Button variant="secondary" disabled={submitting} onclick={() => { actionDialogOpen = false; dialogAction = null; }}>
-                        Cancel
-                    </Button>
-                    <Button variant="destructive" disabled={submitting || (activeAction.reason && !reason.trim())}
-                            onclick={submitAction}>{submitting ? 'Working...' : 'Confirm'}
-                    </Button>
-                </Dialog.Footer>
-            </Dialog.Content>
-        </Dialog.Root>
-    {/if}
+    <Modal bind:open={actionDialogOpen} title={activeAction ? `Confirm ${activeAction.label.toLowerCase()}` : 'Confirm action'}
+           onclose={() => (dialogAction = null)}>
+        {#snippet description()}
+            Target: <span class="font-medium text-ink">{player!.name}</span>{activeAction && 'selected' in activeAction && activeAction.selected ? `, slot ${selectedSlot}` : ''}
+        {/snippet}
+        {#if activeAction?.reason}
+            <div>
+                <label for="actionReason" class="label">Reason</label>
+                <textarea id="actionReason" bind:value={reason} required maxlength={500} rows="3"
+                          class="control min-h-24 resize-y"></textarea>
+                <p class="mt-1 text-right text-xs text-muted tabular-nums">{reason.length} / 500</p>
+            </div>
+        {/if}
+        {#if activeAction?.temporary}
+            <Select id="actionDuration" label="Duration" bind:value={duration}>
+                <option value="5m">5 minutes</option>
+                <option value="1h">1 hour</option>
+                <option value="24h">1 day</option>
+                <option value="7d">7 days</option>
+                <option value="30d">30 days</option>
+            </Select>
+        {/if}
+        {#if activeAction && !activeAction.reason && !activeAction.temporary}
+            <p class="text-muted">You cannot undo this.</p>
+        {/if}
+        {#if actionError}
+            <p class="rounded-md bg-danger-soft px-3 py-2 text-danger" role="alert">{actionError}</p>
+        {/if}
+        {#snippet footer()}
+            <Button disabled={submitting} onclick={() => (actionDialogOpen = false)}>Cancel</Button>
+            <Button variant="danger" disabled={submitting || Boolean(activeAction?.reason && !reason.trim())}
+                    onclick={submitAction}>{submitting ? 'Working…' : 'Confirm'}</Button>
+        {/snippet}
+    </Modal>
 {/if}

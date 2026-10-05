@@ -7,7 +7,7 @@
     let {uuid, size = 48}: Props = $props();
 </script>
 
-<span class="relative inline-block shrink-0 overflow-hidden rounded-lg bg-muted"
+<span class="img-outline relative inline-block shrink-0 overflow-hidden rounded-md bg-sunken"
       style:width="{size}px" style:height="{size}px" aria-hidden="true">
     <svg viewBox="0 0 8 8" class="size-full" shape-rendering="crispEdges" aria-hidden="true">
         <path fill="#b88765" d="M0 0h8v8H0z"/>

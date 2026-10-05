@@ -1,48 +1,49 @@
 <script lang="ts">
     import {HugeiconsIcon} from '@hugeicons/svelte';
-    import {ArrowLeft01Icon, ArrowRight01Icon, Search01Icon} from '@hugeicons/core-free-icons';
-    import {Button} from '$lib/components/ui/button';
-    import {Input} from '$lib/components/ui/input';
-    import {navigate} from '$lib/router';
+    import {ArrowRight01Icon} from '@hugeicons/core-free-icons';
+    import PageHeader from '$lib/components/layout/PageHeader.svelte';
+    import PlayerLookup from '$lib/components/PlayerLookup.svelte';
+    import Button from '$lib/components/ui/Button.svelte';
+    import PlayerHead from '$lib/components/ui/PlayerHead.svelte';
+    import {clearRecentLookups, readRecentLookups} from '$lib/recentLookups';
 
-    let query = $state('');
+    let recent = $state(readRecentLookups());
 
-    function submit() {
-        const value = query.trim();
-        if (!value) return;
-        navigate(`/punishments/${encodeURIComponent(value)}`);
+    function clearRecent() {
+        clearRecentLookups();
+        recent = [];
     }
 </script>
 
-<section class="rise">
-    <a href="/"
-       class="mb-4 inline-flex min-h-10 items-center gap-2 rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
-        <HugeiconsIcon icon={ArrowLeft01Icon} class="size-4"/>
-        Back to overview
-    </a>
-    <h1 class="text-balance text-3xl font-medium tracking-tight md:text-4xl">Punishments</h1>
-    <p class="mt-2 text-pretty text-sm text-muted-foreground">Look up a player to review their punishment history.</p>
-</section>
+<PageHeader title="Punishments" trail={[{href: '/', label: 'Overview'}]}>
+    {#snippet meta()}
+        <span>Review the bans, mutes, kicks and other records of any player.</span>
+    {/snippet}
+</PageHeader>
 
-<section class="rise ring-card mt-6 max-w-3xl rounded-xl bg-card p-5 sm:p-8" aria-labelledby="lookup-heading">
-    <h2 id="lookup-heading" class="text-lg font-medium tracking-tight">Find a player</h2>
-    <p id="lookup-help" class="mt-1 text-pretty text-sm text-muted-foreground">
-        Enter their full username, or use a UUID to identify a specific player.
-    </p>
-    <form class="mt-6" onsubmit={(event) => { event.preventDefault(); submit(); }}>
-        <label for="punishment-player" class="mb-2 block text-sm font-medium">Username or UUID</label>
-        <div class="flex flex-col gap-3 sm:flex-row">
-            <div class="relative min-w-0 flex-1">
-                <HugeiconsIcon icon={Search01Icon}
-                               class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/>
-                <Input id="punishment-player" bind:value={query} placeholder="Enter username or UUID"
-                       aria-describedby="lookup-help" autocomplete="off" autocapitalize="none" spellcheck={false}
-                       required class="h-11 pl-9"/>
+<div class="max-w-2xl">
+    <section class="panel p-5 sm:p-6">
+        <PlayerLookup label="Find a player" size="large"/>
+    </section>
+
+    {#if recent.length}
+        <section aria-labelledby="recent-heading" class="mt-10">
+            <div class="mb-3 flex items-center justify-between gap-3">
+                <h2 id="recent-heading" class="text-base font-semibold">Recent lookups</h2>
+                <Button size="sm" variant="ghost" onclick={clearRecent}>Clear</Button>
             </div>
-            <Button type="submit" disabled={!query.trim()} class="h-11 transition-[color,background-color,box-shadow]">
-                View history
-                <HugeiconsIcon icon={ArrowRight01Icon} class="size-4"/>
-            </Button>
-        </div>
-    </form>
-</section>
+            <ul class="panel divide-y divide-line overflow-hidden">
+                {#each recent as item (item.uuid)}
+                    <li>
+                        <a href={`/punishments/${encodeURIComponent(item.uuid)}`}
+                           class="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-sunken focus-visible:-outline-offset-2">
+                            <PlayerHead uuid={item.uuid} size={28}/>
+                            <span class="min-w-0 flex-1 truncate font-medium">{item.name}</span>
+                            <HugeiconsIcon icon={ArrowRight01Icon} class="size-4 shrink-0 text-faint transition-colors group-hover:text-ink"/>
+                        </a>
+                    </li>
+                {/each}
+            </ul>
+        </section>
+    {/if}
+</div>

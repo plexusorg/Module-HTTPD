@@ -1,21 +1,26 @@
 <script lang="ts">
     import {onMount} from 'svelte';
     import {HugeiconsIcon} from '@hugeicons/svelte';
-    import {ArrowLeft01Icon, ArrowDown01Icon, Search01Icon} from '@hugeicons/core-free-icons';
+    import {ArrowDown01Icon, Shield01Icon} from '@hugeicons/core-free-icons';
     import {api} from '$lib/api';
-    import {Badge} from '$lib/components/ui/badge';
-    import {Button} from '$lib/components/ui/button';
+    import PageHeader from '$lib/components/layout/PageHeader.svelte';
+    import PlayerLookup from '$lib/components/PlayerLookup.svelte';
+    import Button from '$lib/components/ui/Button.svelte';
+    import Notice from '$lib/components/ui/Notice.svelte';
     import PlayerHead from '$lib/components/ui/PlayerHead.svelte';
-    import {Card} from '$lib/components/ui/card';
-    import {Input} from '$lib/components/ui/input';
+    import SearchField from '$lib/components/ui/SearchField.svelte';
+    import Select from '$lib/components/ui/Select.svelte';
+    import Tag from '$lib/components/ui/Tag.svelte';
+    import {rememberLookup} from '$lib/recentLookups';
     import type {PunishmentSummary, PunishmentsPayload} from '$lib/types/api';
     import {lowerSearch, titleCase} from '$lib/utils';
 
     interface Props {
         id: string;
+        staff: boolean;
     }
 
-    let {id}: Props = $props();
+    let {id, staff}: Props = $props();
     let data = $state<PunishmentsPayload | null>(null);
     let loading = $state(true);
     let loadingMore = $state(false);
@@ -25,6 +30,7 @@
     let type = $state('all');
     let status = $state('all');
 
+    const trail = [{href: '/', label: 'Overview'}, {href: '/punishments/', label: 'Punishments'}];
     const filtered = $derived(filter.trim() !== '' || type !== 'all' || status !== 'all');
     const punishments = $derived<PunishmentSummary[]>(data?.punishments ?? []);
     const types = $derived<string[]>(Array.from(new Set(punishments.map((item) => item.type).filter(Boolean))).sort());
@@ -36,6 +42,7 @@
             return (!q || lowerSearch(item).includes(q)) && (type === 'all' || itemType === type) && (status === 'all' || itemStatus === status);
         });
     });
+    const activeCount = $derived(punishments.filter((item) => punishmentStatus(item) === 'active').length);
 
     function punishmentStatus(item: PunishmentSummary) {
         if (item.type === 'KICK' || item.type === 'SMITE') return 'completed';
@@ -59,6 +66,12 @@
         return value === 'TEMPBAN' ? 'Temporary ban' : titleCase(value);
     }
 
+    function clearFilters() {
+        filter = '';
+        type = 'all';
+        status = 'all';
+    }
+
     async function loadMore() {
         if (!data?.pagination.hasMore || loadingMore) return;
         loadingMore = true;
@@ -78,6 +91,7 @@
         error = null;
         try {
             data = await api.punishments(id);
+            rememberLookup({uuid: data.player.uuid, name: data.player.name});
         } catch (cause) {
             error = cause instanceof Error ? cause.message : 'Unable to load punishments.';
         } finally {
@@ -88,176 +102,143 @@
     onMount(() => { void load(); });
 </script>
 
-<nav aria-label="Punishment navigation" class="mb-6">
-    <Button href="/punishments/" variant="outline" size="lg" class="transition-colors">
-        <HugeiconsIcon icon={ArrowLeft01Icon} class="size-4"/>
-        Back to player search
-    </Button>
-</nav>
+{#snippet lookup(initial: string)}
+    <PlayerLookup label="Look up another player" {initial} class="sm:w-80"/>
+{/snippet}
 
 {#if loading}
-    <section class="rise py-10" role="status">
-        <h1 class="text-2xl font-medium tracking-tight">Punishment history</h1>
-        <p class="mt-2 text-sm text-muted-foreground">Loading records for {id}…</p>
-    </section>
+    <PageHeader title={id} {trail}>
+        {#snippet actions()}{@render lookup('')}{/snippet}
+    </PageHeader>
+    <Notice kind="loading" title="Loading punishment history" message={`Fetching records for ${id}.`}/>
 {:else if error}
-    <Card class="rise gap-3 p-6">
-        <h1 class="text-xl font-medium">Couldn't load this history</h1>
-        <p class="break-words text-sm text-destructive" role="alert">{error}</p>
-        <div><Button variant="secondary" size="lg" class="transition-colors" onclick={load}>Try again</Button></div>
-    </Card>
+    <PageHeader title={id} {trail}>
+        {#snippet actions()}{@render lookup(id)}{/snippet}
+    </PageHeader>
+    <Notice kind="error" title="Couldn't load this history" message={error}>
+        <Button variant="primary" onclick={load}>Try again</Button>
+        <Button href="/punishments/">Back to search</Button>
+    </Notice>
 {:else if data}
-    <header class="rise flex flex-wrap items-end justify-between gap-5">
-        <div class="flex min-w-0 items-center gap-4">
-            <PlayerHead uuid={data.player.uuid} size={56}/>
-            <div class="min-w-0">
-                <p class="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">Punishment history</p>
-                <h1 class="break-words text-3xl font-medium tracking-tight md:text-4xl">{data.player.name}</h1>
-                <p class="mt-2 break-all font-mono text-xs text-muted-foreground">{data.player.uuid}</p>
-            </div>
-        </div>
-        <p class="text-sm text-muted-foreground"><strong class="font-medium tabular-nums text-foreground">{data.pagination.total}</strong> total records</p>
-    </header>
+    <PageHeader title={data.player.name} {trail}>
+        {#snippet lead()}
+            <PlayerHead uuid={data!.player.uuid} size={48}/>
+        {/snippet}
+        {#snippet meta()}
+            <span class="w-full break-all font-mono text-[0.8125rem]">{data!.player.uuid}</span>
+            <span class="tabular-nums">{data!.pagination.total} {data!.pagination.total === 1 ? 'record' : 'records'}</span>
+            {#if activeCount}
+                <Tag tone="danger" dot>{activeCount} active</Tag>
+            {/if}
+            {#if staff}
+                <a href={`/player/${encodeURIComponent(data!.player.uuid)}`} class="link">Open player admin</a>
+            {/if}
+        {/snippet}
+        {#snippet actions()}{@render lookup('')}{/snippet}
+    </PageHeader>
 
     {#if data.pagination.total === 0}
-        <Card class="mt-8 gap-2 p-8">
-            <h2 class="text-lg font-medium">No punishments recorded</h2>
-            <p class="text-sm text-muted-foreground">There are no punishment records for this player UUID.</p>
-            <p class="text-sm text-muted-foreground">Looking for someone else? Use the player search above.</p>
-        </Card>
+        <Notice kind="empty" title="Clean record" message={`There are no punishment records for ${data.player.name}.`}/>
     {:else}
-        <section aria-label="Filter punishment history" class="mt-8 rounded-xl bg-muted/40 p-4">
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_11rem_11rem]">
-                <div class="sm:col-span-2 lg:col-span-1">
-                    <label for="history-search" class="mb-2 block text-xs font-medium">Search loaded records</label>
-                    <div class="relative">
-                        <HugeiconsIcon icon={Search01Icon} class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/>
-                        <Input id="history-search" bind:value={filter} type="search"
-                               placeholder={data.canViewIps ? 'Reason, punisher, type or IP…' : 'Reason, punisher or type…'}
-                               autocomplete="off" class="h-10 pl-9"/>
-                    </div>
-                </div>
-                <div>
-                    <label for="history-type" class="mb-2 block text-xs font-medium">Punishment type</label>
-                    <select id="history-type" bind:value={type} class="history-select">
-                        <option value="all">All types</option>
-                        {#each types as item (item)}<option value={item}>{typeLabel(item)}</option>{/each}
-                    </select>
-                </div>
-                <div>
-                    <label for="history-status" class="mb-2 block text-xs font-medium">Status</label>
-                    <select id="history-status" bind:value={status} class="history-select">
-                        <option value="all">All statuses</option>
-                        {#each ['active', 'expired', 'revoked', 'completed'] as item (item)}
-                            <option value={item}>{titleCase(item)}</option>
-                        {/each}
-                    </select>
-                </div>
+        <section aria-labelledby="history-heading">
+            <div class="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <h2 id="history-heading" class="text-base font-semibold">History</h2>
+                <p class="text-muted tabular-nums" aria-live="polite">
+                    {visible.length} shown · {punishments.length} of {data.pagination.total} loaded
+                </p>
             </div>
-            <div class="mt-3 flex min-h-10 flex-wrap items-center justify-between gap-x-4 text-xs text-muted-foreground">
-                <p aria-live="polite"><span class="tabular-nums">{visible.length}</span> matching · <span class="tabular-nums">{punishments.length}</span> of <span class="tabular-nums">{data.pagination.total}</span> records loaded</p>
-                {#if filtered}
-                    <Button variant="ghost" size="lg" class="text-xs transition-colors" onclick={() => { filter = ''; type = 'all'; status = 'all'; }}>Clear filters</Button>
-                {/if}
+
+            <div class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_11rem_11rem_auto] lg:items-end">
+                <SearchField bind:value={filter} id="history-search" class="sm:col-span-2 lg:col-span-1"
+                             label={`Filter ${data.player.name}'s records`}
+                             placeholder={data.canViewIps ? 'Reason, punisher, type or IP' : 'Reason, punisher or type'}/>
+                <Select id="history-type" label="Type" bind:value={type}>
+                    <option value="all">All types</option>
+                    {#each types as item (item)}<option value={item}>{typeLabel(item)}</option>{/each}
+                </Select>
+                <Select id="history-status" label="Status" bind:value={status}>
+                    <option value="all">All statuses</option>
+                    {#each ['active', 'expired', 'revoked', 'completed'] as item (item)}
+                        <option value={item}>{titleCase(item)}</option>
+                    {/each}
+                </Select>
+                <Button variant="ghost" onclick={clearFilters} disabled={!filtered} class="sm:col-span-2 lg:col-span-1">Clear</Button>
             </div>
             {#if data.pagination.hasMore}
-                <p class="text-xs text-muted-foreground">Filters apply to loaded records. Load more below to search older history.</p>
+                <p class="-mt-1 mb-4 text-[0.8125rem] text-muted">Filters only search loaded records. Load more below to include older history.</p>
             {/if}
-        </section>
 
-        <section aria-labelledby="history-heading" class="mt-7">
-            <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                <h2 id="history-heading" class="text-lg font-medium">History</h2>
-                <p class="text-xs text-muted-foreground">Newest first · Select a record for details</p>
-            </div>
             {#if visible.length === 0}
-                <div class="rounded-xl border border-dashed border-border px-5 py-10 text-center">
-                    <h3 class="font-medium">No matching records{data.pagination.hasMore ? ' loaded' : ''}</h3>
-                    <p class="mt-2 text-sm text-muted-foreground">{data.pagination.hasMore ? 'Clear your filters or load more records below.' : 'Try a different search or clear your filters.'}</p>
-                </div>
+                <Notice kind="empty" title={`No matching records${data.pagination.hasMore ? ' loaded' : ''}`}
+                        message={data.pagination.hasMore ? 'Clear the filters, or load more records below.' : 'Try a different filter, or clear the filters.'}>
+                    <Button onclick={clearFilters}>Clear filters</Button>
+                </Notice>
             {:else}
-                <div class="overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-border/60">
-                    <div aria-hidden="true" class="history-row bg-muted/40 px-4 py-3 text-xs font-medium text-muted-foreground">
-                        <span>Punishment / reason</span><span>Issued by</span><span>Issued</span><span>Status</span><span></span>
+                <div class="panel overflow-hidden">
+                    <div aria-hidden="true" class="history-row hidden border-b border-line px-4 py-2.5 text-[0.8125rem] font-medium text-muted md:grid">
+                        <span>Punishment</span><span>Issued by</span><span>Issued</span><span>Status</span><span></span>
                     </div>
                     {#each visible as punishment, index (`${punishment.type}:${punishment.issueDate}:${index}`)}
                         {@const itemStatus = punishmentStatus(punishment)}
-                        <details class="history-record border-t border-border/60 first:border-t-0">
-                            <summary class="history-row cursor-pointer list-none items-center gap-y-2 px-4 py-4 transition-colors hover:bg-muted/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring">
+                        <details class="group border-t border-line first-of-type:border-t-0">
+                            <summary class="history-row grid cursor-pointer items-center gap-y-1 px-4 py-3 transition-colors hover:bg-sunken/60">
                                 <span class="min-w-0">
-                                    <span class="block text-sm font-medium">{typeLabel(punishment.type)}</span>
-                                    <span class="mt-1 line-clamp-2 break-words text-sm text-muted-foreground">{punishment.reason || 'No reason provided'}</span>
-                                    <span class="mt-2 block text-xs tabular-nums text-muted-foreground md:hidden">{formatDate(punishment.issueDate)}</span>
+                                    <span class="block font-medium">{typeLabel(punishment.type)}</span>
+                                    <span class="mt-0.5 line-clamp-1 break-words text-muted">{punishment.reason || 'No reason provided'}</span>
+                                    <span class="mt-0.5 block text-[0.8125rem] text-muted tabular-nums md:hidden">{formatDate(punishment.issueDate)} · {punishment.punisherDisplayName || 'Unknown'}</span>
                                 </span>
-                                <span class="hidden break-words text-sm md:block">{punishment.punisherDisplayName || 'Unknown'}</span>
-                                <span class="hidden text-xs tabular-nums text-muted-foreground md:block">{formatDate(punishment.issueDate)}</span>
-                                <span><Badge variant={itemStatus === 'active' ? 'destructive' : 'secondary'}>{titleCase(itemStatus)}</Badge></span>
-                                <HugeiconsIcon icon={ArrowDown01Icon} class="history-chevron size-4 text-muted-foreground"/>
+                                <span class="hidden truncate md:block">{punishment.punisherDisplayName || 'Unknown'}</span>
+                                <span class="hidden text-muted tabular-nums md:block">{formatDate(punishment.issueDate)}</span>
+                                <span><Tag tone={itemStatus === 'active' ? 'danger' : 'neutral'}>{titleCase(itemStatus)}</Tag></span>
+                                <HugeiconsIcon icon={ArrowDown01Icon} class="size-4 text-faint transition-transform group-open:rotate-180"/>
                             </summary>
-                            <div class="border-t border-border/60 bg-muted/20 p-5">
-                                <p class="text-xs font-medium text-muted-foreground">Reason</p>
-                                <p class="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">{punishment.reason || 'No reason provided'}</p>
-                                <dl class="mt-5 grid gap-x-8 gap-y-5 text-sm sm:grid-cols-2 lg:grid-cols-3">
-                                    <div><dt class="text-xs text-muted-foreground">Issued by</dt><dd class="mt-1 break-words">{punishment.punisherDisplayName || 'Unknown'}</dd></div>
-                                    <div><dt class="text-xs text-muted-foreground">Issued</dt><dd class="mt-1 tabular-nums" title={String(punishment.issueDate)}>{formatDate(punishment.issueDate)}</dd></div>
-                                    <div><dt class="text-xs text-muted-foreground">Expires</dt><dd class="mt-1 tabular-nums" title={punishment.endDate === null ? undefined : String(punishment.endDate)}>{expiry(punishment)}</dd></div>
-                                    <div><dt class="text-xs text-muted-foreground">Source</dt><dd class="mt-1">{titleCase(punishment.source)}</dd></div>
-                                    {#if punishment.punisher}
-                                        <div><dt class="text-xs text-muted-foreground">Punisher UUID</dt><dd class="mt-1 break-all font-mono text-xs leading-5">{punishment.punisher}</dd></div>
-                                    {/if}
-                                    {#if punishment.punisherReference}
-                                        <div><dt class="text-xs text-muted-foreground">Actor reference</dt><dd class="mt-1 break-all">{punishment.punisherReference}</dd></div>
-                                    {/if}
-                                    {#if data.canViewIps && punishment.ip}
-                                        <div><dt class="text-xs text-muted-foreground">IP address</dt><dd class="mt-1 break-all font-mono text-xs leading-5">{punishment.ip}</dd></div>
-                                    {/if}
-                                </dl>
-                            </div>
+                            <dl class="grid gap-x-8 gap-y-4 border-t border-line bg-sunken/40 px-4 py-4 sm:grid-cols-2 lg:grid-cols-3">
+                                <div class="sm:col-span-2 lg:col-span-3">
+                                    <dt class="text-[0.8125rem] text-muted">Reason</dt>
+                                    <dd class="mt-0.5 whitespace-pre-wrap break-words leading-relaxed">{punishment.reason || 'No reason provided'}</dd>
+                                </div>
+                                <div><dt class="text-[0.8125rem] text-muted">Issued by</dt><dd class="mt-0.5 break-words">{punishment.punisherDisplayName || 'Unknown'}</dd></div>
+                                <div><dt class="text-[0.8125rem] text-muted">Issued</dt><dd class="mt-0.5 tabular-nums" title={String(punishment.issueDate)}>{formatDate(punishment.issueDate)}</dd></div>
+                                <div><dt class="text-[0.8125rem] text-muted">Expires</dt><dd class="mt-0.5 tabular-nums" title={punishment.endDate === null ? undefined : String(punishment.endDate)}>{expiry(punishment)}</dd></div>
+                                <div><dt class="text-[0.8125rem] text-muted">Source</dt><dd class="mt-0.5">{titleCase(punishment.source)}</dd></div>
+                                {#if punishment.punisher}
+                                    <div><dt class="text-[0.8125rem] text-muted">Punisher UUID</dt><dd class="mt-0.5 break-all font-mono text-[0.8125rem]">{punishment.punisher}</dd></div>
+                                {/if}
+                                {#if punishment.punisherReference}
+                                    <div><dt class="text-[0.8125rem] text-muted">Actor reference</dt><dd class="mt-0.5 break-all">{punishment.punisherReference}</dd></div>
+                                {/if}
+                                {#if data.canViewIps && punishment.ip}
+                                    <div><dt class="text-[0.8125rem] text-muted">IP address</dt><dd class="mt-0.5 break-all font-mono text-[0.8125rem]">{punishment.ip}</dd></div>
+                                {/if}
+                            </dl>
                         </details>
                     {/each}
                 </div>
             {/if}
-        </section>
 
-        <footer class="mt-5 flex flex-wrap items-center justify-between gap-3">
-            <p class="text-xs tabular-nums text-muted-foreground">{punishments.length} of {data.pagination.total} records loaded</p>
             {#if data.pagination.hasMore}
-                <Button variant="outline" size="lg" class="transition-colors" disabled={loadingMore} onclick={loadMore}>
-                    {loadingMore ? 'Loading records…' : 'Load more records'}
-                </Button>
-            {:else}
-                <span class="text-xs text-muted-foreground">End of history</span>
+                <div class="mt-4 flex justify-center">
+                    <Button disabled={loadingMore} onclick={loadMore}>
+                        {loadingMore ? 'Loading records…' : 'Load more records'}
+                    </Button>
+                </div>
             {/if}
-        </footer>
-        {#if loadMoreError}<p class="mt-3 text-sm text-destructive" role="alert">{loadMoreError}</p>{/if}
+            {#if loadMoreError}
+                <p class="mt-3 rounded-md bg-danger-soft px-3 py-2 text-danger" role="alert">{loadMoreError}</p>
+            {/if}
+        </section>
     {/if}
 {/if}
 
 <style>
-    .history-select {
-        width: 100%;
-        height: 2.5rem;
-        border: 1px solid var(--input);
-        border-radius: 0.5rem;
-        padding: 0 0.75rem;
-        background: var(--background);
-        color: var(--foreground);
-        font-size: 0.875rem;
-    }
-    .history-select:focus-visible {
-        outline: 2px solid var(--ring);
-        outline-offset: 2px;
-    }
     .history-row {
-        display: grid;
         grid-template-columns: minmax(0, 1fr) auto 1rem;
         column-gap: 1rem;
     }
-    .history-row[aria-hidden] { display: none; }
-    summary::-webkit-details-marker { display: none; }
-    .history-record[open] :global(.history-chevron) { transform: rotate(180deg); }
+
     @media (min-width: 768px) {
-        .history-row { grid-template-columns: minmax(0, 1fr) 9rem 10rem 6rem 1rem; }
-        .history-row[aria-hidden] { display: grid; }
+        .history-row {
+            grid-template-columns: minmax(0, 1fr) 10rem 11rem 6rem 1rem;
+        }
     }
 </style>

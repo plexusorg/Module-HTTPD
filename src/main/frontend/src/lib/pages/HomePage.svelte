@@ -1,21 +1,12 @@
 <script lang="ts">
     import {onDestroy, onMount} from 'svelte';
-    import {HugeiconsIcon} from '@hugeicons/svelte';
-    import {
-        ChartNoAxesColumnIncreasingIcon,
-        Clock03Icon,
-        CpuIcon,
-        CubeIcon,
-        DatabaseIcon,
-        ServerStack01Icon,
-        UserGroupIcon
-    } from '@hugeicons/core-free-icons';
-    import {Card} from '$lib/components/ui/card';
-    import {formatBytes, formatDuration} from '$lib/utils';
+    import PageHeader from '$lib/components/layout/PageHeader.svelte';
+    import {cn, formatBytes, formatDuration} from '$lib/utils';
     import type {StatsPayload} from '$lib/types/api';
 
     const SPARK_MAX = 60;
     let stats = $state<StatsPayload | null>(null);
+    let connected = $state(false);
     let now = $state(Date.now());
     let tpsHistory: number[] = $state([]);
     let es: EventSource | null = null;
@@ -26,12 +17,13 @@
     const cpuPercent = $derived(stats ? Math.max(0, Math.min(100, stats.cpu.process * 100)) : 0);
     const playersPercent = $derived(stats && stats.players.max > 0 ? Math.max(0, Math.min(100, (stats.players.online / stats.players.max) * 100)) : 0);
     const tps = $derived(stats?.server.tps ?? []);
-    const tpsColor = $derived((tps[0] ?? 20) >= 19.5 ? 'text-success' : (tps[0] ?? 20) >= 18 ? 'text-warning' : 'text-destructive');
+    const tpsTone = $derived((tps[0] ?? 20) >= 19.5 ? '' : (tps[0] ?? 20) >= 18 ? 'text-warn' : 'text-danger');
+    const memory = $derived(formatBytes(stats?.memory.used).split(' '));
     const sparkPoints = $derived.by(() => {
         if (tpsHistory.length < 2) return '';
         const width = 600;
-        const height = 60;
-        const pad = 4;
+        const height = 40;
+        const pad = 2;
         const values = tpsHistory.slice(-SPARK_MAX);
         const step = (width - pad * 2) / (SPARK_MAX - 1);
         const offset = SPARK_MAX - values.length;
@@ -55,12 +47,19 @@
         return Math.min(value as number, 20).toFixed(2);
     }
 
+    function loadTone(percent: number) {
+        return percent < 70 ? 'bg-muted' : percent < 90 ? 'bg-warn' : 'bg-danger';
+    }
+
     onMount(() => {
         timer = window.setInterval(() => (now = Date.now()), 1000);
         es = new EventSource('/api/stats/stream');
+        es.addEventListener('open', () => (connected = true));
+        es.addEventListener('error', () => (connected = false));
         es.addEventListener('message', (event) => {
             try {
                 stats = JSON.parse(event.data) as StatsPayload;
+                connected = true;
                 const currentTps = stats.server.tps[0];
                 if (Number.isFinite(currentTps)) tpsHistory = [...tpsHistory.slice(-(SPARK_MAX - 1)), currentTps];
             } catch {
@@ -74,130 +73,96 @@
     });
 </script>
 
-<section class="rise flex flex-wrap items-end justify-between gap-3">
-    <div>
-        <h1 class="text-3xl font-medium tracking-tight md:text-4xl">Overview</h1>
-        <p class="mt-1 text-sm text-muted-foreground">Minecraft version <span
-                class="text-foreground">{stats?.server.version ?? '-'}</span></p>
+{#snippet meter(percent: number, tone: string, label: string)}
+    <div class="mt-4 h-1.5 overflow-hidden rounded-full bg-sunken" role="meter" aria-label={label}
+         aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(percent)}>
+        <div class={cn('h-full rounded-full transition-[width] duration-700 ease-out', tone)} style:width={`${percent}%`}></div>
     </div>
-</section>
+{/snippet}
 
-<section class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-    <Card class="rise flex min-h-32 flex-col p-4">
-        <div class="flex items-center justify-between">
-            <span class="text-sm text-muted-foreground">Players</span>
-            <HugeiconsIcon icon={UserGroupIcon} class="size-4 text-muted-foreground"/>
-        </div>
-        <div class="mt-3 flex items-baseline gap-2">
-            <span class="tabular text-3xl font-medium tracking-tight">{stats?.players.online ?? '-'}</span>
-            <span class="text-sm text-muted-foreground">/ {stats?.players.max ?? '-'}</span>
-        </div>
-        <div class="mt-3 h-1 overflow-hidden rounded-full bg-muted">
-            <div class="h-full rounded-full bg-primary transition-[width] duration-500"
-                 style:width={`${playersPercent}%`}></div>
-        </div>
-        <a href="/players/" class="mt-auto pt-2 text-xs text-primary hover:underline">view list</a>
-    </Card>
+<PageHeader title="Overview">
+    {#snippet meta()}
+        {#if !stats}
+            <span role="status">Connecting…</span>
+        {:else}
+            <span>Minecraft {stats.server.version}</span>
+        {/if}
+        {#if stats && !connected}
+            <span role="status" class="text-warn">Reconnecting…</span>
+        {/if}
+    {/snippet}
+</PageHeader>
 
-    <Card class="rise flex min-h-32 flex-col p-4">
-        <div class="flex items-center justify-between">
-            <span class="text-sm text-muted-foreground">CPU</span>
-            <HugeiconsIcon icon={CpuIcon} class="size-4 text-muted-foreground"/>
-        </div>
-        <div class="mt-3 tabular text-3xl font-medium tracking-tight">{pct(stats?.cpu.process)}</div>
-        <div class="mt-3 h-1 overflow-hidden rounded-full bg-muted">
-            <div class="h-full rounded-full transition-[width] duration-500 {cpuPercent < 70 ? 'bg-primary' : cpuPercent < 90 ? 'bg-warning' : 'bg-destructive'}"
-                 style:width={`${cpuPercent}%`}></div>
-        </div>
-        <div class="mt-auto flex justify-between pt-2 text-xs text-muted-foreground">
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <section aria-labelledby="players-heading" class="panel flex flex-col p-5">
+        <h2 id="players-heading" class="font-medium text-muted">Players</h2>
+        <p class="mt-2 text-3xl font-semibold tracking-tight tabular-nums">
+            {stats?.players.online ?? '-'}<span class="ml-1.5 text-base font-normal text-muted">/ {stats?.players.max ?? '-'}</span>
+        </p>
+        {@render meter(playersPercent, 'bg-brand', 'Player slots used')}
+        <a href="/players/" class="link mt-auto self-start pt-3">View players</a>
+    </section>
+
+    <section aria-labelledby="cpu-heading" class="panel flex flex-col p-5">
+        <h2 id="cpu-heading" class="font-medium text-muted">CPU</h2>
+        <p class="mt-2 text-3xl font-semibold tracking-tight tabular-nums">{pct(stats?.cpu.process)}</p>
+        {@render meter(cpuPercent, loadTone(cpuPercent), 'Process CPU usage')}
+        <p class="mt-auto flex justify-between gap-3 pt-3 text-muted tabular-nums">
             <span>{stats?.cpu.cores ?? '-'} cores</span>
-            <span>system {pct(stats?.cpu.system)}</span>
-        </div>
-    </Card>
+            <span>System {pct(stats?.cpu.system)}</span>
+        </p>
+    </section>
 
-    <Card class="rise flex min-h-32 flex-col p-4">
-        <div class="flex items-center justify-between">
-            <span class="text-sm text-muted-foreground">Memory</span>
-            <HugeiconsIcon icon={DatabaseIcon} class="size-4 text-muted-foreground"/>
-        </div>
-        <div class="mt-3 flex items-baseline gap-2">
-            <span class="tabular text-3xl font-medium tracking-tight">{formatBytes(stats?.memory.used).split(' ')[0]}</span>
-            <span class="text-sm text-muted-foreground">{formatBytes(stats?.memory.used).split(' ')[1] ?? ''}</span>
-        </div>
-        <div class="mt-3 h-1 overflow-hidden rounded-full bg-muted">
-            <div class="h-full rounded-full transition-[width] duration-500 {memoryPercent < 70 ? 'bg-primary' : memoryPercent < 90 ? 'bg-warning' : 'bg-destructive'}"
-                 style:width={`${memoryPercent}%`}></div>
-        </div>
-        <div class="mt-auto flex justify-between pt-2 text-xs text-muted-foreground">
-            <span>{memoryPercent ? memoryPercent.toFixed(1) : '-'}%</span>
-            <span>max {formatBytes(stats?.memory.max)}</span>
-        </div>
-    </Card>
+    <section aria-labelledby="memory-heading" class="panel flex flex-col p-5">
+        <h2 id="memory-heading" class="font-medium text-muted">Memory</h2>
+        <p class="mt-2 text-3xl font-semibold tracking-tight tabular-nums">
+            {memory[0]}<span class="ml-1.5 text-base font-normal text-muted">{memory[1] ?? ''}</span>
+        </p>
+        {@render meter(memoryPercent, loadTone(memoryPercent), 'Memory used')}
+        <p class="mt-auto flex justify-between gap-3 pt-3 text-muted tabular-nums">
+            <span>{memoryPercent ? memoryPercent.toFixed(1) : '-'}% used</span>
+            <span>Max {formatBytes(stats?.memory.max)}</span>
+        </p>
+    </section>
 
-    <Card class="rise flex min-h-32 flex-col p-4">
-        <div class="flex items-center justify-between">
-            <span class="text-sm text-muted-foreground">Ticks per second</span>
-            <HugeiconsIcon icon={ChartNoAxesColumnIncreasingIcon} class="size-4 text-muted-foreground"/>
-        </div>
-        <div class="mt-3 flex items-baseline gap-2">
-            <span class="tabular text-3xl font-medium tracking-tight {tpsColor}">{tpsText(tps[0])}</span>
-            <span class="text-sm text-muted-foreground">/ 20.00</span>
-        </div>
-        <svg viewBox="0 0 600 60" preserveAspectRatio="none" class="mt-2 h-9 w-full overflow-visible text-primary">
-            <polyline fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"
-                      stroke-linecap="round" points={sparkPoints}/>
+    <section aria-labelledby="tps-heading" class="panel flex flex-col p-5">
+        <h2 id="tps-heading" class="font-medium text-muted">Ticks per second</h2>
+        <p class={cn('mt-2 text-3xl font-semibold tracking-tight tabular-nums', tpsTone)}>
+            {tpsText(tps[0])}<span class="ml-1.5 text-base font-normal text-muted">/ 20</span>
+        </p>
+        <svg viewBox="0 0 600 40" preserveAspectRatio="none" class="mt-3 h-8 w-full overflow-visible text-brand" aria-hidden="true">
+            <polyline fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"
+                      vector-effect="non-scaling-stroke" points={sparkPoints}/>
         </svg>
-        <div class="mt-auto flex justify-between text-xs text-muted-foreground">
-            <span>5m {tpsText(tps[1])}</span>
-            <span>15m {tpsText(tps[2])}</span>
-        </div>
-    </Card>
-</section>
+        <p class="mt-auto flex justify-between gap-3 pt-3 text-muted tabular-nums">
+            <span>5 min {tpsText(tps[1])}</span>
+            <span>15 min {tpsText(tps[2])}</span>
+        </p>
+    </section>
+</div>
 
-<section class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-    <Card class="rise p-4">
-        <div class="flex items-center justify-between">
-            <span class="text-sm text-muted-foreground">Uptime</span>
-            <HugeiconsIcon icon={Clock03Icon} class="size-4 text-muted-foreground"/>
+<section aria-labelledby="server-heading" class="panel mt-4 p-5">
+    <h2 id="server-heading" class="sr-only">Server</h2>
+    <dl class="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3 lg:grid-cols-5">
+        <div>
+            <dt class="font-medium text-muted">Uptime</dt>
+            <dd class="mt-1 text-xl font-semibold tracking-tight tabular-nums">{uptime}</dd>
         </div>
-        <div class="mt-2 font-mono text-3xl font-medium tracking-tight md:text-4xl">{uptime}</div>
-    </Card>
-
-    <Card class="rise p-4">
-        <div class="flex items-center justify-between">
-            <span class="text-sm text-muted-foreground">World</span>
-            <HugeiconsIcon icon={CubeIcon} class="size-4 text-muted-foreground"/>
+        <div>
+            <dt class="font-medium text-muted">Worlds</dt>
+            <dd class="mt-1 text-xl font-semibold tracking-tight tabular-nums">{stats?.world.worlds ?? '-'}</dd>
         </div>
-        <dl class="mt-2 grid grid-cols-3 gap-2 text-center">
-            <div>
-                <dt class="text-xs text-muted-foreground">Worlds</dt>
-                <dd class="tabular text-3xl font-medium">{stats?.world.worlds ?? '-'}</dd>
-            </div>
-            <div>
-                <dt class="text-xs text-muted-foreground">Chunks</dt>
-                <dd class="tabular text-3xl font-medium">{stats?.world.loadedChunks ?? '-'}</dd>
-            </div>
-            <div>
-                <dt class="text-xs text-muted-foreground">Entities</dt>
-                <dd class="tabular text-3xl font-medium">{stats?.world.entities ?? '-'}</dd>
-            </div>
-        </dl>
-    </Card>
-
-    <Card class="rise p-4">
-        <div class="flex items-center justify-between">
-            <span class="text-sm text-muted-foreground">Plugins</span>
-            <HugeiconsIcon icon={ServerStack01Icon} class="size-4 text-muted-foreground"/>
+        <div>
+            <dt class="font-medium text-muted">Loaded chunks</dt>
+            <dd class="mt-1 text-xl font-semibold tracking-tight tabular-nums">{stats?.world.loadedChunks ?? '-'}</dd>
         </div>
-        <div class="mt-2 flex items-baseline gap-2">
-            <span class="tabular text-3xl font-medium">{stats?.plugins.active ?? '-'}</span>
-            <span class="text-sm text-muted-foreground">active</span>
+        <div>
+            <dt class="font-medium text-muted">Entities</dt>
+            <dd class="mt-1 text-xl font-semibold tracking-tight tabular-nums">{stats?.world.entities ?? '-'}</dd>
         </div>
-        <div class="mt-3 flex gap-2">
-            <a href="/commands/"
-               class="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground hover:text-foreground">commands</a>
-            <a href="/schematics/"
-               class="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground hover:text-foreground">schematics</a>
+        <div>
+            <dt class="font-medium text-muted">Active plugins</dt>
+            <dd class="mt-1 text-xl font-semibold tracking-tight tabular-nums">{stats?.plugins.active ?? '-'}</dd>
         </div>
-    </Card>
+    </dl>
 </section>

@@ -1,10 +1,10 @@
 <script lang="ts">
     import {onMount} from 'svelte';
-    import {HugeiconsIcon} from '@hugeicons/svelte';
-    import {Search01Icon} from '@hugeicons/core-free-icons';
     import {api} from '$lib/api';
-    import {Card} from '$lib/components/ui/card';
-    import {Input} from '$lib/components/ui/input';
+    import PageHeader from '$lib/components/layout/PageHeader.svelte';
+    import Button from '$lib/components/ui/Button.svelte';
+    import Notice from '$lib/components/ui/Notice.svelte';
+    import SearchField from '$lib/components/ui/SearchField.svelte';
     import {lowerSearch} from '$lib/utils';
 
     interface BanGroup {
@@ -70,7 +70,9 @@
         return `${index}:${group.usernames[0] ?? ''}:${group.uuids[0] ?? ''}:${group.ips[0] ?? ''}`;
     }
 
-    onMount(async () => {
+    async function load() {
+        loading = true;
+        error = null;
         try {
             bans = await api.indefiniteBans();
         } catch (cause) {
@@ -78,79 +80,74 @@
         } finally {
             loading = false;
         }
-    });
+    }
+
+    onMount(load);
 </script>
 
-<section class="rise flex flex-wrap items-end justify-between gap-3">
-    <h1 class="text-3xl font-medium tracking-tight md:text-4xl">Indefinite bans</h1>
-    <div class="flex flex-wrap items-center gap-4 text-sm text-muted-foreground tabular">
-        <span><span class="text-foreground">{totals.groups}</span> groups</span>
-        <span><span class="text-foreground">{totals.users}</span> users</span>
-        <span><span class="text-foreground">{totals.uuids}</span> uuids</span>
-        <span><span class="text-foreground">{totals.ips}</span> ips</span>
-    </div>
-</section>
-
-<section class="rise mt-6">
-    <div class="relative w-full sm:max-w-md">
-        <HugeiconsIcon icon={Search01Icon}
-                       class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/>
-        <Input bind:value={filter} placeholder="Filter by name, UUID, or IP..." autocomplete="off" class="pl-9"/>
-    </div>
-</section>
+<PageHeader title="Indefinite bans" trail={[{href: '/', label: 'Overview'}]}>
+    {#snippet meta()}
+        {#if !loading && !error}
+            <span class="tabular-nums">{totals.groups} groups · {totals.users} users · {totals.uuids} UUIDs · {totals.ips} IPs</span>
+        {/if}
+    {/snippet}
+</PageHeader>
 
 {#if loading}
-    <p class="mt-4 text-sm text-muted-foreground">Loading bans...</p>
+    <Notice kind="loading" title="Loading indefinite bans"/>
 {:else if error}
-    <p class="mt-4 text-sm text-destructive">{error}</p>
+    <Notice kind="error" title="Couldn't load indefinite bans" message={error}>
+        <Button variant="primary" onclick={load}>Try again</Button>
+    </Notice>
 {:else if groups.length === 0}
-    <Card class="mt-4 p-10 text-center">
-        <p class="text-sm text-muted-foreground">No indefinite bans configured.</p>
-    </Card>
-{:else if visible.length === 0}
-    <p class="mt-4 text-sm text-muted-foreground">No indefinite bans match that filter.</p>
+    <Notice kind="empty" title="No indefinite bans" message="The server config does not list any indefinite bans."/>
 {:else}
-    <section class="rise mt-4 grid gap-3 md:grid-cols-2">
-        {#each visible as group, index (groupKey(group, index))}
-            {@const total = entryCount(group)}
-            <Card class="p-5">
-                <header class="flex flex-wrap items-baseline justify-between gap-3">
-                    <p class="text-sm">
-                        {#if group.reason}
-                            {group.reason}
-                        {:else}
-                            <span class="italic text-muted-foreground/70">No reason provided</span>
+    <SearchField bind:value={filter} label="Filter bans" placeholder="Name, UUID, IP or reason" hideLabel class="mb-4 max-w-md"/>
+
+    {#if visible.length === 0}
+        <Notice kind="empty" title="No match" message={`No indefinite ban matches "${filter.trim()}".`}>
+            <Button onclick={() => (filter = '')}>Clear filter</Button>
+        </Notice>
+    {:else}
+        <ul class="panel divide-y divide-line">
+            {#each visible as group, index (groupKey(group, index))}
+                {@const total = entryCount(group)}
+                <li class="min-w-0 px-5 py-4">
+                    <div class="flex items-start justify-between gap-4">
+                        <p class="min-w-0 break-words font-medium">
+                            {#if group.reason}
+                                {group.reason}
+                            {:else}
+                                <span class="font-normal text-faint">No reason provided</span>
+                            {/if}
+                        </p>
+                        <span class="shrink-0 text-muted tabular-nums">{total} {total === 1 ? 'entry' : 'entries'}</span>
+                    </div>
+                    <dl class="mt-3 grid grid-cols-[4rem_minmax(0,1fr)] gap-x-4 gap-y-2">
+                        {#if group.usernames.length}
+                            <dt class="text-muted">Users</dt>
+                            <dd class="break-words">{group.usernames.join(', ')}</dd>
+
                         {/if}
-                    </p>
-                    <span class="text-xs text-muted-foreground">{total} {total === 1 ? 'entry' : 'entries'}</span>
-                </header>
-                <dl class="mt-4 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 border-t border-border/60 pt-3 text-xs">
-                    {#if group.usernames.length}
-                        <dt class="text-muted-foreground">Users</dt>
-                        <dd class="flex flex-wrap gap-x-3 gap-y-1 break-all text-foreground/90">
-                            {#each group.usernames as username, usernameIndex (`${username}:${usernameIndex}`)}
-                                <span>{username}</span>
-                            {/each}
-                        </dd>
-                    {/if}
-                    {#if group.uuids.length}
-                        <dt class="text-muted-foreground">UUIDs</dt>
-                        <dd class="flex flex-wrap gap-x-3 gap-y-1 break-all font-mono text-foreground/55">
-                            {#each group.uuids as uuid, uuidIndex (`${uuid}:${uuidIndex}`)}
-                                <span>{uuid}</span>
-                            {/each}
-                        </dd>
-                    {/if}
-                    {#if group.ips.length}
-                        <dt class="text-muted-foreground">IPs</dt>
-                        <dd class="flex flex-wrap gap-x-3 gap-y-1 break-all font-mono text-warning">
-                            {#each group.ips as ip, ipIndex (`${ip}:${ipIndex}`)}
-                                <span>{ip}</span>
-                            {/each}
-                        </dd>
-                    {/if}
-                </dl>
-            </Card>
-        {/each}
-    </section>
+                        {#if group.uuids.length}
+                            <dt class="text-muted">UUIDs</dt>
+                            <dd class="flex flex-col gap-1 font-mono text-[0.8125rem]">
+                                {#each group.uuids as uuid, uuidIndex (`${uuid}:${uuidIndex}`)}
+                                    <span class="break-all">{uuid}</span>
+                                {/each}
+                            </dd>
+                        {/if}
+                        {#if group.ips.length}
+                            <dt class="text-muted">IPs</dt>
+                            <dd class="flex flex-wrap gap-x-3 gap-y-1 font-mono text-[0.8125rem]">
+                                {#each group.ips as ip, ipIndex (`${ip}:${ipIndex}`)}
+                                    <span class="break-all">{ip}</span>
+                                {/each}
+                            </dd>
+                        {/if}
+                    </dl>
+                </li>
+            {/each}
+        </ul>
+    {/if}
 {/if}

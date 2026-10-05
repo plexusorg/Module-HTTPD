@@ -2,17 +2,22 @@
     import {onMount} from 'svelte';
     import StaffRequired from '$lib/components/auth/StaffRequired.svelte';
     import AppShell from '$lib/components/layout/AppShell.svelte';
+    import PageHeader from '$lib/components/layout/PageHeader.svelte';
+    import Button from '$lib/components/ui/Button.svelte';
+    import Notice from '$lib/components/ui/Notice.svelte';
     import {getAuth} from '$lib/api';
     import {isInternalAppLink, navigate, parseRoute} from '$lib/router';
     import type {AuthState} from '$lib/types/api';
 
     let route = $state(parseRoute(window.location.pathname));
+    let pathname = $state(window.location.pathname);
     let auth: AuthState | null = $state(null);
     let dark = $state(false);
     const staff = $derived((auth as AuthState | null)?.is_staff === true);
 
     function syncRoute() {
         route = parseRoute(window.location.pathname);
+        pathname = window.location.pathname;
     }
 
     function toggleDark() {
@@ -29,8 +34,9 @@
         getAuth().then((state) => (auth = state)).catch(() => (auth = {authenticated: false}));
 
         const onClick = (event: MouseEvent) => {
+            if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
             const anchor = (event.target as HTMLElement).closest('a');
-            if (!(anchor instanceof HTMLAnchorElement) || !isInternalAppLink(anchor)) return;
+            if (!(anchor instanceof HTMLAnchorElement) || anchor.getAttribute('href')?.startsWith('#') || !isInternalAppLink(anchor)) return;
             event.preventDefault();
             navigate(new URL(anchor.href).pathname);
         };
@@ -44,14 +50,15 @@
     });
 </script>
 
-<AppShell route={route.path} {auth} {dark} onToggleDark={toggleDark}>
+<AppShell route={route.path} {pathname} {auth} {dark} onToggleDark={toggleDark}>
     {#if route.path === 'home'}
         {#await import('$lib/pages/HomePage.svelte') then {default: HomePage}}
             <HomePage/>
         {/await}
     {:else if route.path === 'players'}
         {#if auth === null}
-            <p class="rise text-sm text-muted-foreground">Loading players...</p>
+            <PageHeader title="Players" trail={[{href: '/', label: 'Overview'}]}/>
+            <Notice kind="loading" title="Checking your session"/>
         {:else}
             {#await import('$lib/pages/PlayersPage.svelte') then {default: PlayersPage}}
                 <PlayersPage {staff}/>
@@ -63,7 +70,8 @@
                 <PlayerPage id={route.params.id} {staff}/>
             {/await}
         {:else}
-            <StaffRequired {auth} action="access player admin tools"/>
+            <StaffRequired {auth} title="Player admin" trail={[{href: '/', label: 'Overview'}, {href: '/players/', label: 'Players'}]}
+                           action="open player admin tools"/>
         {/if}
     {:else if route.path === 'commands'}
         {#await import('$lib/pages/CommandsPage.svelte') then {default: CommandsPage}}
@@ -76,7 +84,7 @@
     {:else if route.path === 'punishments-detail'}
         {#await import('$lib/pages/PunishmentsDetailPage.svelte') then {default: PunishmentsDetailPage}}
             {#key route.params.id}
-                <PunishmentsDetailPage id={route.params.id}/>
+                <PunishmentsDetailPage id={route.params.id} {staff}/>
             {/key}
         {/await}
     {:else if route.path === 'indefbans'}
@@ -85,7 +93,7 @@
                 <IndefBansPage/>
             {/await}
         {:else}
-            <StaffRequired {auth} action="view indefinite bans"/>
+            <StaffRequired {auth} title="Indefinite bans" trail={[{href: '/', label: 'Overview'}]} action="view indefinite bans"/>
         {/if}
     {:else if route.path === 'schematics'}
         {#await import('$lib/pages/SchematicsPage.svelte') then {default: SchematicsPage}}
@@ -97,12 +105,14 @@
                 <SchematicUploadPage/>
             {/await}
         {:else}
-            <StaffRequired {auth} action="upload schematics"/>
+            <StaffRequired {auth} title="Upload schematic" trail={[{href: '/', label: 'Overview'}, {href: '/schematics/', label: 'Schematics'}]}
+                           action="upload schematics"/>
         {/if}
     {:else}
-        <section class="rise">
-            <h1 class="text-3xl font-medium tracking-tight md:text-4xl">Not found</h1>
-            <p class="mt-2 text-sm text-muted-foreground">No frontend route matches this path.</p>
-        </section>
+        <PageHeader title="Not found" trail={[{href: '/', label: 'Overview'}]}/>
+        <Notice kind="empty" title="Nothing lives at this address" message={`No page matches ${pathname}. The link may be old or mistyped.`}>
+            <Button href="/" variant="primary">Go to overview</Button>
+            <Button href="/punishments/">Look up a player</Button>
+        </Notice>
     {/if}
 </AppShell>

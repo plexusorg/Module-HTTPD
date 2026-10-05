@@ -31,7 +31,7 @@
 {#if url}
     <img class="size-full object-contain inventory-pixelated {className}" src={url} alt={titleCase(type)}/>
 {:else}
-  <span class="grid size-full place-items-center px-0.5 text-center font-mono text-[8px] leading-tight text-muted-foreground {className}">
-    {normalized.replace(/_/g, ' ')}
-  </span>
+    <span class="grid size-full place-items-center {className}" title={titleCase(type)}>
+        <span class="size-1/2 rounded-sm bg-black/15 dark:bg-white/15"></span>
+    </span>
 {/if}

@@ -1,25 +1,33 @@
 <script lang="ts">
-    import {Button} from '$lib/components/ui/button';
-    import {Card} from '$lib/components/ui/card';
+    import PageHeader, {type Crumb} from '$lib/components/layout/PageHeader.svelte';
+    import Button from '$lib/components/ui/Button.svelte';
+    import Notice from '$lib/components/ui/Notice.svelte';
     import type {AuthState} from '$lib/types/api';
 
     interface Props {
         auth: AuthState | null;
+        title: string;
+        trail: Crumb[];
         action: string;
     }
 
-    let {auth, action}: Props = $props();
+    let {auth, title, trail, action}: Props = $props();
     const loginHref = $derived(`/oauth2/login?return_to=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+    const parent = $derived(trail.at(-1));
 </script>
 
+<PageHeader {title} {trail}/>
+
 {#if auth === null}
-    <p class="rise text-sm text-muted-foreground">Checking access...</p>
+    <Notice kind="loading" title="Checking access"/>
 {:else}
-    <Card class="rise max-w-xl p-5">
-        <h1 class="text-xl font-medium">Staff access required</h1>
-        <p class="mt-2 text-sm text-muted-foreground">You must sign in as staff to {action}.</p>
+    <Notice kind="locked" title="Staff access required"
+            message={auth.authenticated ? `Your account does not have staff access. Only staff can ${action}.` : `Sign in with a staff account to ${action}.`}>
         {#if auth.reason !== 'disabled'}
-            <Button href={loginHref} class="mt-4">Sign in</Button>
+            <Button href={loginHref} variant="primary">{auth.authenticated ? 'Sign in with another account' : 'Sign in'}</Button>
         {/if}
-    </Card>
+        {#if parent}
+            <Button href={parent.href}>Back to {parent.label.toLowerCase()}</Button>
+        {/if}
+    </Notice>
 {/if}

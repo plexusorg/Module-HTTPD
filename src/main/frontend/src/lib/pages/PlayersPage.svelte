@@ -1,13 +1,15 @@
 <script lang="ts">
     import {onDestroy, onMount} from 'svelte';
     import {HugeiconsIcon} from '@hugeicons/svelte';
-    import {Search01Icon, Shield01Icon, UserGroupIcon} from '@hugeicons/core-free-icons';
-    import {Badge} from '$lib/components/ui/badge';
+    import {ArrowRight01Icon} from '@hugeicons/core-free-icons';
+    import PageHeader from '$lib/components/layout/PageHeader.svelte';
+    import Button from '$lib/components/ui/Button.svelte';
+    import Notice from '$lib/components/ui/Notice.svelte';
     import PlayerHead from '$lib/components/ui/PlayerHead.svelte';
-    import {Card} from '$lib/components/ui/card';
-    import {Input} from '$lib/components/ui/input';
+    import SearchField from '$lib/components/ui/SearchField.svelte';
+    import Tag from '$lib/components/ui/Tag.svelte';
     import type {PlayerSummary, PlayersPayload} from '$lib/types/api';
-    import {pingClass} from '$lib/utils';
+    import {pingClass, titleCase} from '$lib/utils';
 
     interface Props {
         staff: boolean;
@@ -16,6 +18,7 @@
     let {staff}: Props = $props();
     let players: PlayerSummary[] = $state([]);
     let max = $state(0);
+    let received = $state(false);
     let filter = $state('');
     let es: EventSource | null = null;
 
@@ -29,6 +32,7 @@
                 const payload = JSON.parse(event.data) as PlayersPayload;
                 players = Array.isArray(payload.players) ? payload.players : [];
                 max = payload.max ?? 0;
+                received = true;
             } catch {
             }
         });
@@ -38,57 +42,59 @@
     onDestroy(() => es?.close());
 </script>
 
-<section class="rise flex flex-wrap items-end justify-between gap-3">
-    <h1 class="text-3xl font-medium tracking-tight md:text-4xl">Players</h1>
-    <span class="tabular text-sm text-muted-foreground">
-    <span class="text-foreground">{players.length}</span> / {max} online
-  </span>
-</section>
+<PageHeader title="Players" trail={[{href: '/', label: 'Overview'}]}>
+    {#snippet meta()}
+        {#if received}
+            <span class="tabular-nums">{players.length} of {max} online</span>
+        {/if}
+        {#if staff}
+            <span>Select a player to open admin tools.</span>
+        {/if}
+    {/snippet}
+</PageHeader>
 
-<section class="rise mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-    <div class="relative w-full sm:max-w-md">
-        <HugeiconsIcon icon={Search01Icon}
-                       class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/>
-        <Input bind:value={filter} placeholder="Filter by name..." autocomplete="off" class="pl-9"/>
-    </div>
-</section>
+{#if !received}
+    <Notice kind="loading" title="Connecting to the server"/>
+{:else if players.length === 0}
+    <Notice kind="empty" title="Nobody is online" message="The list updates live. Players appear here as soon as they join.">
+        <Button href="/punishments/">Look up a player's history</Button>
+    </Notice>
+{:else}
+    <SearchField bind:value={filter} label="Filter online players" placeholder="Name" hideLabel class="mb-4 max-w-sm"/>
 
-<section class="rise mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
     {#if visiblePlayers.length === 0}
-        <Card class="col-span-full p-10 text-center">
-            <HugeiconsIcon icon={UserGroupIcon} class="mx-auto size-8 text-muted-foreground/60"/>
-            <p class="mt-3 text-sm text-muted-foreground">{players.length ? 'No players match that filter.' : 'No players online right now.'}</p>
-        </Card>
+        <Notice kind="empty" title="No match" message={`No online player name contains "${filter.trim()}".`}>
+            <Button onclick={() => (filter = '')}>Clear filter</Button>
+        </Notice>
     {:else}
-        {#each visiblePlayers as player (player.uuid)}
-            <svelte:element
-                    this={staff ? 'a' : 'div'}
-                    href={staff ? `/player/${encodeURIComponent(player.uuid)}` : undefined}
-                    class="ring-card flex items-center gap-3 rounded-xl bg-card p-3 transition-colors hover:bg-secondary/50"
-            >
-                <PlayerHead uuid={player.uuid} size={40}/>
-                <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-2">
-                        <span class="truncate text-sm font-medium">{player.name}</span>
-                        {#if player.op}
-                            <Badge variant="default">op</Badge>
-                        {/if}
-                        {#if staff && player.gamemode}
-                            <Badge>{player.gamemode.toLowerCase()}</Badge>
-                        {/if}
-                    </div>
-                    <div class="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+        <ul class="panel divide-y divide-line overflow-hidden">
+            {#each visiblePlayers as player (player.uuid)}
+                <li>
+                    <svelte:element
+                            this={staff ? 'a' : 'div'}
+                            href={staff ? `/player/${encodeURIComponent(player.uuid)}` : undefined}
+                            class="group flex items-center gap-3 px-4 py-2.5 {staff ? 'transition-colors hover:bg-sunken focus-visible:-outline-offset-2' : ''}"
+                    >
+                        <PlayerHead uuid={player.uuid} size={32}/>
+                        <div class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+                            <span class="truncate font-medium">{player.name}</span>
+                            {#if player.op}
+                                <Tag tone="brand">Operator</Tag>
+                            {/if}
+                            {#if staff && player.gamemode}
+                                <Tag>{titleCase(player.gamemode)}</Tag>
+                            {/if}
+                        </div>
                         {#if player.world}
-                            <span>In {player.world}</span>
-                            <span class="text-foreground/30">.</span>
+                            <span class="hidden max-w-[12rem] truncate text-muted sm:block">{player.world}</span>
                         {/if}
-                        <span class="tabular {pingClass(player.ping)}">{player.ping | 0}ms</span>
-                    </div>
-                </div>
-                {#if staff}
-                    <HugeiconsIcon icon={Shield01Icon} class="size-4 text-muted-foreground"/>
-                {/if}
-            </svelte:element>
-        {/each}
+                        <span class="w-14 shrink-0 text-right tabular-nums {pingClass(player.ping)}">{player.ping | 0} ms</span>
+                        {#if staff}
+                            <HugeiconsIcon icon={ArrowRight01Icon} class="size-4 shrink-0 text-faint transition-colors group-hover:text-ink"/>
+                        {/if}
+                    </svelte:element>
+                </li>
+            {/each}
+        </ul>
     {/if}
-</section>
+{/if}

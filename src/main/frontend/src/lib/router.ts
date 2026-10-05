@@ -37,6 +37,7 @@ export function parseRoute(pathname: string): Route {
 export function navigate(path: string) {
     history.pushState({}, '', path);
     window.dispatchEvent(new PopStateEvent('popstate'));
+    window.scrollTo(0, 0);
 }
 
 export function isInternalAppLink(anchor: HTMLAnchorElement) {

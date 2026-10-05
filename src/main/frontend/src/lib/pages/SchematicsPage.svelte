@@ -65,7 +65,7 @@
         {/if}
     </Notice>
 {:else}
-    <SearchField bind:value={filter} label="Filter schematics" placeholder="File name" hideLabel class="mb-4 max-w-md"/>
+    <SearchField bind:value={filter} label="Filter schematics" placeholder="File name" hideLabel class="mb-4"/>
 
     {#if visible.length === 0}
         <Notice kind="empty" title="No match" message={`No schematic name contains "${filter.trim()}".`}>

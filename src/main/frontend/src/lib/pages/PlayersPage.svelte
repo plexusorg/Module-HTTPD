@@ -60,7 +60,7 @@
         <Button href="/punishments/">Look up a player's history</Button>
     </Notice>
 {:else}
-    <SearchField bind:value={filter} label="Filter online players" placeholder="Name" hideLabel class="mb-4 max-w-sm"/>
+    <SearchField bind:value={filter} label="Filter online players" placeholder="Name" hideLabel class="mb-4"/>
 
     {#if visiblePlayers.length === 0}
         <Notice kind="empty" title="No match" message={`No online player name contains "${filter.trim()}".`}>

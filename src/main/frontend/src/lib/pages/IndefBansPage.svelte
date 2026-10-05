@@ -102,7 +102,7 @@
 {:else if groups.length === 0}
     <Notice kind="empty" title="No indefinite bans" message="The server config does not list any indefinite bans."/>
 {:else}
-    <SearchField bind:value={filter} label="Filter bans" placeholder="Name, UUID, IP or reason" hideLabel class="mb-4 max-w-md"/>
+    <SearchField bind:value={filter} label="Filter bans" placeholder="Name, UUID, IP or reason" hideLabel class="mb-4"/>
 
     {#if visible.length === 0}
         <Notice kind="empty" title="No match" message={`No indefinite ban matches "${filter.trim()}".`}>

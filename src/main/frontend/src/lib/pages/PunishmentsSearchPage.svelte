@@ -21,7 +21,7 @@
     {/snippet}
 </PageHeader>
 
-<div class="max-w-2xl">
+<div>
     <section class="panel p-5 sm:p-6">
         <PlayerLookup label="Find a player" size="large"/>
     </section>

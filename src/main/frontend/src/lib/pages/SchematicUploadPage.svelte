@@ -42,7 +42,7 @@
 
 <PageHeader title="Upload schematic" trail={[{href: '/', label: 'Overview'}, {href: '/schematics/', label: 'Schematics'}]}/>
 
-<form class="max-w-2xl" onsubmit={(event) => { event.preventDefault(); submit(); }}>
+<form onsubmit={(event) => { event.preventDefault(); submit(); }}>
     <label for="formFile"
            ondragover={(event) => { event.preventDefault(); dragging = true; }}
            ondragleave={() => (dragging = false)}

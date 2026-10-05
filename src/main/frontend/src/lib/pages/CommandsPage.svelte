@@ -59,8 +59,8 @@
 {:else if groups.length === 0}
     <Notice kind="empty" title="No commands registered" message="The server did not report any plugin commands."/>
 {:else}
-    <div class="mb-4 flex flex-wrap items-center gap-2">
-        <SearchField bind:value={filter} label="Filter commands" placeholder="Name, alias, permission or plugin" hideLabel class="max-w-md flex-1"/>
+    <div class="mb-4 flex items-center gap-2">
+        <SearchField bind:value={filter} label="Filter commands" placeholder="Name, alias, permission or plugin" hideLabel class="min-w-0 flex-1"/>
         <Button variant="ghost" onclick={() => (collapsed = !collapsed)}>{collapsed ? 'Expand all' : 'Collapse all'}</Button>
     </div>
 

@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "dev.plex"
-version = "2.0-SNAPSHOT"
+version = "2.0"
 description = "Module-HTTPD"
 
 checkstyle {
@@ -46,7 +46,7 @@ dependencies {
     implementation("org.projectlombok:lombok:1.18.48")
     annotationProcessor("org.projectlombok:lombok:1.18.48")
     compileOnly("io.papermc.paper:paper-api:26.2.build.+")
-    compileOnly("dev.plex:api:2.0-SNAPSHOT")
+    compileOnly("dev.plex:api:2.0")
     implementation("org.json:json:20260814")
     implementation("org.reflections:reflections:0.10.2")
     plexLibrary("org.eclipse.jetty:jetty-server:12.1.14")

@@ -11,7 +11,7 @@ version = "2.0-SNAPSHOT"
 description = "Module-HTTPD"
 
 checkstyle {
-    toolVersion = "14.1.0"
+    toolVersion = "14.3.0"
     configFile = rootProject.file("config/checkstyle/checkstyle.xml")
 }
 
@@ -43,18 +43,18 @@ sourceSets {
 }
 
 dependencies {
-    implementation("org.projectlombok:lombok:1.18.46")
-    annotationProcessor("org.projectlombok:lombok:1.18.46")
+    implementation("org.projectlombok:lombok:1.18.48")
+    annotationProcessor("org.projectlombok:lombok:1.18.48")
     compileOnly("io.papermc.paper:paper-api:26.2.build.+")
     compileOnly("dev.plex:api:2.0-SNAPSHOT")
     implementation("org.json:json:20260814")
     implementation("org.reflections:reflections:0.10.2")
-    plexLibrary("org.eclipse.jetty:jetty-server:12.1.12")
-    plexLibrary("org.eclipse.jetty.ee10:jetty-ee10-servlet:12.1.12")
-    plexLibrary("org.eclipse.jetty:jetty-proxy:12.1.12")
+    plexLibrary("org.eclipse.jetty:jetty-server:12.1.14")
+    plexLibrary("org.eclipse.jetty.ee10:jetty-ee10-servlet:12.1.14")
+    plexLibrary("org.eclipse.jetty:jetty-proxy:12.1.14")
     plexLibrary("net.kyori:adventure-nbt:5.2.0")
     implementation(platform("com.intellectualsites.bom:bom-newest:1.56")) // Ref: https://github.com/IntellectualSites/bom
-    compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Core:2.15.3")
+    compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Core:2.16.0")
 }
 
 val frontendDir = layout.projectDirectory.dir("src/main/frontend")

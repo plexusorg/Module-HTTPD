@@ -1,24 +1,37 @@
-For those who are wanting to contribute, we fully encourage doing so. There are a few rules we require following when contributing however.
+# Contributing
+
+Contributions are welcome. Follow these rules when you contribute.
 
 ## Steps
-1. Make an issue and get feedback. It's important to know if your idea will be accepted before writing any code.
-- If it is a feature request, describe the feature and be extremely specific.
-- If it is a bug report, ensure you include how to reproduce the bug and the expected outcome
-- If it is an enhancement, describe your proposed changes. Ensure you are extremely specific.
-2. Fork this project
-3. Create a new branch that describes the new feature, enhancement, or bug fix. For example, this is good: `feature/add-xyz`. This is bad: `fix-this-lol`.
-4. Write the code that addresses your change.
-- Keep in mind that it **must** be formatted correctly. If you are using IntelliJ, there is a `codeStyle.xml` file that tells IntelliJ how to format your code. Check this link for information on how to use the file: https://www.jetbrains.com/help/idea/configuring-code-style.html#import-export-schemes
-- If you are not using IntelliJ, that is fine. We use the Plexus Code Style (which is almost the same as Allman) so please format your code accordingly.
-6. Push your changes to your new branch and make a PR based off of that branch.
 
-## Requirements for a PR
-- The issue must be marked as approved
-- It must only address each specific issue. Don't make one PR for multiple issues.
-- Your PR must compile and work. If it does not compile or work, your PR will most likely be rejected.
+1. Open an issue and wait for feedback. This tells you if the change will be accepted before you write any code.
+   - For a feature request, describe the feature in detail.
+   - For a bug report, give the steps to reproduce the bug and the result that you expected.
+   - For an enhancement, describe the change that you propose in detail.
+2. Fork this repository.
+3. Create a branch with a name that describes the change. For example, `feature/add-xyz` is good. `fix-this-lol` is
+   bad.
+4. Write the code for your change.
+   - In IntelliJ IDEA, the project includes the Plexus Code Style in `.idea/codeStyles`. IntelliJ uses it
+     automatically.
+   - In other editors, follow the Plexus Code Style. It is close to the Allman style: put each opening brace on its own
+     line.
+5. Run `./gradlew build` (on Windows, `gradlew.bat build`). The build must pass, including Checkstyle.
+6. Push your branch and open a pull request from it.
+
+## Pull request requirements
+
+- The issue must be approved.
+- Each pull request addresses one issue only.
+- Your code must compile and work. If it does not, we will most likely reject the pull request.
 
 ## Code requirements
-- Most importantly, your code must be efficient. Your pull request may be rejected if your code is deemed inefficient or sloppy.
-- Do not repeat yourself. Create functions as needed if you're using large blocks of code over and over again.
-- Do not use an excessive amount of commits when making your PR. It makes the master branch look messy.
-- Your code must be consistent with Plex's codebase. If a function already exists, use it.
+
+- Your code must be efficient. We can reject a pull request if the code is inefficient or sloppy.
+- Do not repeat code. If you use a large block of code more than once, move it into a method.
+- Do not add many small commits to your pull request. They make the project history hard to read.
+- Follow the existing code. If a method already does what you need, use it.
+
+## Documentation
+
+Read the documentation at [plex.us.org](https://plex.us.org) for setup, configuration, and module development.

@@ -1,7 +1,7 @@
 pluginManagement {
     repositories {
-        maven("https://nexus.telesphoreo.me/repository/gradle-plugins-releases/")
-        maven("https://nexus.telesphoreo.me/repository/gradle-plugins-snapshots/")
+        maven("https://telesphorepo.com/maven/gradle-plugins-releases/")
+        maven("https://telesphorepo.com/maven/gradle-plugins-snapshots/")
         gradlePluginPortal()
         mavenCentral()
     }

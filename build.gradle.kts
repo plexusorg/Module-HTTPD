@@ -3,7 +3,7 @@ plugins {
     checkstyle
     `maven-publish`
     idea
-    id("dev.plex.module") version "1.2"
+    id("dev.plex.module") version "1.3"
 }
 
 group = "dev.plex"
@@ -11,7 +11,7 @@ version = "2.0.1-SNAPSHOT"
 description = "Module-HTTPD"
 
 checkstyle {
-    toolVersion = "14.3.0"
+    toolVersion = "14.4.0"
     configFile = rootProject.file("config/checkstyle/checkstyle.xml")
 }
 
@@ -49,12 +49,12 @@ dependencies {
     compileOnly("dev.plex:api:2.0")
     implementation("org.json:json:20260814")
     implementation("org.reflections:reflections:0.10.2")
-    plexLibrary("org.eclipse.jetty:jetty-server:12.1.14")
-    plexLibrary("org.eclipse.jetty.ee10:jetty-ee10-servlet:12.1.14")
-    plexLibrary("org.eclipse.jetty:jetty-proxy:12.1.14")
+    plexLibrary("org.eclipse.jetty:jetty-server:12.1.15")
+    plexLibrary("org.eclipse.jetty.ee10:jetty-ee10-servlet:12.1.15")
+    plexLibrary("org.eclipse.jetty:jetty-proxy:12.1.15")
     plexLibrary("net.kyori:adventure-nbt:5.2.0")
     implementation(platform("com.intellectualsites.bom:bom-newest:1.56")) // Ref: https://github.com/IntellectualSites/bom
-    compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Core:2.16.0")
+    compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Core:2.16.2")
 }
 
 val frontendDir = layout.projectDirectory.dir("src/main/frontend")

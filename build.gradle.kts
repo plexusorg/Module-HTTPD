@@ -4,6 +4,7 @@ plugins {
     `maven-publish`
     idea
     id("dev.plex.module") version "1.3"
+    id("dev.plex.updater") version "1.1"
 }
 
 group = "dev.plex"
